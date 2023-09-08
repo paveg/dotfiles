@@ -1,5 +1,7 @@
-# Set up the prompt
+# Loading Plugins
+source $DOTPATH/zdotdir/.zplugin
 
+# Set up the prompt
 autoload -Uz promptinit
 promptinit
 prompt adam1
