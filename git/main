@@ -3,7 +3,15 @@
     email = pavegy@gmail.com
 [color]
     ui = true
+    diff = auto
+    gre = auto
+    interactive = auto
+    status = auto
 [ghq]
     root = ~/src
 [pull]
     rebase = false
+[merge]
+    conflictstyle = diff3
+[diff "sopsdiffer"]
+    textconv = sops -d
