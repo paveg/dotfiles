@@ -12,4 +12,3 @@ export CARGO_HOME=$XDG_DATA_HOME/cargo
 # Initialize zsh
 export ZDOTDIR=$XDG_CONFIG_HOME/zsh
 source $ZDOTDIR/.zshenv
-. "/home/ryota/.local/share/cargo/env"

@@ -17,4 +17,6 @@ HISTFILE=~/.zsh_history
 
 [ -f "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh ] && source "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh
 
+source $ZDOTDIR/.zfunc.zsh
+source $ZDOTDIR/.zkeybindings.zsh
 source $ZDOTDIR/.zfinalize.zsh

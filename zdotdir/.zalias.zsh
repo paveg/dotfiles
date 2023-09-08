@@ -3,7 +3,9 @@ IsExistCmd() { command -v "$1" > /dev/null 2>&1; }
 # agkozak/zsh-z
 alias j="z"
 
-# Git
+# Git / hub https://github.com/mislav/hub
+IsExistCmd hub && eval "$(hub alias -s)"
+alias g="hub"
 alias ga="git add"
 alias gs="git status"
 alias gl="git log --oneline"
@@ -20,6 +22,8 @@ alias gsu="git submodule update --remote --recursive --recommend-shallow --depth
 
 # ls / eza https://github.com/eza-community/eza
 IsExistCmd eza && alias ls="eza"
+alias ll="ls -l"
+alias la="ls -a"
 
 # cat / bat https://github.com/sharkdp/bat
 IsExistCmd bat && alias cat="bat -p"
