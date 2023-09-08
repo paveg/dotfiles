@@ -17,9 +17,11 @@
 - [sharkdp/bat](https://github.com/sharkdp/bat): `cargo install --locked bat`
 - [sharkdp/fd](https://github.com/sharkdp/fd): `cargo install --locked fd-find`
 - [eza-community/eza](https://github.com/eza-community/eza): `cargo install --locked eza`
+- [denisidoro/navi](https://github.com/denisidoro/navi): `cargo install --locked navi`
 - [junegunn/fzf](https://github.com/junegunn/fzf): `cd fzf && ./install --xdg`
 - [mislav/hub](https://github.com/mislav/hub): `sudo apt install hub`
 - [x-motemen/ghq](https://github.com/x-motemen/ghq): `go install github.com/x-motemen/ghq@latest`
+- [nvbn/thefuck](https://github.com/nvbn/thefuck): `sudo apt install python3-dev python3-pip python3-setuptools; pip3 install thefuck --user`
 
 ## Installation
 

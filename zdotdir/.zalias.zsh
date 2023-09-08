@@ -30,3 +30,6 @@ IsExistCmd bat && alias cat="bat -p"
 
 # rg https://github.com/BurntSushi/ripgrep
 alias rg="rg --hidden"
+
+# [Disabled] thefuck https://github.com/nvbn/thefuck
+# IsExistCmd thefuck && eval $(thefuck --alias)
