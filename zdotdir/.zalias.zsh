@@ -11,9 +11,12 @@ alias gc="git commit"
 alias gp="git pull"
 alias gb="git branch"
 alias gd="git diff"
+alias gr="git reset"
+alias grb="git rebase"
 alias gco="git checkout"
 alias gcb="git checkout -b"
 alias gpu="git push"
+alias gsu="git submodule update --remote --recursive --recommend-shallow --depth 1 -f"
 
 # ls / eza https://github.com/eza-community/eza
 IsExistCmd eza && alias ls="eza"

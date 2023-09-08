@@ -16,6 +16,8 @@
 - [sharkdp/bat](https://github.com/sharkdp/bat): `cargo install --locked bat`
 - [sharkdp/fd](https://github.com/sharkdp/fd): `cargo install --locked fd-find`
 - [eza-community/eza](https://github.com/eza-community/eza): `cargo install --locked eza`
+- [junegunn/fzf](https://github.com/junegunn/fzf)
+  - `cd fzf && ./install --xdg`
 
 ## Installation
 
