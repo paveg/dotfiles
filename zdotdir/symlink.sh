@@ -5,6 +5,7 @@ xdgpath=$HOME/.config
 zdotpath=$xdgpath/zsh
 
 function initZsh () {
+	echo "[info] Initialize zsh"
 	if [ ! -d $zdotpath ]; then
 		mkdir $zdotpath
 

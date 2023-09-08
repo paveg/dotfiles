@@ -1,0 +1,9 @@
+[user]
+    name = Ryota Ikezawa
+    email = pavegy@gmail.com
+[color]
+    ui = true
+[ghq]
+    root = ~/src
+[pull]
+    rebase = false
