@@ -1,0 +1,22 @@
+; vim: ft=dosini ts=2 sw=2 sts=2 sr noet:
+[user]
+	name = Ryota Ikezawa
+	email = pavegy@gmail.com
+[core]
+	editor = nvim
+[color]
+	ui = true
+	diff = auto
+	gre = auto
+	interactive = auto
+	status = auto
+[ghq]
+	root = ~/src
+[pull]
+	rebase = false
+[merge]
+	conflictstyle = diff3
+[diff "sopsdiffer"]
+	textconv = sops -d
+[commit]
+template = ~/.config/git/commit_template

@@ -5,6 +5,7 @@ xdgpath=$HOME/.config
 zdotpath=$xdgpath/zsh
 
 function initZsh () {
+	echo "[info] Initialize zsh"
 	if [ ! -d $zdotpath ]; then
 		mkdir $zdotpath
 
@@ -12,8 +13,9 @@ function initZsh () {
 
 	for zfile in zdotdir/.*
 	do
-		if [ ! -d $zfile -a $zfile != "." -a $zfile != ".." -a $zfile != ".git" ]; then
-			echo "Symlink $basepath/$zfile to $zdotpath/"
+		file=$(dirname $zfile)
+		if [ ! -d $zfile -a $file != "symlink.sh" -a $file != "." -a $file != ".." -a $file != ".git" ]; then
+			# echo "Symlink $basepath/$zfile to $zdotpath/"
 			ln -sf $basepath/$zfile $zdotpath/
 		fi
 	done
