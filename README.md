@@ -4,8 +4,16 @@
 
 ## Materials
 
+- [zsh](https://www.zsh.org/)
 - [Starship](https://starship.rs/)
   - Kindly install it as `curl -sS https://starship.rs/install.sh | sh`
+
+### Commands
+
+- [BurntSushi/ripgrep](https://github.com/BurntSushi/ripgrep)
+- [sharkdp/bat](https://github.com/sharkdp/bat)
+- [sharkdp/fd](https://github.com/sharkdp/fd)
+- [eza-community/eza](https://github.com/eza-community/eza)
 
 ## Installation
 

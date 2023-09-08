@@ -1,5 +1,7 @@
 # Load Plugins
 source $ZDOTDIR/.zplugin.zsh
+# Load aliases
+source $ZDOTDIR/.zalias.zsh
 
 setopt histignorealldups sharehistory
 
