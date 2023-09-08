@@ -1,5 +1,7 @@
 # Zsh
 
+Installed $HOME/.config/
+
 ## Sequence
 
 1. /etc/zshenv
@@ -11,5 +13,4 @@
 7. /etc/zlogin
 8. $ZDOTDIR/.zlogin
 
-Definitely you need to add a custimized configuration file depending on the machine purpose.
-
+You need to add a customized configuration file depending on the machine's purpose.

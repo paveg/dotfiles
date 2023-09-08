@@ -4,9 +4,17 @@
 
 ## Installation
 
-```bash
-$ git clone https://github.com/paveg/dots
-$ cd ./dots
-$ ./dots.sh
-```
+1. Preparation
 
+   ```bash
+   sudo apt update -y && sudo apt install zsh
+   chsh -s /bin/zsh
+   ```
+
+2. Execution
+
+   ```bash
+   git clone https://github.com/paveg/dots
+   cd ./dots
+   ./dots.sh
+   ```
