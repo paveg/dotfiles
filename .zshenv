@@ -2,6 +2,5 @@
 export XDG_CONFIG_HOME=$HOME/.config
 
 # Initialize zsh
-export ZDOTDIR=$XDG_CONFIG_HOME/.zsh
+export ZDOTDIR=$XDG_CONFIG_HOME/zsh
 source $ZDOTDIR/.zshenv
-
