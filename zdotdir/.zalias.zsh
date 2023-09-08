@@ -13,6 +13,7 @@ alias gb="git branch"
 alias gd="git diff"
 alias gco="git checkout"
 alias gcb="git checkout -b"
+alias gpu="git push"
 
 # ls / eza https://github.com/eza-community/eza
 IsExistCmd eza && alias ls="eza"
