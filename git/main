@@ -19,4 +19,4 @@
 [diff "sopsdiffer"]
 	textconv = sops -d
 [commit]
-template = ~/.config/git/commit_template
+	template = ~/.config/git/commit_template
