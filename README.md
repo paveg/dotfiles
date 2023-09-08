@@ -2,6 +2,11 @@
 
 **This dotfiles's main purpose is simple and maintainable, reproducibility.**
 
+## Materials
+
+- [Starship](https://starship.rs/)
+  - Kindly install it as `curl -sS https://starship.rs/install.sh | sh`
+
 ## Installation
 
 1. Preparation

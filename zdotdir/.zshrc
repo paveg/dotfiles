@@ -1,10 +1,5 @@
-# Loading Plugins
-source $DOTPATH/zdotdir/.zplugin
-
-# Set up the prompt
-autoload -Uz promptinit
-promptinit
-prompt adam1
+# Load Plugins
+source $ZDOTDIR/.zplugin.zsh
 
 setopt histignorealldups sharehistory
 
@@ -37,3 +32,5 @@ zstyle ':completion:*' verbose true
 
 zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
 zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
+
+source $ZDOTDIR/.zfinalize.zsh
