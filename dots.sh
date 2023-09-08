@@ -25,3 +25,5 @@ if [[ ! -d $gitpath ]]; then
 		echo "Created $gitpath"
 fi
 source ./git/symlink.sh
+
+echo "[completed] Initialized dots!"

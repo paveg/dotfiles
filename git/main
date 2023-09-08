@@ -18,3 +18,5 @@
 	conflictstyle = diff3
 [diff "sopsdiffer"]
 	textconv = sops -d
+[commit]
+template = ~/.config/git/commit_template
