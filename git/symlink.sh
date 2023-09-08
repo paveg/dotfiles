@@ -10,10 +10,12 @@ function initGitConfig () {
     mkdir $gitpath
   fi
 
-  for gitfile in git/.*
+  for gitfile in git/*
   do
-    if [ ! -d $gitfile -a $gitfile != "." -a $gitfile != ".." -a $gitfile != ".git" ]; then
-      echo "Symlink $basepath/$gitfile to $gitpath/"
+    file=$(basename $gitfile)
+    if [ ! -d $gitfile -a $file != symlink.sh -a $file != "." -a $file != ".." -a $file != ".git" ]; then
+      echo "Symlink $basepath/$gitfile to $gitpath/$file"
+      ln -sf $basepath/$gitfile $gitpath/$file
     fi
   done
 }

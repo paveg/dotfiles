@@ -13,8 +13,9 @@ function initZsh () {
 
 	for zfile in zdotdir/.*
 	do
-		if [ ! -d $zfile -a $zfile != "." -a $zfile != ".." -a $zfile != ".git" ]; then
-			echo "Symlink $basepath/$zfile to $zdotpath/"
+		file=$(dirname $zfile)
+		if [ ! -d $zfile -a $file != "." -a $file != ".." -a $file != ".git" ]; then
+			# echo "Symlink $basepath/$zfile to $zdotpath/"
 			ln -sf $basepath/$zfile $zdotpath/
 		fi
 	done
