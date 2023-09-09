@@ -8,7 +8,7 @@ dotpath=$(pwd)
 gitpath=$XDG_CONFIG_HOME/git
 
 # shellcheck source=/dev/null
-source ./zdotdir/.utils.sh
+source ./zsh.d/.utils.sh
 
 # zsh
 if [ ! -f "$HOME/.zshenv" ]; then
@@ -16,7 +16,7 @@ if [ ! -f "$HOME/.zshenv" ]; then
 	log_pass "Initialized $HOME/.zshenv"
 fi
 # shellcheck source=/dev/null
-source ./zdotdir/symlink.sh
+source ./zsh.d/symlink.sh
 
 # starship
 if [[ ! -f $STARSHIP_CONFIG ]]; then

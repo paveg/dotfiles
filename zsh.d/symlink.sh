@@ -14,7 +14,7 @@ function initZsh() {
 		mkdir "$zdotpath"
 	fi
 
-	for zfile in zdotdir/.*; do
+	for zfile in zsh.d/.*; do
 		file=$(dirname "$zfile")
 		if [[ ! -d "$zfile" && $file != "symlink.sh" && $file != "." && $file != ".." && $file != ".git" ]]; then
 			is_debug && log_pass "Symlink $basepath/$zfile to $zdotpath/"
