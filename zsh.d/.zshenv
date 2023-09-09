@@ -7,7 +7,9 @@ export GOPATH=$HOME
 export ASDF_GOLANG_MOD_VERSION_ENABLED=true
 
 # Rust
-source $CARGO_HOME/env
+if [[ -f "$CARGO_HOME/env" ]]; then
+  source $CARGO_HOME/env
+fi
 
 # fzf
 export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!.git"'
@@ -23,4 +25,3 @@ path=(
 # Others
 ## Append completions to fpath
 fpath=(${ASDF_DIR}/completions $fpath)
-. "/home/ikezawa-ryota/.local/share/cargo/env"
