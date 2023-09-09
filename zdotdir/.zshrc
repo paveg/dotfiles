@@ -1,3 +1,13 @@
+source $ZDOTDIR/.utils.zsh
+
+localconf=$HOME/.zshrc.local.zsh
+if [[ -f $localconf ]]; then
+	source $localconf
+	log_info "Loaded local config from $localconf."
+else
+	log_info "Not found local configurations."
+fi
+
 # Load Plugins
 source $ZDOTDIR/.zplugin.zsh
 # Load aliases

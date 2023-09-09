@@ -1,24 +1,27 @@
 #!/bin/bash
 
-basepath=$(cd $(dirname $0);pwd)
+basepath=$(
+	cd $(dirname $0)
+	pwd
+)
+
 xdgpath=$HOME/.config
 zdotpath=$xdgpath/zsh
 
-function initZsh () {
-	echo "[info] Initialize zsh"
-	if [ ! -d $zdotpath ]; then
-		mkdir $zdotpath
-
+function initZsh() {
+	log_info "Start to initialize zsh"
+	if [ ! -d "$zdotpath" ]; then
+		mkdir "$zdotpath"
 	fi
 
-	for zfile in zdotdir/.*
-	do
-		file=$(dirname $zfile)
-		if [ ! -d $zfile -a $file != "symlink.sh" -a $file != "." -a $file != ".." -a $file != ".git" ]; then
-			# echo "Symlink $basepath/$zfile to $zdotpath/"
-			ln -sf $basepath/$zfile $zdotpath/
+	for zfile in zdotdir/.*; do
+		file=$(dirname "$zfile")
+		if [[ ! -d "$zfile" && $file != "symlink.sh" && $file != "." && $file != ".." && $file != ".git" ]]; then
+			is_debug && log_pass "Symlink $basepath/$zfile to $zdotpath/"
+			ln -sf "$basepath/$zfile" "$zdotpath/"
 		fi
 	done
+	log_pass "Initialization zsh successfully!"
 }
 
 initZsh
