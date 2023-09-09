@@ -1,5 +1,6 @@
 # asdf
 source "$HOME/.asdf/asdf.sh"
+eval "$(direnv hook zsh)"
 
 # Go
 export GOPATH=$HOME

@@ -1,4 +1,4 @@
-source $ZDOTDIR/.utils.zsh
+source $ZDOTDIR/.utils.sh
 
 localconf=$HOME/.zshrc.local.zsh
 if [[ -f $localconf ]]; then
