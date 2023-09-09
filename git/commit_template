@@ -1,8 +1,17 @@
+# ==== Commit Messages ====
 
-# ==== Format ====
+# ==== Commit Messages(Template) ====
+
 # :emoji: Subject
+
+# Example: :bug: Fixing a bug.
+
 # :prefix: Subject
+
+# Example: feat: Creating a API for the user model.
+
 #
+
 # Commit body...
 
 # ==== Prefixes ====
@@ -15,4 +24,3 @@ refactor: A code change that neither fixes a bug nor adds a feature
 perf: A code change that improves performance
 test: Adding missing tests or correcting existing tests
 chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
-
