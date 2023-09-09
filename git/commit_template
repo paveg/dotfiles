@@ -1,26 +1,47 @@
-# ==== Commit Messages ====
 
-# ==== Commit Messages(Template) ====
 
+# ==== Format ====
 # :emoji: Subject
-
-# Example: :bug: Fixing a bug.
-
-# :prefix: Subject
-
-# Example: feat: Creating a API for the user model.
-
 #
-
 # Commit body...
 
-# ==== Prefixes ====
+# ==== Emojis ====
+# ✨  :sparkles:          Function addition
+# 💄  :lipstick:          UI or UX orDesign
+# ❤️   :heart:             Bug fixes
+# ✅  :white_check_mark:  Add test
+# 🎉  :tada:              Major function addition
+# 💬  :speech_balloon:    Comment
+# ♻️   :recycle:           Refactoring/Improvement
+# 📝  :memo:              Edit documents
+# 🚀  :rocket:            Deployment
+# ⚡  :zap:               Improve Performance
+# 🚱  :non-potable_water: Memory leak fix
+# 👕  :shirt:             Lint or code style correction
+# 👮  :cop:               Improve Security-related
+# ⚙   :gear:              Add configurations
+# 📦  :package:           Update package
+# ➕  :heavy_plus_sign:   Add dependencies
+# ➖  :heavy_minus_sign:  Remove dependencies
+# ⬆️   :arrow_up:          Upgrade library
+# ⬇️   :arrow_down:        Downgrade library
+# 💚  :green_heart:       Improve or fix CI/CD
+# 🐳  :whale:             Docker
+# 💥  :boom:              Breaking changes
+# 🔥  :fire:              Remove
+# 🚿  :shower:            Delete unnecessary functions
+# 🚚  :truck:             Move
+# 🚧  :construction:      W.I.P.
 
-feat: A new feature
-fix: A bug fix
-docs: Documentation only changes
-style: Changes that do not affect the meaning of the code
-refactor: A code change that neither fixes a bug nor adds a feature
-perf: A code change that improves performance
-test: Adding missing tests or correcting existing tests
-chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
+# ==== The Seven Rules ====
+# 1. Separate subject from body with a blank line
+# 2. Limit the subject line to 50 characters
+# 3. Capitalize the subject line
+# 4. Do not end the subject line with a period
+# 5. Use the imperative mood in the subject line
+# 6. Wrap the body at 72 characters
+# 7. Use the body to explain what and why vs. how
+#
+# How to Write a Git Commit Message http://chris.beams.io/posts/git-commit/
+
+# for http://memo.goodpatch.co/2016/07/beautiful-commits-with-emojis/
