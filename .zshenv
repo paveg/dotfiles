@@ -7,6 +7,7 @@ export XDG_DATA_HOME=$HOME/.local/share
 
 # CONFIG
 export STARSHIP_CONFIG=$XDG_CONFIG_HOME/starship.toml
+export ZELLIJ_CONFIG_DIR=$XDG_CONFIG_HOME/zellij
 
 # DATA
 export CARGO_HOME=$XDG_DATA_HOME/cargo
