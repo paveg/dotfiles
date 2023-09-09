@@ -23,4 +23,3 @@ path=(
 # Others
 ## Append completions to fpath
 fpath=(${ASDF_DIR}/completions $fpath)
-. "/home/ikezawa-ryota/.local/share/cargo/env"
