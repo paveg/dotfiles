@@ -1,5 +1,35 @@
 #!/bin/bash -e
 
+# os_detect export the PLATFORM variable as you see fit
+os_detect() {
+  export PLATFORM
+  case "$(ostype)" in
+  *'linux'*) PLATFORM='linux' ;;
+  *'darwin'*) PLATFORM='osx' ;;
+  *) PLATFORM='unknown' ;;
+  esac
+}
+
+# is_osx returns true if running OS is Macintosh
+is_osx() {
+  os_detect
+  if [[ "$PLATFORM" = "osx" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# is_linux returns true if running OS is GNU/Linux
+is_linux() {
+  os_detect
+  if [[ "$PLATFORM" = "linux" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 is_logging_pass() {
   if [[ "${ENABLE_LOGGING_PASS:-1}" = 1 ]]; then
     return 0
