@@ -4,19 +4,24 @@
 export XDG_CONFIG_HOME=$HOME/.config
 export STARSHIP_CONFIG=$XDG_CONFIG_HOME/starship.toml
 
-dotpath=$(pwd)
+dotpath=$(ghq root)/github.com/paveg/dots
 gitpath=$XDG_CONFIG_HOME/git
 
 # shellcheck source=/dev/null
-source ./zsh.d/.utils.sh
+source "$ZMODPATH/util.zsh"
 
 # zsh
 if [ ! -f "$HOME/.zshenv" ]; then
 	ln -sf "$dotpath/.zshenv" "$HOME/.zshenv"
 	log_pass "Initialized $HOME/.zshenv"
 fi
-# shellcheck source=/dev/null
-source ./zsh.d/symlink.sh
+if [[ ! -d "$ZDOTDIR" ]]; then
+	mkdir -p "$ZDOTDIR"
+	ln -sf "$dotpath/zsh.d/.zshrc" "$ZDOTDIR/.zshrc"
+	ln -sf "$dotpath/zsh.d/.zprofile" "$ZDOTDIR/.zprofile"
+	ln -sf "$dotpath/zsh.d/.zshenv" "$ZDOTDIR/.zshenv"
+fi
+log_pass "Initialization zsh successfully!"
 
 # starship
 if [[ ! -f $STARSHIP_CONFIG ]]; then

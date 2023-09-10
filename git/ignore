@@ -116,6 +116,10 @@ config/master.key
 .env
 .env.\*
 
+# Direnv
+
+.envrc
+
 ## Environment normalization:
 
 /.bundle

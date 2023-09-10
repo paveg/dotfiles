@@ -1,32 +1,27 @@
-source $ZDOTDIR/.utils.sh
-
-localconf=$HOME/.zshrc.local.zsh
-if [[ -f $localconf ]]; then
-	source $localconf
-	log_info "Loaded local config from $localconf."
-else
-	log_info "Not found local configurations."
+# Profiling
+if [ "$ZSHRC_PROFILE" != "" ]; then
+	zmodload zsh/zprof && zprof >/dev/null
 fi
 
-# Load Plugins
-source $ZDOTDIR/.zplugin.zsh
-# Load aliases
-source $ZDOTDIR/.zalias.zsh
+source $ZMODPATH/core.zsh
 
-setopt histignorealldups sharehistory
+: "Loading modules" && {
+	declare -ax load_paths=(
+		$ZMODPATH/util.zsh
+		$ZMODPATH/plugin.zsh
+		$ZMODPATH/local.zsh
+		$ZMODPATH/alias.zsh
+		$ZMODPATH/func.zsh
+		$ZMODPATH/keybind.zsh
+		$ZMODPATH/history.zsh
+	)
 
-# Use emacs keybindings even if our EDITOR is set to vi
-bindkey -e
-# Use vim keybindings even if our EDITOR is set to vi
-# bindkey -v
+	for load_path in ${load_paths[@]}; do
+		load $load_path
+		log_pass "Loading completed $(basename $load_path)"
+	done
+}
 
-# Keep 1000 lines of history within the shell and save it to ~/.zsh_history:
-HISTSIZE=100000
-SAVEHIST=100000
-HISTFILE=~/.zsh_history
+is_exist_command starship && eval "$(starship init zsh)" || echo "Not found starship: You can install it as curl -sS https://starship.rs/install.sh | sh"
 
-[ -f "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh ] && source "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh
-
-source $ZDOTDIR/.zfunc.zsh
-source $ZDOTDIR/.zkeybindings.zsh
-source $ZDOTDIR/.zfinalize.zsh
+typeset -U PATH fpath
