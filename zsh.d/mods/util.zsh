@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/zsh -e
+
+## Utilities
 
 # os_detect export the PLATFORM variable as you see fit
 os_detect() {
@@ -152,3 +154,5 @@ is_debug() {
     return 1
   fi
 }
+
+is_exist_command() { command -v "$1" >/dev/null 2>&1; }

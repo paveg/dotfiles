@@ -49,3 +49,5 @@ zinit light zsh-users/zsh-autosuggestions
 
 # It’s a directory navigation tool
 zinit light agkozak/zsh-z
+
+[[ -f "$XDG_CONFIG_HOME/fzf/fzf.zsh" ]] && load "$XDG_CONFIG_HOME/fzf/fzf.zsh"
