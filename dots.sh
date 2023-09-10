@@ -4,7 +4,7 @@
 export XDG_CONFIG_HOME=$HOME/.config
 export STARSHIP_CONFIG=$XDG_CONFIG_HOME/starship.toml
 
-dotpath=$(pwd)
+dotpath=$(ghq root)/github.com/paveg/dots
 gitpath=$XDG_CONFIG_HOME/git
 
 # shellcheck source=/dev/null

@@ -1,17 +1,23 @@
+# Profiling
+if [ "$ZSHRC_PROFILE" != "" ]; then
+	zmodload zsh/zprof && zprof >/dev/null
+fi
+
+source $ZDOTDIR/.core.zsh
 source $ZDOTDIR/.utils.sh
 
 localconf=$HOME/.zshrc.local.zsh
 if [[ -f $localconf ]]; then
-	source $localconf
+	load $localconf
 	log_info "Loaded local config from $localconf."
 else
 	log_info "Not found local configurations."
 fi
 
 # Load Plugins
-source $ZDOTDIR/.zplugin.zsh
+load $ZDOTDIR/.zplugin.zsh
 # Load aliases
-source $ZDOTDIR/.zalias.zsh
+load $ZDOTDIR/.zalias.zsh
 
 setopt histignorealldups sharehistory
 
@@ -25,8 +31,8 @@ HISTSIZE=100000
 SAVEHIST=100000
 HISTFILE=~/.zsh_history
 
-[ -f "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh ] && source "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh
+[ -f "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh ] && load "${XDG_CONFIG_HOME:-$HOME/.config}"/fzf/fzf.zsh
 
-source $ZDOTDIR/.zfunc.zsh
-source $ZDOTDIR/.zkeybindings.zsh
-source $ZDOTDIR/.zfinalize.zsh
+load $ZDOTDIR/.zfunc.zsh
+load $ZDOTDIR/.zkeybindings.zsh
+load $ZDOTDIR/.zfinalize.zsh
