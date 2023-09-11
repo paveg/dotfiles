@@ -4,6 +4,8 @@
 	email = pavegy@gmail.com
 [core]
 	editor = nvim
+	pager = "LESSCHARSET=utf-8 less"
+	quotepath = false
 [color]
 	ui = true
 	diff = auto
