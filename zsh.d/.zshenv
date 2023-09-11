@@ -1,5 +1,4 @@
-# asdf
-source "$HOME/.asdf/asdf.sh"
+# direnv
 eval "$(direnv hook zsh)"
 
 # Go
