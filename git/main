@@ -6,6 +6,7 @@
 	editor = nvim
 	pager = "LESSCHARSET=utf-8 less"
 	quotepath = false
+	filemode = true
 [color]
 	ui = true
 	diff = auto

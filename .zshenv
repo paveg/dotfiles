@@ -4,6 +4,11 @@ export XDG_DATA_HOME=$HOME/.local/share
 
 export SHELL=/bin/zsh
 export EDITOR=nvim
+
+# Locales
+export LANG=C
+export LC_CTYPE=ja_JP.UTF-8
+
 export GHQ_ROOT="$HOME/src"
 
 # zsh files
