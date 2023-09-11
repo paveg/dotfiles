@@ -1,6 +1,10 @@
 # agkozak/zsh-z
 alias j="z"
 
+# Editor
+alias vim="nvim"
+alias vi="nvim"
+
 # Git / hub https://github.com/mislav/hub
 is_exist_command hub && eval "$(hub alias -s)"
 alias g="hub"
