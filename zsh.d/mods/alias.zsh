@@ -33,5 +33,17 @@ is_exist_command bat && alias cat="bat -p"
 # rg https://github.com/BurntSushi/ripgrep
 alias rg="rg --hidden"
 
+# fd
+alias find="fd"
+
 # [Disabled] thefuck https://github.com/nvbn/thefuck
 # is_exist_command thefuck && eval $(thefuck --alias)
+
+# saml2aws
+alias saml="saml2aws login --force --skip-prompt"
+alias samlp="saml2aws login --force --skip-prompt --session-duration 3600"
+
+# Ruby on Rails
+alias be="bundle exec"
+alias bi="bundle install -j4"
+alias rr="bundle exec rails routes"
