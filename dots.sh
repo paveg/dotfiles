@@ -11,14 +11,15 @@ gitpath=$XDG_CONFIG_HOME/git
 zdotpath=$XDG_CONFIG_HOME/zsh
 nvimpath=$XDG_CONFIG_HOME/nvim
 
+unalias find 2>/dev/null
+
 # Loading utils library
 # shellcheck source=/dev/null
 source "$ZMODPATH/util.zsh"
 ln -sf "$DOTPATH/starship.toml" "$STARSHIP_CONFIG"
 
-
-[ -d $zdotpath ] && mkdir -p $zdotpath
-zdirs=$(find $ZDOTPATH/.z* -maxdepth 0 -type f)
+[ -d "$zdotpath" ] && mkdir -p "$zdotpath"
+zdirs=$(find "$ZDOTPATH/.z*" -maxdepth 0 -type f)
 ln -snfv "$DOTPATH/.zshenv" "$HOME/.zshenv"
 for f in $zdirs; do
 	fn=$(basename "$f")
@@ -26,13 +27,12 @@ for f in $zdirs; do
 done
 log_info "Completed initializing zshell..."
 
-
-dirs=$(find $DOTPATH/* -maxdepth 0 -type d)
+dirs=$(find "$DOTPATH/*" -maxdepth 0 -type d)
 for d in $dirs; do
 	name=$(basename "$d")
-	[ $name = "fzf" ] && continue
-	[ $name = "git" ] && ln -snfv "$DOTPATH/git" "$gitpath"
-	[ $name = "nvim" ] && ln -snfv "$DOTPATH/nvim" "$nvimpath"
+	[ "$name" = "fzf" ] && continue
+	[ "$name" = "git" ] && ln -snfv "$DOTPATH/git" "$gitpath"
+	[ "$name" = "nvim" ] && ln -snfv "$DOTPATH/nvim" "$nvimpath"
 done
 log_info "Completed initializing .config..."
 
