@@ -82,6 +82,7 @@ for d in $dirs; do
 	[ "$name" = "fonts" ] && {
 		is_osx && cp -r "$DOTPATH/fonts/." "$HOME/Library/Fonts/"
 	}
+	[ "$name" = "zellij" ] && ln -snf "$DOTPATH/zellij" "$XDG_CONFIG_HOME"/zellij
 done
 
 log_info "Completed initializing .config..."
