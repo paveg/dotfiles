@@ -50,5 +50,5 @@ vim.api.nvim_set_keymap('n', 'gk', 'k', {
     noremap = true
 })
 
--- loade lazy.nvim
+-- load lazy.nvim
 require('lazy-nvim')
