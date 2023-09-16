@@ -65,10 +65,10 @@ is_exist_command rustup && log_info "rustup is already installed." || {
 
 [ ! -d "$zdotpath" ] && mkdir -p "$zdotpath"
 zdirs=$(find "$ZDOTPATH"/.z* -maxdepth 0 -type f)
-ln -snf "$DOTPATH/.zshenv" "$HOME/.zshenv"
+ln -snfv "$DOTPATH/.zshenv" "$HOME/.zshenv"
 for f in $zdirs; do
 	fn=$(basename "$f")
-	ln -snf "$ZDOTPATH/$fn" "$zdotpath/$fn"
+	ln -snfv "$ZDOTPATH/$fn" "$zdotpath/$fn"
 done
 log_info "Completed initializing zshell..."
 
