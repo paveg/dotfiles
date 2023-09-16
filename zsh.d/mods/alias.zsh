@@ -6,7 +6,7 @@ alias vim="nvim"
 alias vi="nvim"
 
 # Git / hub https://github.com/mislav/hub
-is_exist_command hub && eval "$(hub alias -s)"
+# is_exist_command hub && eval "$(hub alias -s)"
 alias g="hub"
 alias ga="git add"
 alias gs="git status"
