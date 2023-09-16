@@ -59,7 +59,7 @@ is_exist_command starship && log_info "starship is already installed." || {
 is_exist_command rustup && log_info "rustup is already installed." || {
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 	# shellcheck source=/dev/null
-	source $CARGO_HOME/env
+	source "$CARGO_HOME"/env
 	log_pass "Completed installation rustup..."
 }
 
@@ -78,12 +78,16 @@ for d in $dirs; do
 	[ "$name" = "fzf" ] && continue
 	[ "$name" = "git" ] && ln -snf "$DOTPATH/git" "$gitpath"
 	[ "$name" = "nvim" ] && ln -snf "$DOTPATH/nvim" "$nvimpath"
+	[ "$name" = "alacritty" ] && ln -snf "$DOTPATH/alacritty" "$XDG_CONFIG_HOME"/alacritty
+	[ "$name" = "fonts" ] && {
+		is_osx && cp -r "$DOTPATH/fonts/." "$HOME/Library/Fonts/"
+	}
 done
 
 log_info "Completed initializing .config..."
 
 log_info "Start installing rust tools..."
 
-cargo install --locked ripgrep bat fd-find eza navi
+cargo install --locked ripgrep bat fd-find eza navi zellij
 
 log_pass "Completed initializing dots 🎉"

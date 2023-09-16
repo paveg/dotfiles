@@ -19,6 +19,10 @@ return {
         }
         require('lspconfig')[server].setup(opt)
       end })
+      -- require('nvim-cmp').setup({
+      --   { name = 'copilot', group_index = 2 },
+      --   { name = "nvim_lsp", group_index = 2 },
+      -- })
       vim.keymap.set('n', 'K', '<cmd>lua vim.lsp.buf.hover()<CR>', { noremap = true, silent = true })
     end,
   },

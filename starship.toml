@@ -5,7 +5,7 @@ error_symbol = "[❯](bold red)"
 success_symbol = "[❯](bold green)"
 
 [directory]
-truncation_length = 4
+truncation_length = 3
 truncate_to_repo = false
 truncation_symbol = "…/"
 
