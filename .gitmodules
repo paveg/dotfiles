@@ -1,3 +1,6 @@
 [submodule "fzf"]
 	path = fzf
 	url = https://github.com/junegunn/fzf
+[submodule "nvim"]
+	path = nvim
+	url = https://github.com/LazyVim/starter
