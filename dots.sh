@@ -63,12 +63,12 @@ is_exist_command rustup && log_info "rustup is already installed." || {
 	log_pass "Completed installation rustup..."
 }
 
-[ -d "$zdotpath" ] && mkdir -p "$zdotpath"
+[ ! -d "$zdotpath" ] && mkdir -p "$zdotpath"
 zdirs=$(find "$ZDOTPATH"/.z* -maxdepth 0 -type f)
-ln -snf "$DOTPATH/.zshenv" "$HOME/.zshenv"
+ln -snfv "$DOTPATH/.zshenv" "$HOME/.zshenv"
 for f in $zdirs; do
 	fn=$(basename "$f")
-	ln -snf "$ZDOTPATH/$fn" "$zdotpath/$fn"
+	ln -snfv "$ZDOTPATH/$fn" "$zdotpath/$fn"
 done
 log_info "Completed initializing zshell..."
 
@@ -76,13 +76,13 @@ dirs=$(find "$DOTPATH"/* -maxdepth 0 -type d)
 for d in $dirs; do
 	name=$(basename "$d")
 	[ "$name" = "fzf" ] && continue
-	[ "$name" = "git" ] && ln -snf "$DOTPATH/git" "$gitpath"
-	[ "$name" = "nvim" ] && ln -snf "$DOTPATH/nvim" "$nvimpath"
-	[ "$name" = "alacritty" ] && ln -snf "$DOTPATH/alacritty" "$XDG_CONFIG_HOME"/alacritty
+	[ "$name" = "git" ] && ln -snfv "$DOTPATH/git" "$gitpath"
+	[ "$name" = "nvim" ] && ln -snfv "$DOTPATH/nvim" "$nvimpath"
+	[ "$name" = "alacritty" ] && ln -snfv "$DOTPATH/alacritty" "$XDG_CONFIG_HOME"/alacritty
 	[ "$name" = "fonts" ] && {
 		is_osx && cp -r "$DOTPATH/fonts/." "$HOME/Library/Fonts/"
 	}
-	[ "$name" = "zellij" ] && ln -snf "$DOTPATH/zellij" "$XDG_CONFIG_HOME"/zellij
+	[ "$name" = "zellij" ] && ln -snfv "$DOTPATH/zellij" "$XDG_CONFIG_HOME"/zellij
 done
 
 log_info "Completed initializing .config..."
