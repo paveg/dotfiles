@@ -50,5 +50,15 @@ vim.api.nvim_set_keymap('n', 'gk', 'k', {
     noremap = true
 })
 
+vim.api.nvim_set_keymap('n', 'ss', '^', {})
+vim.api.nvim_set_keymap('n', ';;', '$', {})
+
+-- Escape from insert mode by jj
+vim.api.nvim_set_keymap('i', 'jj', '<Esc>', {})
+-- Automatically completion brackets
+vim.api.nvim_set_keymap('i', '{', '{}<Left>', {})
+vim.api.nvim_set_keymap('i', '[', '[]<Left>', {})
+vim.api.nvim_set_keymap('i', '(', '()<Left>', {})
+
 -- load lazy.nvim
 require('lazy-nvim')
