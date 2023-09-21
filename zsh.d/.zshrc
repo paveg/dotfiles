@@ -3,7 +3,6 @@ if [ "$ZSHRC_PROFILE" != "" ]; then
 	zmodload zsh/zprof && zprof >/dev/null
 fi
 
-. "$HOME/.asdf/asdf.sh"
 
 source $ZMODPATH/core.zsh
 
