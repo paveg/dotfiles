@@ -1,8 +1,21 @@
+[core]
+	quotepath = false
+	filemode = true
 [ghq]
-    root = ~/repos
+	root = ~/repos
 [user]
-    email = pavegy@gmail.com
-    name = Ryota Ikezawa
+	email = pavegy@gmail.com
+	name = Ryota Ikezawa
+[color]
+	ui = true
+	diff = auto
+	gre = auto
+	interactive = auto
+	status = auto
+[pull]
+	rebase = false
+[merge]
+	conflictstype = diff3
 [credential]
 	helper = osxkeychain
 [url "ssh://github.com"]
