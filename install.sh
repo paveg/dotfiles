@@ -42,4 +42,7 @@ ln -snf $DOT_PATH/zellij $XDG_CONFIG_HOME/zellij
 # neovim
 ln -snfv $DOT_PATH/nvim $XDG_CONFIG_HOME/nvim
 
+# lazygit
+ln -sfnv $DOT_PATH/lazygit $XDG_CONFIG_HOME/lazygit
+
 log_pass "Installation completed"
