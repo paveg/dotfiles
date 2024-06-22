@@ -1,30 +1,22 @@
-# dots
+# dotfiles
 
 **This dotfiles's main purpose is simple and maintainable, reproducibility.**
 
-## Materials
+## Tools
 
-- [zsh](https://www.zsh.org/)
-- [Starship](https://starship.rs/)
-- [asdf-vm](https://asdf-vm.com/)
-- [Rust](https://www.rust-lang.org/)
-- [Go](https://go.dev/)
+- [Homebrew](https://brew.sh/)
 
 ## Installation
 
-1. Preparation
+Prepare Homebrew as following command
 
-   ```bash
-   sudo apt update -y && sudo apt install zsh
-   chsh -s /bin/zsh
-   ```
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 
-2. Execution
+And hit a script as following.
 
-   ```bash
-   git clone https://github.com/paveg/dots
-   cd ./dots
-   ./dots.sh
-   ```
-
-## Update lazy vim
+```bash
+git clone paveg/dotfiles
+./install.sh
+```
