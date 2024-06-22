@@ -1,8 +1,8 @@
-# https://github.com/zdharma-continuum/zinit
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-[[ ! -d $ZINIT_HOME ]] && mkdir -p "$(dirname $ZINIT_HOME)"
-[[ ! -d $ZINIT_HOME/.git ]] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+[ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
+[ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 source "${ZINIT_HOME}/zinit.zsh"
+
 
 # Plugin lists
 ## @see https://github.com/zdharma-continuum/zinit#turbo-and-lucid
@@ -51,3 +51,4 @@ zinit light zsh-users/zsh-autosuggestions
 zinit light agkozak/zsh-z
 
 [[ -f "$XDG_CONFIG_HOME/fzf/fzf.zsh" ]] && load "$XDG_CONFIG_HOME/fzf/fzf.zsh"
+

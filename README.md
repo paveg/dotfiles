@@ -1,30 +1,45 @@
-# dots
+# dotfiles
 
 **This dotfiles's main purpose is simple and maintainable, reproducibility.**
 
-## Materials
+## Tools
 
-- [zsh](https://www.zsh.org/)
-- [Starship](https://starship.rs/)
-- [asdf-vm](https://asdf-vm.com/)
-- [Rust](https://www.rust-lang.org/)
-- [Go](https://go.dev/)
+- [Homebrew](https://brew.sh/)
+- [AstroNvim](https://astronvim.com/)
+- [alacritty](https://github.com/alacritty/alacritty)
 
 ## Installation
 
-1. Preparation
+Prepare Homebrew as following command
 
-   ```bash
-   sudo apt update -y && sudo apt install zsh
-   chsh -s /bin/zsh
-   ```
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 
-2. Execution
+And hit a script as following.
 
-   ```bash
-   git clone https://github.com/paveg/dots
-   cd ./dots
-   ./dots.sh
-   ```
+```bash
+git clone paveg/dotfiles
+./install.sh
+```
 
-## Update lazy vim
+## Maintenance
+
+When you install some application from brew, you need to execute `brewbundle` and commit result.
+
+```bash
+# This command updates `.Brewfile`
+brewbundle
+```
+
+### AstroNvim
+
+If you track some changes upstream repo of the AstroNvim, it would be better to clone it again from template.
+
+Note: https://docs.astronvim.com/
+
+```bash
+rm -rf $DOT_PATH/nvim
+git clone --depth 1 https://github.com/AstroNvim/template $DOT_PATH/nvim
+rm -rf $DOT_PATH/nvim/.git
+```

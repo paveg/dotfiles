@@ -1,10 +1,3 @@
-; vim: ft=dosini ts=2 sw=2 sts=2 sr noet:
 [user]
 	email = ikezawa-ryota@c-fo.com
 	useConfigOnly = true
-[url "ssh://github.com"]
-	insteadOf = https://github.com
-	insteadOf = git://github.com
-	insteadOf = git://git@github.com
-[credential]
-	helper = osxkeychain

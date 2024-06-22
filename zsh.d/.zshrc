@@ -1,20 +1,18 @@
-# Profiling
+# This is a profiling zshrc setting, set ZSHRC_PROFILE envvar to any value if you need.
 if [ "$ZSHRC_PROFILE" != "" ]; then
 	zmodload zsh/zprof && zprof >/dev/null
 fi
 
-
-source $ZMODPATH/core.zsh
+source $ZMOD_PATH/core.zsh
 
 : "Loading modules" && {
 	declare -ax load_paths=(
-		$ZMODPATH/util.zsh
-		$ZMODPATH/plugin.zsh
-		$ZMODPATH/local.zsh
-		$ZMODPATH/alias.zsh
-		$ZMODPATH/func.zsh
-		$ZMODPATH/keybind.zsh
-		$ZMODPATH/history.zsh
+        $ZMOD_PATH/utils.zsh # This must be load first after loading core.zsh
+        $ZMOD_PATH/config.zsh
+        $ZMOD_PATH/plugin.zsh
+		$ZMOD_PATH/func.zsh
+        $ZMOD_PATH/keybind.zsh
+        $ZMOD_PATH/alias.zsh
 	)
 
 	for load_path in ${load_paths[@]}; do
@@ -23,6 +21,7 @@ source $ZMODPATH/core.zsh
 	done
 }
 
-is_exist_command starship && eval "$(starship init zsh)" || echo "Not found starship: You can install it as curl -sS https://starship.rs/install.sh | sh"
+eval "$(starship init zsh)"
+source <(fzf --zsh)
 
 typeset -U PATH fpath
