@@ -22,3 +22,11 @@ opr () {
         op run --env-file=$HOME/.env.1password -- $@
     fi
 }
+
+function zprofiler() {
+  ZSHRC_PROFILE=1 zsh -i -c zprof
+}
+
+function zshtime() {
+  for i in $(seq 1 10); do time zsh -i -c exit >/dev/null; done
+}
