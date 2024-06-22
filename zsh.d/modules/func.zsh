@@ -1,4 +1,4 @@
-function _fzf_cd_ghq() {
+_fzf_cd_ghq() {
   local root="$(ghq root)"
   local repo="$(ghq list | fzf --preview="bat --color=always --style=header,grid --line-range :80 ${root}/{}/README.*")"
   local dir=$root/$repo
@@ -23,10 +23,14 @@ opr () {
     fi
 }
 
-function zprofiler() {
+zprofiler() {
   ZSHRC_PROFILE=1 zsh -i -c zprof
 }
 
-function zshtime() {
+zshtime() {
   for i in $(seq 1 10); do time zsh -i -c exit >/dev/null; done
+}
+
+brewbundle() {
+  brew bundle dump --verbose --force --cleanup --global
 }

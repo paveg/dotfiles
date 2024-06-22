@@ -12,6 +12,7 @@ source $ZMOD_PATH/core.zsh
         $ZMOD_PATH/plugin.zsh
 		$ZMOD_PATH/func.zsh
         $ZMOD_PATH/keybind.zsh
+        $ZMOD_PATH/alias.zsh
 	)
 
 	for load_path in ${load_paths[@]}; do

@@ -10,6 +10,12 @@ export ZMOD_PATH=$ZSH_PATH/modules
 
 source $ZMOD_PATH/utils.zsh
 
+is_exist_command brew || {
+  log_fail "Homebrew is not installed"
+  exit 1
+}
+ln -sfnv $DOT_PATH/Brewfile $HOME/.Brewfile
+
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 # Installation fonts
@@ -32,5 +38,8 @@ ln -sfn $DOT_PATH/alacritty $XDG_CONFIG_HOME/alacritty
 
 # zellij
 ln -snf $DOT_PATH/zellij $XDG_CONFIG_HOME/zellij
+
+# neovim
+ln -snfv $DOT_PATH/nvim $XDG_CONFIG_HOME/nvim
 
 log_pass "Installation completed"
