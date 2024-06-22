@@ -1,2 +1,3 @@
-eval "$(/opt/homebrew/bin/brew shellenv)"
-eval "$(mise activate zsh --shims)"
+# 1password plugins
+source $XDG_CONFIG_HOME/op/plugins.sh
+

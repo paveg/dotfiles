@@ -1,8 +1,8 @@
 [ghq]
-        root = ~/src
+    root = ~/repos
 [user]
-        email = pavegy@gmail.com
-        name = Ryota Ikezawa
+    email = pavegy@gmail.com
+    name = Ryota Ikezawa
 [credential]
 	helper = osxkeychain
 [url "ssh://github.com"]
