@@ -3,3 +3,9 @@
 [user]
         email = pavegy@gmail.com
         name = Ryota Ikezawa
+[credential]
+	helper = osxkeychain
+[url "ssh://github.com"]
+	insteadOf = https://github.com
+	insteadOf = git://github.com
+	insteadOf = git://git@github.com 
