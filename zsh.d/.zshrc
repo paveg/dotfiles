@@ -3,6 +3,8 @@ if [ "$ZSHRC_PROFILE" != "" ]; then
 	zmodload zsh/zprof && zprof >/dev/null
 fi
 
+eval "$(mise activate zsh --shims)"
+
 source $ZMOD_PATH/core.zsh
 
 : "Loading modules" && {
