@@ -31,8 +31,7 @@ export STARSHIP_CONFIG=$XDG_CONFIG_HOME/starship.toml
 export GOPATH=$HOME
 export GOBIN=$GOPATH/bin
 
-## Rust
-export CARGO_HOME=$XDG_CONFIG_HOME/.cargo
+## Rust CARGO_HOME is default $HOME/.cargo
 
 # Binaries
 path=(

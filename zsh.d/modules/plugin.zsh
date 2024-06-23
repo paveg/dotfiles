@@ -14,6 +14,7 @@ zinit light zdharma/fast-syntax-highlighting
 # Command completion plugin
 zinit light zsh-users/zsh-completions
 autoload -Uz compinit && compinit
+
 ## Match both upper and lowercase
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 ## Grouping each completion list
@@ -49,6 +50,20 @@ zinit light zsh-users/zsh-autosuggestions
 
 # It’s a directory navigation tool
 zinit light agkozak/zsh-z
+
+zinit light zsh-users/zsh-history-substring-search
+
+# docker
+zinit ice as"completion"
+zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker
+
+# yarn
+zplugin ice from"gh" as"completion"
+zinit light g-plane/zsh-yarn-autocompletions
+
+# ghq
+zinit ice silent as"completion"
+zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
 
 [[ -f "$XDG_CONFIG_HOME/fzf/fzf.zsh" ]] && load "$XDG_CONFIG_HOME/fzf/fzf.zsh"
 
