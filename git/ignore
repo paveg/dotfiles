@@ -19,3 +19,6 @@
 
 # Cache
 .cache
+
+# mise
+.mise.toml

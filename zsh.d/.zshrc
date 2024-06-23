@@ -3,8 +3,6 @@ if [ "$ZSHRC_PROFILE" != "" ]; then
   zmodload zsh/zprof && zprof >/dev/null
 fi
 
-eval "$(mise activate zsh --shims)"
-
 source $ZMOD_PATH/core.zsh
 
 : "Loading modules" && {
@@ -33,5 +31,7 @@ source $ZMOD_PATH/core.zsh
 
 eval "$(starship init zsh)"
 source <(fzf --zsh)
+
+eval "$(mise activate zsh)"
 
 typeset -U PATH fpath
