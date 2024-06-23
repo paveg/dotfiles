@@ -8,6 +8,13 @@
 - [AstroNvim](https://astronvim.com/)
 - [alacritty](https://github.com/alacritty/alacritty)
 
+## Prerequisite
+
+A installation script can handle two types of machine, private machine or business one.
+When you use it on your business, you need to set `BUSINESS_USE=1`.
+
+Then script will use Brewfile.work and install applications for only use case of the business.
+
 ## Installation
 
 Prepare Homebrew as following command

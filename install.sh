@@ -8,13 +8,21 @@ export DOT_PATH=$GHQ_ROOT/github.com/$GITHUB_USER/$GITHUB_REPO
 export ZSH_PATH=$DOT_PATH/zsh.d
 export ZMOD_PATH=$ZSH_PATH/modules
 
+export GLOBAL_BREWFILE_PATH=$HOME/.Brewfile
+
+log_info "Start installation"
+
 source $ZMOD_PATH/utils.zsh
 
 is_exist_command brew || {
   log_fail "Homebrew is not installed"
   exit 1
 }
-ln -sfnv $DOT_PATH/Brewfile $HOME/.Brewfile
+if [[ -z $BUSINESS_USE ]]; then
+  ln -sfnv $DOT_PATH/homebrew/Brewfile $GLOBAL_BREWFILE_PATH
+else
+  ln -sfnv $DOT_PATH/homebrew/Brewfile.work $GLOBAL_BREWFILE_PATH
+fi
 
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
