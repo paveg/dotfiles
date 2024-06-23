@@ -22,4 +22,6 @@
 [url "ssh://github.com"]
 	insteadOf = https://github.com
 	insteadOf = git://github.com
-	insteadOf = git://git@github.com 
+	insteadOf = git://git@github.com
+[include]
+	path = ~/.config/git/secrets
