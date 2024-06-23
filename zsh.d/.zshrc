@@ -21,6 +21,14 @@ source $ZMOD_PATH/core.zsh
 		load $load_path
 		log_pass "Loading completed $(basename $load_path)"
 	done
+
+	# TODO: Rename to localconf.zsh
+	localconf=$HOME/.zshrc.local.zsh
+	if [[ -f $localconf ]]; then
+		log_info "Found local configuration file: $localconf"
+		load $localconf
+		log_pass "Loading completed $(basename $localconf)"
+	fi
 }
 
 eval "$(starship init zsh)"
