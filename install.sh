@@ -10,9 +10,9 @@ export ZMOD_PATH=$ZSH_PATH/modules
 
 export GLOBAL_BREWFILE_PATH=$HOME/.Brewfile
 
-log_info "Start installation"
-
 source $ZMOD_PATH/utils.zsh
+
+log_info "Start installation"
 
 is_exist_command brew || {
   log_fail "Homebrew is not installed"
