@@ -1,6 +1,9 @@
 alias vi="nvim"
 alias vim="nvim"
 
+# These are for zsh modules editing
+alias zmod="nvim $ZMOD_PATH"
+
 is_exist_command eza && {
   alias ls="eza"
   alias ll="eza -l"
@@ -16,3 +19,31 @@ is_exist_command bat && {
 is_exist_command fd && {
   alias find="fd"
 }
+
+# Lazygit
+alias lg="lazygit"
+
+# Kubernetes
+alias k="kubectl"
+
+# Ruby & Ruby on Rails
+alias bi="bundle install"
+alias be="bundle exec"
+alias rc="bundle exec rails c"
+
+# Git
+alias ga="git add"
+alias gb="git branch"
+alias gc="git commit"
+alias gco="git checkout"
+alias gcb="git checkout -b"
+alias gd="git diff"
+alias gf="git fetch"
+alias gs="git status"
+
+# Utilities
+alias rm="rm -i"
+alias cp="cp -i"
+alias mv="mv -i"
+alias mkdir="mkdir -p"
+
