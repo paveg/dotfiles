@@ -39,6 +39,8 @@ alias gco="git checkout"
 alias gcb="git checkout -b"
 alias gd="git diff"
 alias gf="git fetch"
+alias gp="git pull"
+alias gr="git rebase"
 alias gs="git status"
 
 # Utilities
