@@ -53,6 +53,11 @@ zinit light agkozak/zsh-z
 
 zinit light zsh-users/zsh-history-substring-search
 
+# atuin
+zinit light-mode from"gh-r" as"program" \
+  atclone"./atuin gen-completions --shell zsh > _atuin" atpull"%atclone" \
+  cp"atuin-*/atuin -> atuin" bpick"*tar.gz" for @atuinsh/atuin
+
 # docker
 zinit ice as"completion"
 zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker

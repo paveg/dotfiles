@@ -29,6 +29,7 @@ source $ZMOD_PATH/core.zsh
   fi
 }
 
+eval "$(atuin init zsh)"
 eval "$(starship init zsh)"
 source <(fzf --zsh)
 
