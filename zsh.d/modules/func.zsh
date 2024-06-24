@@ -34,3 +34,8 @@ zshtime() {
 brewbundle() {
   brew bundle dump --verbose --force --cleanup --global
 }
+
+PROTECTED_BRANCHES='main|master|develop|staging'
+_remove_unnecessary_branches() {
+  git branch --merged | egrep -v "\*|${PROTECTED_BRANCHES}" | xargs git branch -d
+}
