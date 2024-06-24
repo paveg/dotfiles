@@ -56,6 +56,8 @@ zinit light zsh-users/zsh-history-substring-search
 # docker
 zinit ice as"completion"
 zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker
+zinit ice as"completion"
+zinit snippet "https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/docker-compose/_docker-compose"
 
 # yarn
 zplugin ice from"gh" as"completion"
@@ -64,6 +66,10 @@ zinit light g-plane/zsh-yarn-autocompletions
 # ghq
 zinit ice silent as"completion"
 zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
+
+# fd
+zinit ice as"completion"
+zinit snippet https://github.com/sharkdp/fd/blob/master/contrib/completion/_fd
 
 [[ -f "$XDG_CONFIG_HOME/fzf/fzf.zsh" ]] && load "$XDG_CONFIG_HOME/fzf/fzf.zsh"
 
