@@ -32,7 +32,7 @@ zshtime() {
 }
 
 brewbundle() {
-  brew bundle dump --verbose --force --cleanup --global
+  brew bundle dump --verbose --force --cleanup --cask --formula --mas --tap --global
 }
 
 PROTECTED_BRANCHES='main|master|develop|staging'
