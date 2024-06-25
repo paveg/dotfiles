@@ -1,8 +1,9 @@
-eval "$(/opt/homebrew/bin/brew shellenv)"
-
 # path configurations
 typeset -Ug path PATH
 path=(
+  # Set homebrew path directly instead of `eval "(/opt/homebrew/bin/brew shellenv)"``
+  /opt/homebrew/bin(N-/)
+  /opt/homebrew/sbin(N-/)
   $HOME/bin(N-/)
   $HOME/.local/bin(N-/)
   $path[@]
