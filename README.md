@@ -46,7 +46,7 @@ If you track some changes upstream repo of the AstroNvim, it would be better to 
 Note: https://docs.astronvim.com/
 
 ```bash
-rm -rf $DOT_PATH/nvim
-git clone --depth 1 https://github.com/AstroNvim/template $DOT_PATH/nvim
-rm -rf $DOT_PATH/nvim/.git
+rm -rf $DOTDIR/nvim
+git clone --depth 1 https://github.com/AstroNvim/template $DOTDIR/nvim
+rm -rf $DOTDIR/nvim/.git
 ```

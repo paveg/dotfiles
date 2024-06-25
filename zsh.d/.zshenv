@@ -1,3 +1,13 @@
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# path configurations
+typeset -Ug path PATH
+path=(
+  $HOME/bin(N-/)
+  $HOME/.local/bin(N-/)
+  $path[@]
+)
+
 # Locales
 export LANG=C
 export LC_CTYPE=ja_JP.UTF-8
@@ -8,13 +18,13 @@ export REPO_NAME=dotfiles
 export GHQ_ROOT=$HOME/repos
 
 # Default configurations
-export DOT_PATH=$GHQ_ROOT/github.com/paveg/$REPO_NAME
+export DOTDIR=$GHQ_ROOT/github.com/paveg/$REPO_NAME
 export XDG_CONFIG_HOME=$HOME/.config
 export EDITOR=nvim
 
 # zsh
-export ZDOT_PATH="$DOT_PATH/zsh.d"
-export ZMOD_PATH="$ZDOT_PATH/modules"
+export ZDOTDIR="$DOTDIR/zsh.d"
+export ZMODDIR="$ZDOTDIR/modules"
 
 # https://github.com/junegunn/fzf
 export FZF_DEFAULT_COMMAND='rg --files --hidden --glob "!.git"'
@@ -30,10 +40,3 @@ export GOPATH=$HOME
 export GOBIN=$GOPATH/bin
 
 ## Rust CARGO_HOME is default $HOME/.cargo
-
-# Binaries
-path=(
-  "$HOME/.local/bin"(N-/)
-  "$GOBIN"(N-/)
-  "$path[@]"
-)

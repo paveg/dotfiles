@@ -3,16 +3,16 @@ if [ "$ZSHRC_PROFILE" != "" ]; then
   zmodload zsh/zprof && zprof >/dev/null
 fi
 
-source $ZMOD_PATH/core.zsh
+source $ZMODDIR/core.zsh
 
 : "Loading modules" && {
   declare -ax load_paths=(
-    $ZMOD_PATH/utils.zsh # This must be load first after loading core.zsh
-    $ZMOD_PATH/config.zsh
-    $ZMOD_PATH/plugin.zsh
-    $ZMOD_PATH/func.zsh
-    $ZMOD_PATH/keybind.zsh
-    $ZMOD_PATH/alias.zsh
+    $ZMODDIR/utils.zsh # This must be load first after loading core.zsh
+    $ZMODDIR/config.zsh
+    $ZMODDIR/plugin.zsh
+    $ZMODDIR/func.zsh
+    $ZMODDIR/keybind.zsh
+    $ZMODDIR/alias.zsh
   )
 
   for load_path in ${load_paths[@]}; do
@@ -32,7 +32,6 @@ source $ZMOD_PATH/core.zsh
 eval "$(atuin init zsh)"
 eval "$(starship init zsh)"
 source <(fzf --zsh)
-eval "$(/opt/homebrew/bin/brew shellenv)"
 eval "$(mise activate zsh)"
 
 typeset -U PATH fpath

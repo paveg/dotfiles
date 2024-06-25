@@ -2,7 +2,7 @@ alias vi="nvim"
 alias vim="nvim"
 
 # These are for zsh modules editing
-alias zmod="nvim $ZMOD_PATH"
+alias zmod="nvim $ZMODDIR"
 
 is_exist_command eza && {
   alias ls="eza"
