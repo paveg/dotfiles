@@ -32,7 +32,7 @@ source $ZMOD_PATH/core.zsh
 eval "$(atuin init zsh)"
 eval "$(starship init zsh)"
 source <(fzf --zsh)
-
+eval "$(/opt/homebrew/bin/brew shellenv)"
 eval "$(mise activate zsh)"
 
 typeset -U PATH fpath

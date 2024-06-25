@@ -1,5 +1,3 @@
-eval "$(/opt/homebrew/bin/brew shellenv)"
-
 # Locales
 export LANG=C
 export LC_CTYPE=ja_JP.UTF-8
