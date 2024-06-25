@@ -1,4 +1,4 @@
-source $ZMOD_PATH/utils.zsh
+source $ZMODDIR/utils.zsh
 
 if [[ ! -d $XDG_CONFIG_HOME/op/plugins ]]; then
   log_warn "1password plugins is not installed"
