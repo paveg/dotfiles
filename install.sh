@@ -53,4 +53,7 @@ ln -snfv $DOTDIR/nvim $XDG_CONFIG_HOME/nvim
 # lazygit
 ln -sfnv $DOTDIR/lazygit $XDG_CONFIG_HOME/lazygit
 
+# zeno
+ln -sfnv $DOTDIR/zeno $XDG_CONFIG_HOME/zeno
+
 log_pass "Installation completed"
