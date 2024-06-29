@@ -2,6 +2,7 @@
 	editor = nvim
 	quotepath = false
 	filemode = true
+	# pager = delta
 [ghq]
 	root = ~/repos
 [user]
@@ -13,6 +14,15 @@
 	gre = auto
 	interactive = auto
 	status = auto
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	dark = true
+	navigate = true
+	side-by-side = true
+	line-numbers = true
+[diff]
+	colorMoved = default
 [pull]
 	rebase = false
 [merge]
