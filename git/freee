@@ -1,3 +1,7 @@
 [user]
 	email = ikezawa-ryota@c-fo.com
 	useConfigOnly = true
+[url "ssh://git@github.com/"]
+	insteadOf = https://github.com/
+	insteadOf = git://github.com/
+	insteadOf = git://git@github.com
