@@ -13,16 +13,20 @@ export GLOBAL_BREWFILE_PATH=$HOME/.Brewfile
 source $ZMODDIR/utils.zsh
 
 log_info "Start installation"
+os_detect
 
-is_exist_command brew || {
-  log_fail "Homebrew is not installed"
-  exit 1
+is_osx && {
+  is_exist_command brew || {
+    log_fail "Homebrew is not installed"
+    exit 1
+  }
+
+  if [[ -z $BUSINESS_USE ]]; then
+    ln -sfnv $DOTDIR/homebrew/Brewfile $GLOBAL_BREWFILE_PATH
+  else
+    ln -sfnv $DOTDIR/homebrew/Brewfile.work $GLOBAL_BREWFILE_PATH
+  fi
 }
-if [[ -z $BUSINESS_USE ]]; then
-  ln -sfnv $DOTDIR/homebrew/Brewfile $GLOBAL_BREWFILE_PATH
-else
-  ln -sfnv $DOTDIR/homebrew/Brewfile.work $GLOBAL_BREWFILE_PATH
-fi
 
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 

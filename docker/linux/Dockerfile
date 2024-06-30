@@ -15,7 +15,7 @@ RUN git config --global ghq.root $HOME/repos
 
 RUN $HOME/.local/share/mise/installs/ghq/latest/bin/ghq get https://github.com/paveg/dotfiles
 WORKDIR $HOME/repos/github.com/paveg/dotfiles
-RUN ./install.sh
+RUN BUSINESS_USE=1 ./install.sh
 WORKDIR $HOME
 
 CMD ["/usr/bin/zsh"]
