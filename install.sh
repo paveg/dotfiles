@@ -53,4 +53,8 @@ ln -snfv $DOTDIR/nvim $XDG_CONFIG_HOME/nvim
 # lazygit
 ln -sfnv $DOTDIR/lazygit $XDG_CONFIG_HOME/lazygit
 
+# Ruby configuration
+ln -sfn $DOTDIR/ruby/.irbrc $HOME/.irbrc
+ln -sfn $DOTDIR/ruby/.rdbgrc  $HOME/.rdbgrc
+
 log_pass "Installation completed"
