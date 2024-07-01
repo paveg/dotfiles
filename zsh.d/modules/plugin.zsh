@@ -76,5 +76,8 @@ zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
 zinit ice as"completion"
 zinit snippet https://github.com/sharkdp/fd/blob/master/contrib/completion/_fd
 
+# zeno
+zinit light yuki-yano/zeno.zsh
+
 [[ -f "$XDG_CONFIG_HOME/fzf/fzf.zsh" ]] && load "$XDG_CONFIG_HOME/fzf/fzf.zsh"
 

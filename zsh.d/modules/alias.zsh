@@ -42,7 +42,7 @@ alias gf="git fetch"
 alias gp="git pull"
 alias gr="git reset"
 alias grb="git rebase"
-alias gs="git status"
+# alias gs="git status"
 alias rub="_remove_unnecessary_branches"
 
 # Utilities
