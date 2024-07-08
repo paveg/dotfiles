@@ -29,9 +29,5 @@
 	conflictstype = diff3
 [credential]
 	helper = osxkeychain
-[url "ssh://git@github.com/"]
-	insteadOf = https://github.com/
-	insteadOf = git://github.com/
-	insteadOf = git://git@github.com
 [include]
 	path = ~/.config/git/secrets
