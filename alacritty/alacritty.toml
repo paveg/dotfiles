@@ -36,7 +36,7 @@ args = ["-l", "-c", "zellij attach --index 0 --create"]
 program = "/bin/zsh"
 
 [window]
-opacity = 0.9
+opacity = 1
 option_as_alt = "Both"
 
 [window.dimensions]
