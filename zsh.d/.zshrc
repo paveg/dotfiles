@@ -32,6 +32,7 @@ source $ZMODDIR/core.zsh
 eval "$(atuin init zsh)"
 eval "$(starship init zsh)"
 source <(fzf --zsh)
+source $XDG_CONFIG_HOME/broot/launcher/bash/br
 eval "$(mise activate zsh)"
 
 typeset -U PATH fpath
