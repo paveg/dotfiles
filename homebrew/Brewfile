@@ -1,6 +1,7 @@
 tap "homebrew/bundle"
 brew "openssl@3"
 brew "bat"
+brew "broot"
 brew "libyaml"
 brew "cocoapods"
 brew "readline"
