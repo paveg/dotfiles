@@ -1,3 +1,4 @@
+export SHELL=/bin/zsh
 # path configurations
 typeset -Ug path PATH
 path=(
