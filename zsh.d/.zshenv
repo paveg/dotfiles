@@ -42,3 +42,10 @@ export GOPATH=$HOME
 export GOBIN=$GOPATH/bin
 
 ## Rust CARGO_HOME is default $HOME/.cargo
+
+# pnpm
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
