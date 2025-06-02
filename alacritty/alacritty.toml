@@ -31,7 +31,7 @@ hide_when_typing = true
 history = 10000
 multiplier = 3
 
-[shell]
+[terminal.shell]
 args = ["-l", "-c", "zellij attach --index 0 --create"]
 program = "/bin/zsh"
 
@@ -50,3 +50,4 @@ y = 4
 [window.position]
 x = 100
 y = 200
+

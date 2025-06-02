@@ -20,6 +20,10 @@ is_exist_command fd && {
   alias find="fd"
 }
 
+is_exist_command op && is_exist_command gh && {
+  alias gh="op plugin run -- gh"
+}
+
 # Lazygit
 alias lg="lazygit"
 
