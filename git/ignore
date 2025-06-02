@@ -1,5 +1,4 @@
 .DS_Store
-.vscode
 
 # JetBrains Tool
 .idea
@@ -22,3 +21,5 @@
 
 # mise
 .mise.toml
+
+**/.claude/settings.local.json
