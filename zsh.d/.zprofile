@@ -1,4 +1,7 @@
-source $ZMODDIR/utils.zsh
+# Load essential utilities for .zprofile
+source $ZMODDIR/core.zsh
+source $ZMODDIR/platform.zsh
+source $ZMODDIR/logging.zsh
 
 if [[ ! -d $XDG_CONFIG_HOME/op/plugins ]]; then
   log_warn "1password plugins is not installed"
