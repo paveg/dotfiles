@@ -51,7 +51,7 @@ _lazy_atuin() {
 }
 
 _lazy_mise() {
-  unfunction _lazy_mise  
+  unfunction _lazy_mise
   eval "$(mise activate zsh)"
   mise "$@"
 }
