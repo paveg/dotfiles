@@ -60,6 +60,5 @@ _lazy_mise() {
 is_exist_command atuin && alias atuin="_lazy_atuin"
 is_exist_command mise && alias mise="_lazy_mise"
 
-# PATH optimization
-typeset -U PATH fpath
-[[ -d ~/.console-ninja/.bin ]] && PATH=~/.console-ninja/.bin:$PATH
+# fpath for completions (PATH already handled in .zshenv)
+typeset -U fpath
