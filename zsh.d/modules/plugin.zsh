@@ -1,14 +1,14 @@
 #!/usr/bin/env zsh
 # ============================================================================
-# Zsh Plugin Management
+# Zsh Plugin Management (Performance Optimized)
 #
-# This file manages Zsh plugins using zinit (high-performance plugin manager).
+# This file manages Zsh plugins using zinit with aggressive performance tuning.
 #
-# Key features:
-# - Fast parallel loading with turbo mode
-# - Syntax highlighting for commands
-# - Enhanced autocompletion
-# - Command suggestions from history
+# Key optimizations:
+# - Delayed loading with turbo mode for all plugins
+# - Minimal completion system integration
+# - Reduced plugin overhead
+# - Async plugin loading where possible
 #
 # Commands:
 # - `zinit update` : Update all plugins
@@ -16,83 +16,63 @@
 # - `zinit list` : List installed plugins
 # ============================================================================
 
+# Initialize zinit (optimized)
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-[[ ! -d $ZINIT_HOME ]] && mkdir -p "$(dirname $ZINIT_HOME)"
-[[ ! -d $ZINIT_HOME/.git ]] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+
+# Fast zinit installation check
+if [[ ! -d $ZINIT_HOME/.git ]]; then
+  [[ ! -d $ZINIT_HOME ]] && mkdir -p "$(dirname $ZINIT_HOME)"
+  git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+fi
+
 source "${ZINIT_HOME}/zinit.zsh"
 
+# Performance-optimized plugin loading with turbo mode
+# All plugins delayed to avoid blocking shell startup
 
-# Plugin lists
-## @see https://github.com/zdharma-continuum/zinit#turbo-and-lucid
-zinit ice wait'0' depth"1" lucid blockf
-
-# Highlighting syntax plugin
+# Syntax highlighting (deferred)
+zinit ice wait"0" lucid atinit"ZINIT[COMPINIT_OPTS]=-C; zpcompinit"
 zinit light zdharma/fast-syntax-highlighting
 
-# Command completion plugin
+# Completions (deferred, no compinit call - handled by init_completion)
+zinit ice wait"0" lucid blockf
 zinit light zsh-users/zsh-completions
-autoload -Uz compinit && compinit
 
-## Match both upper and lowercase
+# Completion styles (optimized set)
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
-## Grouping each completion list
 zstyle ':completion:*' format '%B%F{blue}%d%f%b'
 zstyle ':completion:*' group-name ''
-## If display completions menu, you can select completion by tab key or sth
 zstyle ':completion:*:default' menu select=2
-## Colorize completion candidates
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
-## Keep prefix when completion
-zstyle ':completion:*' keep-prefix
-## Insert recent dirs when completion
-zstyle ':completion:*' recent-dirs-insert both
-## Completion candidate options
-### _oldlist: Reuse the previous completion
-### _complete: Complement command
-### _match: Complement command from the list without opening globbing
-### _history: History is included by completion candidates
-### _ignored: Candidates for completion are also candidates for completion if you specify that they are not candidates for completion
-### _approximate: Complete with similar completion candidates
-### _prefix: Complete up to the cursor position, ignoring everything after the cursor
 zstyle ':completion:*' completer _complete _ignored
-## Cache completion candidates
 zstyle ':completion:*' use-cache yes
-zstyle ':completion:*' cache-path ~/.zsh/cache
-## Verbose for completion
-zstyle ':completion:*' verbose yes
-## If use sudo, search completion candidates
-zstyle ':completion:*:sudo:*' command-path /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin
+zstyle ':completion:*' cache-path "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/compcache"
 
-# Command suggestion plugin
+# Essential plugins (deferred for performance)
+zinit ice wait"1" lucid
 zinit light zsh-users/zsh-autosuggestions
 
-# It’s a directory navigation tool
+zinit ice wait"1" lucid
 zinit light agkozak/zsh-z
 
+zinit ice wait"1" lucid
 zinit light zsh-users/zsh-history-substring-search
 
-# atuin
-zinit light-mode from"gh-r" as"program" \
-  atclone"./atuin gen-completions --shell zsh > _atuin" atpull"%atclone" \
-  cp"atuin-*/atuin -> atuin" bpick"*tar.gz" for @atuinsh/atuin
+# atuin (handled by lazy loading in .zshrc, skip plugin installation)
 
-# docker
-zinit ice as"completion"
+# Completion plugins (deferred)
+zinit ice wait"2" lucid as"completion"
 zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker
-zinit ice as"completion"
+
+zinit ice wait"2" lucid as"completion"
 zinit snippet "https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/docker-compose/_docker-compose"
 
-# yarn
-zplugin ice from"gh" as"completion"
-zinit light g-plane/zsh-yarn-autocompletions
+# Skip yarn completions (using PNPM only now)
 
-# ghq
-zinit ice silent as"completion"
+zinit ice wait"2" lucid as"completion"
 zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
 
-# fd
-zinit ice as"completion"
+zinit ice wait"2" lucid as"completion"
 zinit snippet https://github.com/sharkdp/fd/blob/master/contrib/completion/_fd
 
-[[ -f "$XDG_CONFIG_HOME/fzf/fzf.zsh" ]] && load "$XDG_CONFIG_HOME/fzf/fzf.zsh"
-
+# fzf integration (handled in .zshrc with conditional loading)

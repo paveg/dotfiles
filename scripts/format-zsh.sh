@@ -38,10 +38,18 @@ print_success() { print_status "$GREEN" "✓ $1"; }
 print_warning() { print_status "$YELLOW" "⚠ $1"; }
 print_error() { print_status "$RED" "✗ $1"; }
 
-# Check if file is a zsh file
+# Check if file is a zsh file (excluding history files)
 is_zsh_file() {
     local file=$1
-    [[ "$file" =~ \.(zsh|zshrc|zshenv|zprofile)$ ]] || [[ "$(basename "$file")" =~ ^\.zsh ]]
+    local basename_file
+    basename_file=$(basename "$file")
+    
+    # Exclude history files
+    if [[ "$basename_file" =~ ^\.zsh_history ]] || [[ "$file" =~ _history$ ]]; then
+        return 1
+    fi
+    
+    [[ "$file" =~ \.(zsh|zshrc|zshenv|zprofile)$ ]] || [[ "$basename_file" =~ ^\.zsh ]]
 }
 
 # Fix shebang line
@@ -283,7 +291,7 @@ main() {
     # Default to current directory if no files specified
     if [[ ${#all_files[@]} -eq 0 ]]; then
         for file in .zshrc .zshenv .zprofile modules/*.zsh; do
-            if [[ -f "$file" ]]; then
+            if [[ -f "$file" ]] && is_zsh_file "$file"; then
                 all_files+=("$file")
             fi
         done
