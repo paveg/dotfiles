@@ -1,0 +1,13 @@
+# Common packages across all platforms
+# These are the tool names as they appear in different package managers
+
+git
+neovim
+tmux
+zsh
+fzf
+ripgrep
+fd-find
+bat
+gh
+starship

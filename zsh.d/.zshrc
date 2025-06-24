@@ -36,3 +36,5 @@ source $XDG_CONFIG_HOME/broot/launcher/bash/br
 eval "$(mise activate zsh)"
 
 typeset -U PATH fpath
+
+PATH=~/.console-ninja/.bin:$PATH

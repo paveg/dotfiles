@@ -1,3 +1,16 @@
+#!/usr/bin/env zsh
+# ============================================================================
+# Utility Functions
+#
+# This file contains custom utility functions for improved workflow.
+#
+# Functions:
+# - _fzf_cd_ghq: Interactive repository navigation with fzf
+# - opr: 1Password CLI integration for secret retrieval
+# - rub: Git branch cleanup utility
+# - Various other workflow helpers
+# ============================================================================
+
 _fzf_cd_ghq() {
   local root="$(ghq root)"
   local repo="$(ghq list | fzf --preview="bat --color=always --style=header,grid --line-range :80 ${root}/{}/README.*")"

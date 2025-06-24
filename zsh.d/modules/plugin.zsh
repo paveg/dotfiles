@@ -1,3 +1,21 @@
+#!/usr/bin/env zsh
+# ============================================================================
+# Zsh Plugin Management
+#
+# This file manages Zsh plugins using zinit (high-performance plugin manager).
+#
+# Key features:
+# - Fast parallel loading with turbo mode
+# - Syntax highlighting for commands
+# - Enhanced autocompletion
+# - Command suggestions from history
+#
+# Commands:
+# - `zinit update` : Update all plugins
+# - `zinit delete <plugin>` : Remove a plugin
+# - `zinit list` : List installed plugins
+# ============================================================================
+
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 [[ ! -d $ZINIT_HOME ]] && mkdir -p "$(dirname $ZINIT_HOME)"
 [[ ! -d $ZINIT_HOME/.git ]] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"

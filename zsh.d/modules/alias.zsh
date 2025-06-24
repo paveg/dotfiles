@@ -1,3 +1,18 @@
+#!/usr/bin/env zsh
+# ============================================================================
+# Command Aliases and Shortcuts
+#
+# This file defines command aliases and shortcuts to improve productivity.
+# All aliases check for command existence before setting to avoid errors.
+#
+# Categories:
+# - Editor shortcuts (vi, vim -> nvim)
+# - File operations (ls, cat, grep replacements with modern tools)
+# - Git shortcuts
+# - Development tools
+# - System utilities
+# ============================================================================
+
 alias vi="nvim"
 alias vim="nvim"
 

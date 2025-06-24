@@ -1,6 +1,17 @@
-#!/bin/zsh -e
-
-## Utilities
+#!/usr/bin/env zsh
+# ============================================================================
+# Utility Functions and OS Detection
+#
+# This file provides utility functions for cross-platform compatibility
+# and common operations used throughout the dotfiles.
+#
+# Features:
+# - OS detection (macOS, Linux)
+# - Command existence checking
+# - Logging utilities with colors
+# - String manipulation helpers
+# - Cross-platform utilities
+# ============================================================================
 
 copy_str() {
   if [[ $# -eq 0 ]]; then

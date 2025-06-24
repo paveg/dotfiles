@@ -1,0 +1,36 @@
+# Arch Linux packages
+# Install with: cat packages/pacman.txt | xargs sudo pacman -S --noconfirm
+
+# Basic tools
+base-devel
+git
+curl
+wget
+unzip
+jq
+
+# Development tools
+neovim
+tmux
+zsh
+cmake
+
+# Python development
+python
+python-pip
+
+# Fonts
+ttf-fira-code
+
+# System utilities
+htop
+ncdu
+the_silver_searcher
+
+# Dependencies
+openssl
+readline
+zlib
+bzip2
+sqlite
+libffi

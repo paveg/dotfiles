@@ -32,7 +32,7 @@ The repository follows a modular structure where each tool has its own directory
 1. **Zsh Configuration** (`zsh.d/modules/`): Modular configuration split into:
    - `core.zsh` - Essential zsh settings and history configuration
    - `config.zsh` - Tool-specific configurations (fzf, git-delta, mise, etc.)
-   - `plugin.zsh` - Zsh plugin management via sheldon
+   - `plugin.zsh` - Zsh plugin management via zinit
    - `alias.zsh` - Command aliases and custom functions
    - `func.zsh` - Utility functions (opr for 1Password, rub for git branch cleanup)
    - `keybind.zsh` - Key binding configurations

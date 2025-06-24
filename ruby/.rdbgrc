@@ -1,2 +1,0 @@
-config set irb_console true
-config set show_src_lines = 20

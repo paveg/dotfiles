@@ -1,0 +1,45 @@
+# Ubuntu/Debian packages
+# Install with: cat packages/apt.txt | xargs sudo apt install -y
+
+# Build tools
+build-essential
+cmake
+pkg-config
+
+# Basic tools
+curl
+wget
+unzip
+jq
+
+# Development tools
+git
+neovim
+tmux
+zsh
+
+# Modern CLI tools (many need to be installed via other methods)
+fzf
+ripgrep
+fd-find
+bat
+
+# Python development
+python3
+python3-pip
+python3-venv
+
+# Fonts
+fonts-firacode
+
+# System utilities
+htop
+ncdu
+
+# Dependencies for mise and other tools
+libssl-dev
+libreadline-dev
+zlib1g-dev
+libbz2-dev
+libsqlite3-dev
+libffi-dev
