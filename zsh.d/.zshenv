@@ -1,12 +1,28 @@
 export SHELL=/bin/zsh
-# path configurations
+# ============================================================================
+# PATH Configuration (Consolidated)
+# ============================================================================
 typeset -Ug path PATH
+
+# Package manager configuration
+export PNPM_HOME="$HOME/Library/pnpm"
+
+# Construct PATH with essential development tools
 path=(
-  # Set homebrew path directly instead of `eval "(/opt/homebrew/bin/brew shellenv)"``
+  # Homebrew (highest priority for macOS)
   /opt/homebrew/bin(N-/)
   /opt/homebrew/sbin(N-/)
+
+  # User-specific binaries (only if they exist)
   $HOME/bin(N-/)
-  $HOME/.local/bin(N-/)
+
+  # Node.js package manager
+  $PNPM_HOME(N-/)                 # PNPM
+
+  # Development utilities
+  $HOME/.console-ninja/.bin(N-/)  # Console Ninja
+
+  # Keep existing system paths (mise will add language-specific paths)
   $path[@]
 )
 
@@ -35,17 +51,4 @@ export FZF_DEFAULT_OPTS="--ansi --tiebreak=index --height 60% --layout=reverse -
 # https://starship.rs/
 export STARSHIP_CONFIG=$XDG_CONFIG_HOME/starship.toml
 
-# Language settings
-
-## Go
-export GOPATH=$HOME
-export GOBIN=$GOPATH/bin
-
-## Rust CARGO_HOME is default $HOME/.cargo
-
-# pnpm
-export PNPM_HOME="$HOME/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
+# Additional development tool configurations can be added here
