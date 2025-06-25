@@ -38,14 +38,17 @@ else
   autoload -Uz compinit && compinit
 fi
 
-# Load configuration modules
-load "$ZMODDIR/config.zsh"
-load "$ZMODDIR/alias.zsh"
-load "$ZMODDIR/func.zsh"
-load "$ZMODDIR/keybind.zsh"
+# Load configuration modules (optimized order)
+load "$ZMODDIR/config.zsh"    # Basic zsh configuration
+load "$ZMODDIR/alias.zsh"     # Command aliases
+load "$ZMODDIR/func.zsh"      # Utility functions
+load "$ZMODDIR/keybind.zsh"   # Key bindings
 
-# Load plugins (optimized)
+# Load plugins last (includes syntax highlighting, completions, etc.)
 load "$ZMODDIR/plugin.zsh"
+
+# Note: logging.zsh and strings.zsh are available but not auto-loaded
+# Source manually if needed: load "$ZMODDIR/logging.zsh"
 
 # Tool initialization - smart approach for performance and reliability
 # mise: Conditional initialization based on shell context
@@ -84,19 +87,34 @@ if command -v atuin >/dev/null; then
   fi
 fi
 
-# Starship prompt (always load - fast enough)
+# Starship prompt - load immediately for visual feedback
+# This is fast enough and provides immediate prompt
 if command -v starship >/dev/null; then
   eval "$(starship init zsh)"
 fi
 
 {{- if eq .chezmoi.os "darwin" }}
 # macOS specific initializations
-if command -v brew >/dev/null; then
-  # Homebrew command not found handler (lazy)
-  if [[ -f "{{ .homebrew_prefix }}/Library/Taps/homebrew/homebrew-command-not-found/handler.sh" ]]; then
-    source "{{ .homebrew_prefix }}/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
+# Homebrew command-not-found handler - lazy load for performance
+_brew_command_not_found() {
+  local handler="{{ .homebrew_prefix }}/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
+  if [[ -f "$handler" ]]; then
+    source "$handler"
+    # Remove this handler after first load
+    unfunction _brew_command_not_found
   fi
-fi
+}
+# Set up command_not_found handler
+command_not_found_handler() {
+  _brew_command_not_found 2>/dev/null
+  # Call the actual handler if it was loaded
+  if typeset -f command_not_found_handler >/dev/null; then
+    command_not_found_handler "$@"
+  else
+    echo "zsh: command not found: $1" >&2
+    return 127
+  fi
+}
 {{- end }}
 
 # Performance reporting (development mode)
