@@ -1,0 +1,132 @@
+name: Chezmoi Tests
+
+on:
+  push:
+    branches: [chezmoi-migration]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-chezmoi-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install chezmoi
+      run: |
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    
+    - name: Test chezmoi configuration
+      run: |
+        echo "=== Testing chezmoi configuration ==="
+        
+        # Initialize chezmoi with current directory as source
+        chezmoi init --source="$GITHUB_WORKSPACE"
+        
+        # Test template rendering
+        echo "Testing template rendering..."
+        chezmoi execute-template < .chezmoi.yaml.tmpl > /dev/null
+        
+        # Test dry run
+        echo "Testing dry run..."
+        chezmoi diff --no-pager || true
+        
+        # Test actual apply to temporary directory
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        mkdir -p "$TEST_HOME"
+        
+        # Apply to test directory
+        chezmoi apply --destination="$TEST_HOME" --force
+        
+        echo "✓ Chezmoi tests passed"
+    
+    - name: Verify applied files
+      run: |
+        echo "=== Verifying applied files ==="
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        
+        # Check essential files exist
+        test -f "$TEST_HOME/.zshenv" || (echo "FAIL: .zshenv not created" && exit 1)
+        test -d "$TEST_HOME/.config/zsh" || (echo "FAIL: zsh config dir not created" && exit 1)
+        test -f "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc not created" && exit 1)
+        test -f "$TEST_HOME/.config/starship.toml" || (echo "FAIL: starship config not created" && exit 1)
+        
+        echo "✓ All essential files created"
+    
+    - name: Test zsh syntax
+      run: |
+        echo "=== Testing zsh syntax ==="
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        
+        # Test syntax of generated files
+        zsh -n "$TEST_HOME/.zshenv" || (echo "FAIL: .zshenv syntax error" && exit 1)
+        zsh -n "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc syntax error" && exit 1)
+        
+        echo "✓ Syntax validation passed"
+
+  test-chezmoi-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install chezmoi
+      run: |
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    
+    - name: Test chezmoi on Linux
+      run: |
+        echo "=== Testing chezmoi on Linux ==="
+        
+        chezmoi init --source="$GITHUB_WORKSPACE"
+        
+        # Test with Linux-specific variables
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home_linux"
+        mkdir -p "$TEST_HOME"
+        
+        chezmoi apply --destination="$TEST_HOME" --force
+        
+        # Verify Linux-specific content
+        grep -q "/home/linuxbrew" "$TEST_HOME/.zshenv" || echo "Note: No Homebrew path in Linux .zshenv (expected)"
+        
+        echo "✓ Linux chezmoi tests passed"
+
+  test-cross-platform:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install chezmoi
+      run: |
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    
+    - name: Test cross-platform compatibility
+      run: |
+        echo "=== Testing on ${{ matrix.os }} ==="
+        
+        chezmoi init --source="$GITHUB_WORKSPACE"
+        
+        # Test template rendering works on both platforms
+        chezmoi execute-template < .chezmoi.yaml.tmpl
+        
+        # Test files can be applied
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home_${{ matrix.os }}"
+        mkdir -p "$TEST_HOME"
+        chezmoi apply --destination="$TEST_HOME" --force
+        
+        # Basic verification
+        test -f "$TEST_HOME/.zshenv"
+        test -d "$TEST_HOME/.config"
+        
+        echo "✓ Cross-platform test passed on ${{ matrix.os }}"

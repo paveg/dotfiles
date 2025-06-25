@@ -1,0 +1,107 @@
+# Main zsh configuration - chezmoi managed
+# Performance optimized with lazy loading and smart initialization
+
+# Skip if not interactive
+[[ $- != *i* ]] && return
+
+# Performance marker
+typeset -g SHELL_STARTUP_TIME=$(date +%s%3N)
+
+# Module directory
+readonly ZMODDIR="$ZDOTDIR/modules"
+
+# Create necessary directories
+[[ -d "$XDG_STATE_HOME/zsh" ]] || mkdir -p "$XDG_STATE_HOME/zsh"
+[[ -d "$XDG_CACHE_HOME/zsh" ]] || mkdir -p "$XDG_CACHE_HOME/zsh"
+
+# Core loading function with compilation
+function load() {
+  local lib=${1:?"Library file required"}
+  [[ -f "$lib" ]] || return 1
+  [[ -s ${lib} && (! -s ${lib}.zwc || ${lib} -nt ${lib}.zwc) ]] && zcompile ${lib} 2>/dev/null
+  source "$lib"
+}
+
+# Load core modules
+load "$ZMODDIR/core.zsh"
+load "$ZMODDIR/completion.zsh"
+load "$ZMODDIR/history.zsh"
+
+# Initialize completion system (cached)
+init_completion
+
+# Load configuration modules
+load "$ZMODDIR/config.zsh"
+load "$ZMODDIR/alias.zsh"
+load "$ZMODDIR/func.zsh"
+load "$ZMODDIR/keybind.zsh"
+
+# Load plugins (optimized)
+load "$ZMODDIR/plugin.zsh"
+
+# Tool initialization - smart approach for performance and reliability
+{{- if ne .chezmoi.os "linux" }}
+# mise: Conditional initialization based on shell context
+if command -v mise >/dev/null; then
+  # If in tmux, zellij (session active), or nested shell (SHLVL > 2), initialize immediately for consistency
+  # Otherwise use lazy loading for faster startup
+  if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]; then
+    eval "$(mise activate zsh)"
+  else
+    # Lazy loading for main shell startup performance
+    _lazy_mise() {
+      local args=("$@")
+      unfunction _lazy_mise mise
+      eval "$(mise activate zsh)"
+      mise "${args[@]}"
+    }
+    function mise() { _lazy_mise "$@" }
+  fi
+fi
+{{- end }}
+
+# atuin: History search tool with conditional loading
+if command -v atuin >/dev/null; then
+  # Similar logic for atuin - immediate load in sessions, lazy load in main shell
+  if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]; then
+    eval "$(atuin init zsh)"
+  else
+    # Lazy loading for performance
+    _lazy_atuin() {
+      unfunction _lazy_atuin
+      eval "$(atuin init zsh)"
+      # Re-bind the key after initialization
+      [[ -n "$1" ]] && zle "$1"
+    }
+    zle -N _lazy_atuin
+    bindkey '^r' _lazy_atuin
+  fi
+fi
+
+# Starship prompt (always load - fast enough)
+if command -v starship >/dev/null; then
+  eval "$(starship init zsh)"
+fi
+
+{{- if eq .chezmoi.os "darwin" }}
+# macOS specific initializations
+if command -v brew >/dev/null; then
+  # Homebrew command not found handler (lazy)
+  if [[ -f "{{ .homebrew_prefix }}/Library/Taps/homebrew/homebrew-command-not-found/handler.sh" ]]; then
+    source "{{ .homebrew_prefix }}/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
+  fi
+fi
+{{- end }}
+
+# Performance reporting (development mode)
+if [[ -n "${ZPROFILER:-}" ]] || [[ -n "${ZSH_PROF:-}" ]]; then
+  local end_time=$(date +%s%3N)
+  local startup_time=$((end_time - SHELL_STARTUP_TIME))
+  echo "Zsh startup time: ${startup_time}ms"
+fi
+
+# Auto-rehash for new commands
+setopt auto_rehash
+
+# Final setup
+unfunction load 2>/dev/null

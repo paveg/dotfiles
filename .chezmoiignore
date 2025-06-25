@@ -1,0 +1,53 @@
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore version control
+.git/
+.gitignore
+
+# Ignore CI/CD files
+.github/
+.travis.yml
+.gitlab-ci.yml
+
+# Ignore build artifacts
+*.zwc
+*.pyc
+__pycache__/
+
+# Ignore temporary files
+*.tmp
+*.temp
+.#*
+*~
+
+# Ignore editor files
+.vscode/
+.idea/
+
+# Ignore documentation (handled separately)
+README.md
+LICENSE
+CHANGELOG.md
+docs/
+
+# Ignore test files
+tests/
+test_*
+*_test.*
+
+# Ignore package management files that shouldn't be templated
+package-lock.json
+yarn.lock
+Pipfile.lock
+
+# Ignore work-specific files on personal machines
+{{ if not .business_use }}
+**/Brewfile.work
+{{ end }}
+
+# Ignore personal files on work machines  
+{{ if .business_use }}
+# Add work-specific ignores here if needed
+{{ end }}
