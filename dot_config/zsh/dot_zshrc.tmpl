@@ -102,5 +102,22 @@ fi
 # Auto-rehash for new commands (if supported)
 setopt auto_rehash 2>/dev/null || setopt rehash 2>/dev/null || true
 
+# Startup success notification
+if [[ -o interactive ]]; then
+  local end_time=$(date +%s%3N)
+  local startup_time=$((end_time - SHELL_STARTUP_TIME))
+  
+  # Success message with startup time
+  printf "\033[32m✓\033[0m Zsh loaded successfully"
+  if [[ $startup_time -lt 100 ]]; then
+    printf " \033[32m(${startup_time}ms)\033[0m"
+  elif [[ $startup_time -lt 500 ]]; then
+    printf " \033[33m(${startup_time}ms)\033[0m"
+  else
+    printf " \033[31m(${startup_time}ms - consider optimization)\033[0m"
+  fi
+  echo
+fi
+
 # Final setup
 unfunction load 2>/dev/null
