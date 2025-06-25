@@ -16,6 +16,16 @@
 
 set -euo pipefail
 
+# Cleanup function for backup files
+cleanup_backups() {
+    # Only run cleanup if we're in the right directory
+    if [[ -d "dot_config" || -d ".github" ]]; then
+        find . -name "*.backup.*" -type f -delete 2>/dev/null || true
+    fi
+}
+
+# Note: Cleanup runs explicitly at the end of main() function
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -168,22 +178,22 @@ validate_markdown() {
 
     # Check for unclosed code blocks
     local backticks
-    backticks=$(grep -c '^```' "$file" 2>/dev/null || echo "0")
+    backticks=$(grep -c '^```' "$file" 2>/dev/null) || backticks=0
     if [[ $((backticks % 2)) -ne 0 ]]; then
         print_warning "Unclosed code block in $file"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check for malformed links
     if grep -q '\[.*\]([^)]*$' "$file" 2>/dev/null; then
         print_warning "Malformed links in $file"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check for malformed images
     if grep -q '!\[.*\]([^)]*$' "$file" 2>/dev/null; then
         print_warning "Malformed images in $file"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     return $errors
@@ -218,12 +228,12 @@ format_file() {
 
     # Validate result
     if validate_markdown "$file"; then
-        rm "$backup_file"
+        rm -f "$backup_file"
         print_success "Formatted $file"
         return 0
     else
         print_warning "Formatting completed with warnings for $file"
-        rm "$backup_file"
+        rm -f "$backup_file"
         return 0
     fi
 }
@@ -349,17 +359,17 @@ main() {
             # Check mode - validate only
             if validate_markdown "$file"; then
                 print_success "✓ $file"
-                ((success_count++))
+                success_count=$((success_count + 1))
             else
                 print_error "✗ $file"
-                ((error_count++))
+                error_count=$((error_count + 1))
             fi
         else
             # Format mode
             if format_file "$file"; then
-                ((success_count++))
+                success_count=$((success_count + 1))
             else
-                ((error_count++))
+                error_count=$((error_count + 1))
             fi
         fi
     done
@@ -372,6 +382,9 @@ main() {
         print_error "Failed: $error_count files"
         exit 1
     fi
+
+    # Clean up any remaining backup files (safety net)
+    cleanup_backups
 }
 
 # Run main function

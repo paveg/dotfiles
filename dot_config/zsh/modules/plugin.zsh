@@ -103,7 +103,7 @@ zinit light zdharma-continuum/null
 # Run: rustup completions zsh cargo > ~/.zfunc/_cargo
 
 # atuin - completion loaded after tool initialization in .zshrc
-# Delay longer to ensure atuin is initialized first  
+# Delay longer to ensure atuin is initialized first
 zinit ice wait"3" lucid atload"command -v atuin >/dev/null && eval \"\$(atuin gen-completions --shell zsh)\""
 zinit light zdharma-continuum/null
 
