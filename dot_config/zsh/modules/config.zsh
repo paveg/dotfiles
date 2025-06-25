@@ -15,3 +15,6 @@ HISTSIZE=10000
 SAVEHIST=10000
 
 setopt histignorealldups sharehistory
+
+# fzf configuration
+export FZF_DEFAULT_OPTS="--reverse --height=40% --border --margin=1 --padding=1"

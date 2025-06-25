@@ -11,9 +11,47 @@
 # - Various other workflow helpers
 # ============================================================================
 
+
 _fzf_cd_ghq() {
   local root="$(ghq root)"
-  local repo="$(ghq list | fzf --preview="bat --color=always --style=header,grid --line-range :80 ${root}/{}/README.*")"
+  local repo="$(ghq list | fzf --reverse --height=60% \
+    --preview="
+      repo_path=$root/{}
+      
+      # Check for README files - if found, use bat directly
+      if [[ -f \"\$repo_path/README.md\" ]]; then
+        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README.md\"
+      elif [[ -f \"\$repo_path/README.rst\" ]]; then
+        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README.rst\"
+      elif [[ -f \"\$repo_path/README.txt\" ]]; then
+        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README.txt\"
+      elif [[ -f \"\$repo_path/README\" ]]; then
+        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README\"
+      elif [[ -f \"\$repo_path/readme.md\" ]]; then
+        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/readme.md\"
+      else
+        echo \"\"
+        echo \"📁 \$(basename \"\$repo_path\")\"
+        echo \"📍 \$repo_path\"
+        echo \"\"
+        
+        if [[ -d \"\$repo_path/.git\" ]]; then
+          echo \"🔧 Git Repository\"
+          cd \"\$repo_path\" 2>/dev/null && {
+            echo \"\"
+            echo \"📊 Recent commits:\"
+            git log --oneline --color=always -8 2>/dev/null || echo \"  No commits\"
+            echo \"\"
+            echo \"🌿 Branches:\"
+            git branch -a --color=always 2>/dev/null | head -8 || echo \"  No branches\"
+          }
+        else
+          echo \"📄 Contents:\"
+          ls -la \"\$repo_path\" 2>/dev/null | head -10 || echo \"  Cannot access\"
+        fi
+      fi
+    " \
+    --preview-window=right:50%)"
   local dir=$root/$repo
   if [[ -n $dir && $dir != $root/ ]]; then
     BUFFER="cd $dir"
