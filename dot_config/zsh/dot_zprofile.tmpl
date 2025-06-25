@@ -23,9 +23,11 @@ if [[ ! -d "$XDG_CONFIG_HOME/op/plugins" ]]; then
 fi
 
 # Load 1Password plugins if available
-if [[ -f "$XDG_CONFIG_HOME/op/plugins.sh" ]]; then
-  source "$XDG_CONFIG_HOME/op/plugins.sh"
-fi
+# NOTE: Temporarily disabled due to vault configuration issues
+# To re-enable: run 'op plugin init gh' and uncomment below
+# if [[ -f "$XDG_CONFIG_HOME/op/plugins.sh" ]]; then
+#   source "$XDG_CONFIG_HOME/op/plugins.sh"
+# fi
 {{- end }}
 
 # Cleanup

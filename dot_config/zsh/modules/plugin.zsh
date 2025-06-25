@@ -35,7 +35,9 @@ zinit ice wait"0" lucid atinit"ZINIT[COMPINIT_OPTS]=-C; zpcompinit"
 zinit light zdharma/fast-syntax-highlighting
 
 # Completions (deferred, no compinit call - handled by init_completion)
-zinit ice wait"0" lucid blockf
+# Note: Completion system is already initialized in .zshrc via init_completion
+# This just adds additional completion definitions
+zinit ice wait"0" lucid blockf atinit"zicompinit; zicdreplay"
 zinit light zsh-users/zsh-completions
 
 # Completion styles (optimized set)
@@ -75,12 +77,43 @@ zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
 zinit ice wait"2" lucid as"completion"
 zinit snippet https://github.com/sharkdp/fd/blob/master/contrib/completion/_fd
 
-# mise completion (using eval instead of snippet)
-zinit ice wait"2" lucid atload"eval \"\$(mise completion zsh)\""
+# Tool completions with lazy loading awareness
+
+# mise - completion loaded after tool initialization in .zshrc
+# Delay longer to ensure mise is initialized first
+zinit ice wait"3" lucid atload"command -v mise >/dev/null && eval \"\$(mise completion zsh)\""
 zinit light zdharma-continuum/null
 
-# chezmoi completion (using eval instead of snippet)
-zinit ice wait"2" lucid atload"eval \"\$(chezmoi completion zsh)\""
+# chezmoi - always available
+zinit ice wait"2" lucid atload"command -v chezmoi >/dev/null && eval \"\$(chezmoi completion zsh)\""
 zinit light zdharma-continuum/null
+
+# pnpm - always available
+zinit ice wait"2" lucid atload"command -v pnpm >/dev/null && eval \"\$(pnpm completion zsh)\""
+zinit light zdharma-continuum/null
+
+# gh - always available (without 1Password integration for now)
+zinit ice wait"2" lucid atload"command -v gh >/dev/null && eval \"\$(gh completion -s zsh)\""
+zinit light zdharma-continuum/null
+
+# ripgrep completion (installed via homebrew/package manager)
+# Most package managers include completions automatically
+
+# Cargo completion (provided by rustup)
+# Run: rustup completions zsh cargo > ~/.zfunc/_cargo
+
+# atuin - completion loaded after tool initialization in .zshrc
+# Delay longer to ensure atuin is initialized first  
+zinit ice wait"3" lucid atload"command -v atuin >/dev/null && eval \"\$(atuin gen-completions --shell zsh)\""
+zinit light zdharma-continuum/null
+
+# Additional completions for common tools
+# eza (ls replacement) - if installed via brew/cargo, completions are included
+zinit ice wait"2" lucid as"completion"
+zinit snippet https://github.com/eza-community/eza/blob/main/completions/zsh/_eza
+
+# bat (cat replacement) - completions included with package
+# brew (package manager) - completions included with installation
+# kubectl - if needed, add: kubectl completion zsh > "${fpath[1]}/_kubectl"
 
 # fzf integration (handled in .zshrc with conditional loading)

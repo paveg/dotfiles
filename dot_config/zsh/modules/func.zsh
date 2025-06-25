@@ -45,7 +45,13 @@ zshtime() {
 }
 
 brewbundle() {
-  brew bundle dump --verbose --force --cleanup --cask --formula --mas --tap --global
+  local brewfile="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}/homebrew/Brewfile"
+  if [[ ! -f "$brewfile" ]]; then
+    echo "Error: Brewfile not found at $brewfile" >&2
+    return 1
+  fi
+  brew bundle dump --verbose --force --cleanup --cask --formula --mas --tap --file="$brewfile"
+  echo "Updated: $brewfile"
 }
 
 PROTECTED_BRANCHES='main|master|develop|staging'
