@@ -1,0 +1,32 @@
+# Zsh profile - loaded for login shells
+
+# Ensure ZMODDIR is set for .zprofile
+: ${ZMODDIR:="$ZDOTDIR/modules"}
+
+# Define load function for .zprofile
+function load() {
+  local lib=${1:?"Library file required"}
+  [[ -f "$lib" ]] || return 1
+  [[ -s ${lib} && (! -s ${lib}.zwc || ${lib} -nt ${lib}.zwc) ]] && zcompile ${lib} 2>/dev/null
+  source "$lib"
+}
+
+# Load essential modules
+load "$ZMODDIR/platform.zsh"
+load "$ZMODDIR/logging.zsh"
+
+{{- if eq .chezmoi.os "darwin" }}
+# macOS: 1Password CLI integration (conditional)
+if [[ ! -d "$XDG_CONFIG_HOME/op/plugins" ]]; then
+  log_warn "1password plugins is not installed"
+  log_info "Run 'op plugin init gh' to install 1password plugins"
+fi
+
+# Load 1Password plugins if available
+if [[ -f "$XDG_CONFIG_HOME/op/plugins.sh" ]]; then
+  source "$XDG_CONFIG_HOME/op/plugins.sh"
+fi
+{{- end }}
+
+# Cleanup
+unfunction load 2>/dev/null

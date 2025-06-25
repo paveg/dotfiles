@@ -1,0 +1,25 @@
+.DS_Store
+
+# JetBrains Tool
+.idea
+
+# zsh
+*.zwc
+
+# Environment
+
+## dotenv
+.env.\*
+.env
+.env.production
+
+## direnv
+.envrc
+
+# Cache
+.cache
+
+# mise
+.mise.toml
+
+**/.claude/settings.local.json

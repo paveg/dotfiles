@@ -1,0 +1,48 @@
+#!/bin/bash
+# Post-installation setup for zsh
+
+set -euo pipefail
+
+echo "=== Setting up zsh ==="
+
+{{- if eq .chezmoi.os "darwin" }}
+# macOS: Add zsh to allowed shells and set as default
+if ! grep -q "{{ .homebrew_prefix }}/bin/zsh" /etc/shells 2>/dev/null; then
+    echo "Adding Homebrew zsh to /etc/shells..."
+    echo "{{ .homebrew_prefix }}/bin/zsh" | sudo tee -a /etc/shells
+fi
+
+# Set zsh as default shell if not already (skip in CI)
+if [[ "$SHELL" != "{{ .homebrew_prefix }}/bin/zsh" ]] && [[ -z "${CI:-}" ]]; then
+    echo "Setting zsh as default shell..."
+    chsh -s "{{ .homebrew_prefix }}/bin/zsh"
+elif [[ -n "${CI:-}" ]]; then
+    echo "Skipping shell change in CI environment"
+fi
+
+{{- else if eq .chezmoi.os "linux" }}
+# Linux: Set zsh as default shell (skip in CI)
+if [[ "$SHELL" != "/usr/bin/zsh" ]] && [[ "$SHELL" != "/bin/zsh" ]] && [[ -z "${CI:-}" ]]; then
+    if command -v zsh >/dev/null; then
+        ZSH_PATH=$(which zsh)
+        echo "Setting zsh as default shell..."
+        chsh -s "$ZSH_PATH"
+    fi
+elif [[ -n "${CI:-}" ]]; then
+    echo "Skipping shell change in CI environment"
+fi
+{{- end }}
+
+# Create zsh state directory
+mkdir -p "{{ .xdg_state_home }}/zsh"
+
+# Create zsh cache directory  
+mkdir -p "{{ .xdg_cache_home }}/zsh"
+
+# Compile zsh files for performance
+if [[ -d "{{ .xdg_config_home }}/zsh" ]]; then
+    echo "Compiling zsh files for performance..."
+    find "{{ .xdg_config_home }}/zsh" -name "*.zsh" -exec zsh -c 'zcompile "$1"' _ {} \; 2>/dev/null || true
+fi
+
+echo "✓ Zsh setup completed"

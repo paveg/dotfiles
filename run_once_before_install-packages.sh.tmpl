@@ -1,0 +1,61 @@
+#!/bin/bash
+# Install packages before setting up dotfiles
+
+set -euo pipefail
+
+# Skip package installation in CI if requested
+if [[ -n "${CI_SKIP_PACKAGES:-}" ]]; then
+    echo "=== Skipping package installation (CI_SKIP_PACKAGES set) ==="
+    exit 0
+fi
+
+echo "=== Installing packages ==="
+
+{{- if eq .chezmoi.os "darwin" }}
+# macOS: Use Homebrew
+if ! command -v brew >/dev/null 2>&1; then
+    echo "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Add Homebrew to PATH for this session
+    if [[ -f "{{ .homebrew_prefix }}/bin/brew" ]]; then
+        eval "$({{ .homebrew_prefix }}/bin/brew shellenv)"
+    fi
+fi
+
+echo "Installing packages from Brewfile..."
+brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brewfile.work{{ else }}Brewfile{{ end }}" --no-lock
+
+{{- else if eq .chezmoi.os "linux" }}
+# Linux: Detect package manager and install basics
+if command -v apt >/dev/null 2>&1; then
+    echo "Using apt package manager..."
+    sudo apt update
+    sudo apt install -y curl wget git zsh build-essential
+    
+    # Install Homebrew on Linux if not present
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "Installing Homebrew for Linux..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
+    
+    # Install packages via Homebrew
+    brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/Brewfile" --no-lock
+    
+elif command -v dnf >/dev/null 2>&1; then
+    echo "Using dnf package manager..."
+    sudo dnf install -y curl wget git zsh gcc gcc-c++ make
+    
+elif command -v pacman >/dev/null 2>&1; then
+    echo "Using pacman package manager..."
+    sudo pacman -S --noconfirm curl wget git zsh base-devel
+    
+else
+    echo "No supported package manager found. Please install dependencies manually."
+    echo "Required: curl, wget, git, zsh, build tools"
+fi
+
+{{- end }}
+
+echo "✓ Package installation completed"
