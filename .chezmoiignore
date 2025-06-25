@@ -51,3 +51,23 @@ Pipfile.lock
 {{ if .business_use }}
 # Add work-specific ignores here if needed
 {{ end }}
+
+# Development files (not for deployment)
+README.md
+CLAUDE.md
+scripts/
+packages/
+install
+tests/
+
+# Git artifacts
+.git/hooks/
+.git/logs/
+.git/refs/
+.git/objects/
+
+# Temporary files
+*.backup.*
+*.tmp
+.DS_Store
+
