@@ -92,13 +92,11 @@ zinit light zdharma-continuum/null
 zinit ice wait"2" lucid atload"command -v gh >/dev/null && eval \"\$(gh completion -s zsh)\""
 zinit light zdharma-continuum/null
 
-# ripgrep completion
-zinit ice wait"2" lucid as"completion" mv"complete/_rg -> _rg"
-zinit snippet "https://github.com/BurntSushi/ripgrep/blob/master/complete/_rg"
+# ripgrep completion (installed via homebrew/package manager)
+# Most package managers include completions automatically
 
-# Cargo completion
-zinit ice wait"2" lucid as"completion" mv"_cargo -> _cargo"
-zinit snippet "https://github.com/rust-lang/cargo/blob/master/src/etc/_cargo"
+# Cargo completion (provided by rustup)
+# Run: rustup completions zsh cargo > ~/.zfunc/_cargo
 
 # Atuin completion (using eval)
 zinit ice wait"2" lucid atload"command -v atuin >/dev/null && eval \"\$(atuin gen-completions --shell zsh)\""
