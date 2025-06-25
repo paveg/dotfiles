@@ -178,7 +178,7 @@ validate_markdown() {
 
     # Check for unclosed code blocks
     local backticks
-    backticks=$(grep -c '^```' "$file" 2>/dev/null || echo "0")
+    backticks=$(grep -c '^```' "$file" 2>/dev/null) || backticks=0
     if [[ $((backticks % 2)) -ne 0 ]]; then
         print_warning "Unclosed code block in $file"
         errors=$((errors + 1))
