@@ -11,7 +11,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: 
+          - macos-latest    # macOS 14 (Sonoma)
+          - macos-13        # macOS 13 (Ventura) 
+          - ubuntu-latest   # Ubuntu 24.04 LTS
+          - ubuntu-22.04    # Ubuntu 22.04 LTS
     
     steps:
     - name: Checkout code
@@ -84,11 +88,11 @@ jobs:
         echo "=== Testing OS-specific content ==="
         export TEST_HOME="$GITHUB_WORKSPACE/test_home"
         
-        if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-          # macOS specific checks
+        if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+          # macOS specific checks (both latest and 13)
           grep -q "HOMEBREW_PREFIX" "$TEST_HOME/.zshenv" || (echo "FAIL: macOS Homebrew config missing" && exit 1)
-          echo "✓ macOS-specific content verified"
-        elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-          # Linux specific checks - should work even without linuxbrew
-          echo "✓ Linux-specific content verified"
+          echo "✓ macOS-specific content verified on ${{ matrix.os }}"
+        elif [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
+          # Linux specific checks - should work on both Ubuntu versions
+          echo "✓ Linux-specific content verified on ${{ matrix.os }}"
         fi
