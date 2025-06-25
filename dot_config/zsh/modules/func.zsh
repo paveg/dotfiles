@@ -14,7 +14,40 @@
 
 _fzf_cd_ghq() {
   local root="$(ghq root)"
-  local repo="$(ghq list | fzf --reverse --height=60% --preview="bat --color=always --style=header,grid --line-range :80 ${root}/{}/README.*" --preview-window=right:50%)"
+  local repo="$(ghq list | fzf --reverse --height=60% \
+    --preview='
+      repo_path="'$root'/{}"
+      # Try README files first
+      for readme in README.md README.rst README.txt README readme.md; do
+        if [[ -f "$repo_path/$readme" ]]; then
+          echo "📖 $readme"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          bat --color=always --style=grid --line-range :50 "$repo_path/$readme" 2>/dev/null || head -50 "$repo_path/$readme"
+          exit
+        fi
+      done
+      
+      # Fallback when no README
+      echo "📁 $(basename "$repo_path")"
+      echo "📍 $repo_path"
+      echo ""
+      
+      if [[ -d "$repo_path/.git" ]]; then
+        echo "🔧 Git Repository"
+        cd "$repo_path" 2>/dev/null && {
+          echo ""
+          echo "📊 Recent commits:"
+          git log --oneline --color=always -8 2>/dev/null || echo "  No commits"
+          echo ""
+          echo "🌿 Branches:"
+          git branch -a --color=always 2>/dev/null | head -8 || echo "  No branches"
+        }
+      else
+        echo "📄 Contents:"
+        ls -la "$repo_path" 2>/dev/null | head -10 || echo "  Cannot access"
+      fi
+    ' \
+    --preview-window=right:50%)"
   local dir=$root/$repo
   if [[ -n $dir && $dir != $root/ ]]; then
     BUFFER="cd $dir"
