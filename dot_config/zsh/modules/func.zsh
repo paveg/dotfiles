@@ -13,7 +13,7 @@
 
 _fzf_cd_ghq() {
   local root="$(ghq root)"
-  local repo="$(ghq list | fzf --preview="bat --color=always --style=header,grid --line-range :80 ${root}/{}/README.*")"
+  local repo="$(ghq list | fzf --reverse --height=60% --preview="bat --color=always --style=header,grid --line-range :80 ${root}/{}/README.*" --preview-window=right:50%)"
   local dir=$root/$repo
   if [[ -n $dir && $dir != $root/ ]]; then
     BUFFER="cd $dir"
