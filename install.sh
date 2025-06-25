@@ -15,8 +15,16 @@ readonly XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
 readonly XDG_STATE_HOME="${XDG_STATE_HOME:-${HOME}/.local/state}"
 readonly GLOBAL_BREWFILE_PATH="${HOME}/.Brewfile"
 
-# Source utilities
-source "${ZMODDIR}/utils.zsh"
+# Source utilities (utils.zsh has been split into separate modules)
+if [[ -f "${ZMODDIR}/platform.zsh" ]]; then
+    source "${ZMODDIR}/platform.zsh"
+fi
+if [[ -f "${ZMODDIR}/logging.zsh" ]]; then
+    source "${ZMODDIR}/logging.zsh"
+fi
+if [[ -f "${ZMODDIR}/strings.zsh" ]]; then
+    source "${ZMODDIR}/strings.zsh"
+fi
 
 # Helper functions
 create_directory() {
