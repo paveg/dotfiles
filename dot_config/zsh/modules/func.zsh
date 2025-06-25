@@ -17,34 +17,38 @@ _fzf_cd_ghq() {
   local repo="$(ghq list | fzf --reverse --height=60% \
     --preview='
       repo_path="'$root'/{}"
-      # Try README files first
-      for readme in README.md README.rst README.txt README readme.md; do
-        if [[ -f "$repo_path/$readme" ]]; then
-          echo "📖 $readme"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          bat --color=always --style=grid --line-range :50 "$repo_path/$readme" 2>/dev/null || head -50 "$repo_path/$readme"
-          exit
-        fi
-      done
       
-      # Fallback when no README
-      echo "📁 $(basename "$repo_path")"
-      echo "📍 $repo_path"
-      echo ""
-      
-      if [[ -d "$repo_path/.git" ]]; then
-        echo "🔧 Git Repository"
-        cd "$repo_path" 2>/dev/null && {
-          echo ""
-          echo "📊 Recent commits:"
-          git log --oneline --color=always -8 2>/dev/null || echo "  No commits"
-          echo ""
-          echo "🌿 Branches:"
-          git branch -a --color=always 2>/dev/null | head -8 || echo "  No branches"
-        }
+      # Check for README files - if found, use bat directly
+      if [[ -f "$repo_path/README.md" ]]; then
+        bat --color=always --style=header,grid --line-range :80 "$repo_path/README.md"
+      elif [[ -f "$repo_path/README.rst" ]]; then
+        bat --color=always --style=header,grid --line-range :80 "$repo_path/README.rst"
+      elif [[ -f "$repo_path/README.txt" ]]; then
+        bat --color=always --style=header,grid --line-range :80 "$repo_path/README.txt"
+      elif [[ -f "$repo_path/README" ]]; then
+        bat --color=always --style=header,grid --line-range :80 "$repo_path/README"
+      elif [[ -f "$repo_path/readme.md" ]]; then
+        bat --color=always --style=header,grid --line-range :80 "$repo_path/readme.md"
       else
-        echo "📄 Contents:"
-        ls -la "$repo_path" 2>/dev/null | head -10 || echo "  Cannot access"
+        # Fallback when no README found
+        echo "📁 $(basename "$repo_path")"
+        echo "📍 $repo_path"
+        echo ""
+        
+        if [[ -d "$repo_path/.git" ]]; then
+          echo "🔧 Git Repository"
+          cd "$repo_path" 2>/dev/null && {
+            echo ""
+            echo "📊 Recent commits:"
+            git log --oneline --color=always -8 2>/dev/null || echo "  No commits"
+            echo ""
+            echo "🌿 Branches:"
+            git branch -a --color=always 2>/dev/null | head -8 || echo "  No branches"
+          }
+        else
+          echo "📄 Contents:"
+          ls -la "$repo_path" 2>/dev/null | head -10 || echo "  Cannot access"
+        fi
       fi
     ' \
     --preview-window=right:50%)"
