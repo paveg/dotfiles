@@ -83,4 +83,30 @@ zinit light zdharma-continuum/null
 zinit ice wait"2" lucid atload"eval \"\$(chezmoi completion zsh)\""
 zinit light zdharma-continuum/null
 
+# Additional tool completions
+zinit ice wait"2" lucid as"completion"
+zinit snippet https://github.com/pnpm/pnpm/blob/main/completions/zsh/_pnpm
+
+zinit ice wait"2" lucid as"completion"  
+zinit snippet https://github.com/cli/cli/blob/trunk/share/zsh/site-functions/_gh
+
+zinit ice wait"2" lucid as"completion"
+zinit snippet https://github.com/BurntSushi/ripgrep/blob/master/complete/_rg
+
+# Go completion (using eval)
+zinit ice wait"2" lucid atload"command -v go >/dev/null && complete -o default -F __start_go go"
+zinit light zdharma-continuum/null
+
+# Cargo completion (using eval)
+zinit ice wait"2" lucid atload"command -v cargo >/dev/null && eval \"\$(rustup completions zsh cargo)\""
+zinit light zdharma-continuum/null
+
+# Rustc completion (using eval)
+zinit ice wait"2" lucid atload"command -v rustc >/dev/null && eval \"\$(rustup completions zsh)\""
+zinit light zdharma-continuum/null
+
+# Atuin completion (using eval)
+zinit ice wait"2" lucid atload"command -v atuin >/dev/null && eval \"\$(atuin gen-completions --shell zsh)\""
+zinit light zdharma-continuum/null
+
 # fzf integration (handled in .zshrc with conditional loading)
