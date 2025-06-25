@@ -13,7 +13,7 @@
 # - Removes unnecessary blank lines
 # ============================================================================
 
-set -e
+set -euo pipefail
 
 # Cleanup function for backup files
 cleanup_backups() {
@@ -319,28 +319,23 @@ main() {
     local error_count=0
 
     for file in "${all_files[@]}"; do
-        echo "Processing file: $file" >&2  # Debug output
         if [[ "$check_only" == true ]]; then
             # Check mode - validate syntax only
             if validate_syntax "$file"; then
                 print_success "✓ $file"
-                ((success_count++))
+                success_count=$((success_count + 1))
             else
                 print_error "✗ $file"
-                ((error_count++))
+                error_count=$((error_count + 1))
             fi
         else
             # Format mode
-            echo "About to format: $file" >&2  # Debug output
             if format_file "$file"; then
-                echo "Successfully formatted: $file" >&2  # Debug output
-                ((success_count++))
+                success_count=$((success_count + 1))
             else
-                echo "Failed to format: $file" >&2  # Debug output
-                ((error_count++))
+                error_count=$((error_count + 1))
             fi
         fi
-        echo "Finished processing: $file" >&2  # Debug output
     done
 
     # Summary
