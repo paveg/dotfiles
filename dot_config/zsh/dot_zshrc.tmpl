@@ -22,7 +22,8 @@ function load() {
   source "$lib"
 }
 
-# Load core modules
+# Load core modules (order matters!)
+load "$ZMODDIR/platform.zsh"  # Must be first - provides is_exist_command
 load "$ZMODDIR/core.zsh"
 load "$ZMODDIR/completion.zsh"
 load "$ZMODDIR/history.zsh"
@@ -100,8 +101,8 @@ if [[ -n "${ZPROFILER:-}" ]] || [[ -n "${ZSH_PROF:-}" ]]; then
   echo "Zsh startup time: ${startup_time}ms"
 fi
 
-# Auto-rehash for new commands
-setopt auto_rehash
+# Auto-rehash for new commands (if supported)
+setopt auto_rehash 2>/dev/null || setopt rehash 2>/dev/null || true
 
 # Final setup
 unfunction load 2>/dev/null

@@ -19,6 +19,11 @@ alias vim="nvim"
 # These are for zsh modules editing
 alias zmod="nvim $ZMODDIR"
 
+# Check if is_exist_command is available, define fallback if not
+if ! command -v is_exist_command >/dev/null 2>&1; then
+  is_exist_command() { command -v "$1" >/dev/null 2>&1; }
+fi
+
 is_exist_command eza && {
   alias ls="eza"
   alias ll="eza -l"
