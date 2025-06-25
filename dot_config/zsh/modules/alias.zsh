@@ -40,9 +40,11 @@ is_exist_command fd && {
   alias find="fd"
 }
 
-is_exist_command op && is_exist_command gh && {
-  alias gh="op plugin run -- gh"
-}
+# 1Password gh integration - disabled due to vault configuration issues
+# To re-enable: run 'op plugin init gh' and uncomment below
+# is_exist_command op && is_exist_command gh && {
+#   alias gh="op plugin run -- gh"
+# }
 
 # Lazygit
 alias lg="lazygit"
