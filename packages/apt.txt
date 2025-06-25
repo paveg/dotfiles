@@ -1,0 +1,14 @@
+# Ubuntu/Debian packages (apt)
+# Essential CLI tools only
+curl
+wget
+git
+zsh
+tmux
+fd-find
+ripgrep
+fzf
+bat
+exa
+neovim
+jq

@@ -41,7 +41,6 @@ load "$ZMODDIR/keybind.zsh"
 load "$ZMODDIR/plugin.zsh"
 
 # Tool initialization - smart approach for performance and reliability
-{{- if ne .chezmoi.os "linux" }}
 # mise: Conditional initialization based on shell context
 if command -v mise >/dev/null; then
   # If in tmux, zellij (session active), or nested shell (SHLVL > 2), initialize immediately for consistency
@@ -59,7 +58,6 @@ if command -v mise >/dev/null; then
     function mise() { _lazy_mise "$@" }
   fi
 fi
-{{- end }}
 
 # atuin: History search tool with conditional loading
 if command -v atuin >/dev/null; then

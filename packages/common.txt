@@ -1,0 +1,22 @@
+# Common packages across all Linux distributions
+# Essential CLI tools that should be available everywhere
+
+# Version control and development
+git
+curl
+wget
+
+# Shell and terminal tools
+zsh
+tmux
+
+# Modern CLI replacements
+fd      # find replacement
+ripgrep # grep replacement
+fzf     # fuzzy finder
+bat     # cat replacement
+exa     # ls replacement (Arch only)
+
+# Editor and text processing
+neovim
+jq

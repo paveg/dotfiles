@@ -30,15 +30,6 @@ export INFOPATH="{{ .homebrew_prefix }}/share/info:$INFOPATH"
 export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_NO_AUTO_UPDATE=1
 
-{{- else if eq .chezmoi.os "linux" }}
-# Linux specific
-if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
-    export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
-    export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
-    export MANPATH="/home/linuxbrew/.linuxbrew/share/man:$MANPATH"
-    export INFOPATH="/home/linuxbrew/.linuxbrew/share/info:$INFOPATH"
-fi
-
 {{- end }}
 
 # Tool configuration
@@ -51,11 +42,14 @@ export MISE_CACHE_DIR="$XDG_CACHE_HOME/mise"
 export GIT_CONFIG_GLOBAL="$XDG_CONFIG_HOME/git/config"
 
 # Development tools
-export GOPATH="$XDG_DATA_HOME/go"
+export GOPATH="$HOME/repos"
 export CARGO_HOME="$XDG_DATA_HOME/cargo"
 export RUSTUP_HOME="$XDG_DATA_HOME/rustup"
 export NODE_REPL_HISTORY="$XDG_DATA_HOME/node_repl_history"
 export NPM_CONFIG_USERCONFIG="$XDG_CONFIG_HOME/npm/npmrc"
+
+# ghq: Git repository management
+export GHQ_ROOT="$HOME/repos"
 
 # Zsh specific
 export HISTFILE="$XDG_STATE_HOME/zsh/history"
