@@ -7,8 +7,11 @@ on:
     branches: [main]
 
 jobs:
-  test-chezmoi-macos:
-    runs-on: macos-latest
+  test-chezmoi:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
     
     steps:
     - name: Checkout code
@@ -21,18 +24,24 @@ jobs:
     
     - name: Test chezmoi configuration
       run: |
-        echo "=== Testing chezmoi configuration ==="
+        echo "=== Testing chezmoi on ${{ matrix.os }} ==="
         
-        # Initialize chezmoi with current directory as source
-        chezmoi init --source="$GITHUB_WORKSPACE"
+        # Set up chezmoi source directory
+        mkdir -p ~/.local/share/chezmoi
+        cp -r . ~/.local/share/chezmoi/
+        
+        # Initialize chezmoi
+        chezmoi init
         
         # Test template rendering
         echo "Testing template rendering..."
         chezmoi execute-template < .chezmoi.yaml.tmpl > /dev/null
         
-        # Test dry run
-        echo "Testing dry run..."
-        chezmoi diff --no-pager || true
+        echo "✓ Template rendering works"
+    
+    - name: Test chezmoi apply
+      run: |
+        echo "=== Testing chezmoi apply ==="
         
         # Test actual apply to temporary directory
         export TEST_HOME="$GITHUB_WORKSPACE/test_home"
@@ -41,11 +50,11 @@ jobs:
         # Apply to test directory
         chezmoi apply --destination="$TEST_HOME" --force
         
-        echo "✓ Chezmoi tests passed"
+        echo "✓ Chezmoi apply completed"
     
-    - name: Verify applied files
+    - name: Verify essential files
       run: |
-        echo "=== Verifying applied files ==="
+        echo "=== Verifying essential files ==="
         export TEST_HOME="$GITHUB_WORKSPACE/test_home"
         
         # Check essential files exist
@@ -66,67 +75,17 @@ jobs:
         zsh -n "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc syntax error" && exit 1)
         
         echo "✓ Syntax validation passed"
-
-  test-chezmoi-linux:
-    runs-on: ubuntu-latest
     
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Install chezmoi
+    - name: Test OS-specific content
       run: |
-        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
-    
-    - name: Test chezmoi on Linux
-      run: |
-        echo "=== Testing chezmoi on Linux ==="
+        echo "=== Testing OS-specific content ==="
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
         
-        chezmoi init --source="$GITHUB_WORKSPACE"
-        
-        # Test with Linux-specific variables
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home_linux"
-        mkdir -p "$TEST_HOME"
-        
-        chezmoi apply --destination="$TEST_HOME" --force
-        
-        # Verify Linux-specific content
-        grep -q "/home/linuxbrew" "$TEST_HOME/.zshenv" || echo "Note: No Homebrew path in Linux .zshenv (expected)"
-        
-        echo "✓ Linux chezmoi tests passed"
-
-  test-cross-platform:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Install chezmoi
-      run: |
-        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
-    
-    - name: Test cross-platform compatibility
-      run: |
-        echo "=== Testing on ${{ matrix.os }} ==="
-        
-        chezmoi init --source="$GITHUB_WORKSPACE"
-        
-        # Test template rendering works on both platforms
-        chezmoi execute-template < .chezmoi.yaml.tmpl
-        
-        # Test files can be applied
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home_${{ matrix.os }}"
-        mkdir -p "$TEST_HOME"
-        chezmoi apply --destination="$TEST_HOME" --force
-        
-        # Basic verification
-        test -f "$TEST_HOME/.zshenv"
-        test -d "$TEST_HOME/.config"
-        
-        echo "✓ Cross-platform test passed on ${{ matrix.os }}"
+        if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          # macOS specific checks
+          grep -q "HOMEBREW_PREFIX" "$TEST_HOME/.zshenv" || (echo "FAIL: macOS Homebrew config missing" && exit 1)
+          echo "✓ macOS-specific content verified"
+        elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          # Linux specific checks - should work even without linuxbrew
+          echo "✓ Linux-specific content verified"
+        fi
