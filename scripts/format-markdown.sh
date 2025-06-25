@@ -181,19 +181,19 @@ validate_markdown() {
     backticks=$(grep -c '^```' "$file" 2>/dev/null || echo "0")
     if [[ $((backticks % 2)) -ne 0 ]]; then
         print_warning "Unclosed code block in $file"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check for malformed links
     if grep -q '\[.*\]([^)]*$' "$file" 2>/dev/null; then
         print_warning "Malformed links in $file"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check for malformed images
     if grep -q '!\[.*\]([^)]*$' "$file" 2>/dev/null; then
         print_warning "Malformed images in $file"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     return $errors
@@ -359,17 +359,17 @@ main() {
             # Check mode - validate only
             if validate_markdown "$file"; then
                 print_success "✓ $file"
-                ((success_count++))
+                success_count=$((success_count + 1))
             else
                 print_error "✗ $file"
-                ((error_count++))
+                error_count=$((error_count + 1))
             fi
         else
             # Format mode
             if format_file "$file"; then
-                ((success_count++))
+                success_count=$((success_count + 1))
             else
-                ((error_count++))
+                error_count=$((error_count + 1))
             fi
         fi
     done
