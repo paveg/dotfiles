@@ -84,26 +84,23 @@ zinit ice wait"2" lucid atload"eval \"\$(chezmoi completion zsh)\""
 zinit light zdharma-continuum/null
 
 # Additional tool completions
+# pnpm completion
 zinit ice wait"2" lucid as"completion"
-zinit snippet https://github.com/pnpm/pnpm/blob/main/completions/zsh/_pnpm
+zinit snippet https://raw.githubusercontent.com/pnpm/pnpm/main/completions/zsh/_pnpm
 
-zinit ice wait"2" lucid as"completion"  
-zinit snippet https://github.com/cli/cli/blob/trunk/share/zsh/site-functions/_gh
-
+# GitHub CLI completion  
 zinit ice wait"2" lucid as"completion"
-zinit snippet https://github.com/BurntSushi/ripgrep/blob/master/complete/_rg
+zinit snippet https://raw.githubusercontent.com/cli/cli/trunk/share/zsh/site-functions/_gh
 
-# Go completion (using eval)
-zinit ice wait"2" lucid atload"command -v go >/dev/null && complete -o default -F __start_go go"
-zinit light zdharma-continuum/null
+# ripgrep completion
+zinit ice wait"2" lucid as"completion"
+zinit snippet https://raw.githubusercontent.com/BurntSushi/ripgrep/master/complete/_rg
 
-# Cargo completion (using eval)
-zinit ice wait"2" lucid atload"command -v cargo >/dev/null && eval \"\$(rustup completions zsh cargo)\""
-zinit light zdharma-continuum/null
-
-# Rustc completion (using eval)
-zinit ice wait"2" lucid atload"command -v rustc >/dev/null && eval \"\$(rustup completions zsh)\""
-zinit light zdharma-continuum/null
+# Cargo and Rust completions (if rustup is available)
+if command -v rustup >/dev/null 2>&1; then
+  zinit ice wait"2" lucid as"completion"
+  zinit snippet https://raw.githubusercontent.com/rust-lang/cargo/master/src/etc/_cargo
+fi
 
 # Atuin completion (using eval)
 zinit ice wait"2" lucid atload"command -v atuin >/dev/null && eval \"\$(atuin gen-completions --shell zsh)\""
