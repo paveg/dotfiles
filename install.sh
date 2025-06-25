@@ -16,14 +16,28 @@ readonly XDG_STATE_HOME="${XDG_STATE_HOME:-${HOME}/.local/state}"
 readonly GLOBAL_BREWFILE_PATH="${HOME}/.Brewfile"
 
 # Source utilities (utils.zsh has been split into separate modules)
-if [[ -f "${ZMODDIR}/platform.zsh" ]]; then
-    source "${ZMODDIR}/platform.zsh"
-fi
-if [[ -f "${ZMODDIR}/logging.zsh" ]]; then
-    source "${ZMODDIR}/logging.zsh"
-fi
-if [[ -f "${ZMODDIR}/strings.zsh" ]]; then
-    source "${ZMODDIR}/strings.zsh"
+# Define fallback functions for CI environment
+if [[ -n "${CI}" ]]; then
+    # Minimal logging functions for CI
+    log_info() { echo "[INFO] $*"; }
+    log_warn() { echo "[WARN] $*"; }
+    log_error() { echo "[ERROR] $*" >&2; }
+    log_pass() { echo "[PASS] $*"; }
+    
+    # Minimal platform detection
+    is_osx() { [[ "$OSTYPE" == darwin* ]]; }
+    is_linux() { [[ "$OSTYPE" == linux* ]]; }
+else
+    # Load full modules in normal environment
+    if [[ -f "${ZMODDIR}/platform.zsh" ]]; then
+        source "${ZMODDIR}/platform.zsh"
+    fi
+    if [[ -f "${ZMODDIR}/logging.zsh" ]]; then
+        source "${ZMODDIR}/logging.zsh"
+    fi
+    if [[ -f "${ZMODDIR}/strings.zsh" ]]; then
+        source "${ZMODDIR}/strings.zsh"
+    fi
 fi
 
 # Helper functions
