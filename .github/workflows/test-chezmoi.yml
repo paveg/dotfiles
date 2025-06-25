@@ -47,6 +47,9 @@ jobs:
         export TEST_HOME="$GITHUB_WORKSPACE/test_home"
         mkdir -p "$TEST_HOME"
         
+        # Skip package installation in CI for faster tests
+        export CI_SKIP_PACKAGES=1
+        
         # Apply to test directory
         chezmoi apply --destination="$TEST_HOME" --force
         
