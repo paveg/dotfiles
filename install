@@ -58,3 +58,4 @@ echo "  • Restart your terminal: exec \$SHELL -l"
 echo "  • Check configuration: chezmoi status"
 echo "  • Update packages: brewbundle"
 echo "  • Profile shell startup: zprofiler"
+
