@@ -16,7 +16,7 @@ _fzf_cd_ghq() {
   local root="$(ghq root)"
   local repo="$(ghq list | fzf --reverse --height=60% \
     --preview="
-      repo_path=\"$root/{}\"
+      repo_path=$root/{}
       
       # Check for README files - if found, use bat directly
       if [[ -f \"\$repo_path/README.md\" ]]; then
@@ -30,7 +30,7 @@ _fzf_cd_ghq() {
       elif [[ -f \"\$repo_path/readme.md\" ]]; then
         bat --color=always --style=header,grid --line-range :80 \"\$repo_path/readme.md\"
       else
-        # Fallback when no README found
+        echo \"\"
         echo \"📁 \$(basename \"\$repo_path\")\"
         echo \"📍 \$repo_path\"
         echo \"\"
