@@ -189,7 +189,7 @@ jobs:
         echo "✓ Zsh loading test passed"
     
     - name: Test business environment
-      if: matrix.business_use == true
+      if: matrix.business_use == 'true'
       run: |
         echo "=== Testing business environment specifics ==="
         export TEST_HOME="$GITHUB_WORKSPACE/test_home"
