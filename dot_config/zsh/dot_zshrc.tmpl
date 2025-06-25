@@ -4,8 +4,12 @@
 # Skip if not interactive
 [[ $- != *i* ]] && return
 
-# Performance marker
+# Performance marker - use compatible timestamp
+{{- if eq .chezmoi.os "darwin" }}
+typeset -g SHELL_STARTUP_TIME=$(date +%s)000
+{{- else }}
 typeset -g SHELL_STARTUP_TIME=$(date +%s%3N)
+{{- end }}
 
 # Module directory
 readonly ZMODDIR="$ZDOTDIR/modules"
@@ -25,11 +29,14 @@ function load() {
 # Load core modules (order matters!)
 load "$ZMODDIR/platform.zsh"  # Must be first - provides is_exist_command
 load "$ZMODDIR/core.zsh"
-load "$ZMODDIR/completion.zsh"
-load "$ZMODDIR/history.zsh"
 
-# Initialize completion system (cached)
-init_completion
+# Initialize completion system (cached) - ensure core.zsh is loaded first
+if (( $+functions[init_completion] )); then
+  init_completion
+else
+  # Fallback to basic compinit if init_completion not available
+  autoload -Uz compinit && compinit
+fi
 
 # Load configuration modules
 load "$ZMODDIR/config.zsh"
@@ -94,8 +101,12 @@ fi
 
 # Performance reporting (development mode)
 if [[ -n "${ZPROFILER:-}" ]] || [[ -n "${ZSH_PROF:-}" ]]; then
+{{- if eq .chezmoi.os "darwin" }}
+  local end_time=$(date +%s)000
+{{- else }}
   local end_time=$(date +%s%3N)
-  local startup_time=$((end_time - SHELL_STARTUP_TIME))
+{{- end }}
+  local startup_time=$((end_time - ${SHELL_STARTUP_TIME:-$end_time}))
   echo "Zsh startup time: ${startup_time}ms"
 fi
 
@@ -104,8 +115,12 @@ setopt auto_rehash 2>/dev/null || setopt rehash 2>/dev/null || true
 
 # Startup success notification
 if [[ -o interactive ]]; then
+{{- if eq .chezmoi.os "darwin" }}
+  local end_time=$(date +%s)000
+{{- else }}
   local end_time=$(date +%s%3N)
-  local startup_time=$((end_time - SHELL_STARTUP_TIME))
+{{- end }}
+  local startup_time=$((end_time - ${SHELL_STARTUP_TIME:-$end_time}))
   
   # Success message with startup time
   printf "\033[32m✓\033[0m Zsh loaded successfully"
