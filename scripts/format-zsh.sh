@@ -15,6 +15,14 @@
 
 set -euo pipefail
 
+# Cleanup function for backup files
+cleanup_backups() {
+    find . -name "*.backup.*" -type f -delete 2>/dev/null || true
+}
+
+# Set trap to clean up on exit
+trap cleanup_backups EXIT
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -180,7 +188,7 @@ format_file() {
 
     # Validate result
     if validate_syntax "$file"; then
-        rm "$backup_file"
+        rm -f "$backup_file"
         check_indentation "$file"
         print_success "Formatted $file"
         return 0
@@ -336,6 +344,9 @@ main() {
         print_error "Failed: $error_count files"
         exit 1
     fi
+
+    # Clean up any remaining backup files (safety net)
+    find . -name "*.backup.*" -type f -delete 2>/dev/null || true
 }
 
 # Run main function

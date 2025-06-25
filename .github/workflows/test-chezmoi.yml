@@ -32,6 +32,12 @@ jobs:
         ./scripts/format-markdown.sh -d . -r
         echo "✓ Markdown formatting completed"
     
+    - name: Clean up backup files
+      run: |
+        echo "=== Cleaning up backup files ==="
+        find . -name "*.backup.*" -type f -delete 2>/dev/null || true
+        echo "✓ Backup file cleanup completed"
+    
     - name: Check for formatting changes
       run: |
         echo "=== Checking for formatting changes ==="
