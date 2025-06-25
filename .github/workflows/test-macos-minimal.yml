@@ -1,0 +1,45 @@
+name: Test macOS Minimal
+
+on:
+  push:
+    branches: [main, test-driven-development]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-macos-core:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Test 1: Zsh shell can start
+    - name: Test 1 - Zsh shell starts without errors
+      run: |
+        echo "TEST 1: Zsh shell startup"
+        zsh -c 'echo "✓ Zsh started successfully"'
+        
+    # Test 2: Core directories exist
+    - name: Test 2 - Core directory structure
+      run: |
+        echo "TEST 2: Directory structure verification"
+        test -d "zsh.d" || exit 1
+        test -d "zsh.d/modules" || exit 1
+        echo "✓ Core directories exist"
+        
+    # Test 3: Essential files are valid
+    - name: Test 3 - Zsh files syntax check
+      run: |
+        echo "TEST 3: Syntax validation"
+        zsh -n zsh.d/.zshrc || exit 1
+        zsh -n zsh.d/.zshenv || exit 1
+        echo "✓ Syntax validation passed"
+        
+    # Test 4: Installation script exists and is executable
+    - name: Test 4 - Installation script check
+      run: |
+        echo "TEST 4: Installation script"
+        test -f "install.sh" || exit 1
+        test -x "install.sh" || chmod +x install.sh
+        echo "✓ Installation script ready"

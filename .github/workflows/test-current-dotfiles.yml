@@ -1,0 +1,58 @@
+name: Test Current Dotfiles
+
+on:
+  push:
+    branches: [main, chezmoi-migration]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-current-setup:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04, macos-12, macos-13]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install base dependencies (Ubuntu)
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y zsh git curl
+        
+    - name: Install base dependencies (macOS)
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        brew install zsh git
+        
+    - name: Run installation script
+      run: |
+        chmod +x install.sh
+        ./install.sh
+      env:
+        CI: true
+        
+    - name: Test shell startup
+      run: |
+        zsh -c "source ~/.zshrc && echo 'Shell loaded successfully'"
+        
+    - name: Measure startup time
+      run: |
+        echo "Measuring zsh startup time..."
+        time zsh -i -c exit
+        
+    - name: Check essential commands
+      run: |
+        zsh -c "source ~/.zshrc && command -v git"
+        zsh -c "source ~/.zshrc && command -v nvim || echo 'nvim not found (expected)'"
+        
+    - name: Validate zsh syntax
+      run: |
+        find zsh.d -name "*.zsh" -type f -exec zsh -n {} \;
+        
+    - name: Run zsh formatter check
+      run: |
+        ./scripts/format-zsh.sh -c -d zsh.d -r
