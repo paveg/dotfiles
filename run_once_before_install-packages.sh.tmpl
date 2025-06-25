@@ -3,6 +3,12 @@
 
 set -euo pipefail
 
+# Skip package installation in CI if requested
+if [[ -n "${CI_SKIP_PACKAGES:-}" ]]; then
+    echo "=== Skipping package installation (CI_SKIP_PACKAGES set) ==="
+    exit 0
+fi
+
 echo "=== Installing packages ==="
 
 {{- if eq .chezmoi.os "darwin" }}
