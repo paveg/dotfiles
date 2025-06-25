@@ -84,23 +84,21 @@ zinit ice wait"2" lucid atload"eval \"\$(chezmoi completion zsh)\""
 zinit light zdharma-continuum/null
 
 # Additional tool completions
-# pnpm completion
-zinit ice wait"2" lucid as"completion"
-zinit snippet https://raw.githubusercontent.com/pnpm/pnpm/main/completions/zsh/_pnpm
+# pnpm completion (using eval approach for reliability)
+zinit ice wait"2" lucid atload"command -v pnpm >/dev/null && eval \"\$(pnpm completion zsh)\""
+zinit light zdharma-continuum/null
 
-# GitHub CLI completion  
-zinit ice wait"2" lucid as"completion"
-zinit snippet https://raw.githubusercontent.com/cli/cli/trunk/share/zsh/site-functions/_gh
+# GitHub CLI completion (using eval)
+zinit ice wait"2" lucid atload"command -v gh >/dev/null && eval \"\$(gh completion -s zsh)\""
+zinit light zdharma-continuum/null
 
 # ripgrep completion
-zinit ice wait"2" lucid as"completion"
-zinit snippet https://raw.githubusercontent.com/BurntSushi/ripgrep/master/complete/_rg
+zinit ice wait"2" lucid as"completion" mv"complete/_rg -> _rg"
+zinit snippet "https://github.com/BurntSushi/ripgrep/blob/master/complete/_rg"
 
-# Cargo and Rust completions (if rustup is available)
-if command -v rustup >/dev/null 2>&1; then
-  zinit ice wait"2" lucid as"completion"
-  zinit snippet https://raw.githubusercontent.com/rust-lang/cargo/master/src/etc/_cargo
-fi
+# Cargo completion
+zinit ice wait"2" lucid as"completion" mv"_cargo -> _cargo"
+zinit snippet "https://github.com/rust-lang/cargo/blob/master/src/etc/_cargo"
 
 # Atuin completion (using eval)
 zinit ice wait"2" lucid atload"command -v atuin >/dev/null && eval \"\$(atuin gen-completions --shell zsh)\""
