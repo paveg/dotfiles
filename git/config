@@ -1,4 +1,0 @@
-[include]
-	path = ~/.config/git/main
-[includeIf "gitdir:~/repos/github.com/C-FO/**"]
-	path = ~/.config/git/freee

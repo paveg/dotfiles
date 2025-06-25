@@ -24,7 +24,7 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 echo "Installing packages from Brewfile..."
-brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brewfile.work{{ else }}Brewfile{{ end }}" --no-lock
+brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brewfile.work{{ else }}Brewfile{{ end }}"
 
 {{- else if eq .chezmoi.os "linux" }}
 # Linux: Detect package manager and install basics
@@ -41,7 +41,7 @@ if command -v apt >/dev/null 2>&1; then
     fi
     
     # Install packages via Homebrew
-    brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/Brewfile" --no-lock
+    brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/Brewfile"
     
 elif command -v dnf >/dev/null 2>&1; then
     echo "Using dnf package manager..."
