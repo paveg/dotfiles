@@ -15,6 +15,11 @@ readonly XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
 readonly XDG_STATE_HOME="${XDG_STATE_HOME:-${HOME}/.local/state}"
 readonly GLOBAL_BREWFILE_PATH="${HOME}/.Brewfile"
 
+# Define common functions first (always available)
+is_exist_command() { command -v "$1" >/dev/null 2>&1; }
+is_osx() { [[ "$OSTYPE" == darwin* ]]; }
+is_linux() { [[ "$OSTYPE" == linux* ]]; }
+
 # Source utilities (utils.zsh has been split into separate modules)
 # Define fallback functions for CI environment
 if [[ -n "${CI}" ]]; then
@@ -23,10 +28,8 @@ if [[ -n "${CI}" ]]; then
     log_warn() { echo "[WARN] $*"; }
     log_error() { echo "[ERROR] $*" >&2; }
     log_pass() { echo "[PASS] $*"; }
-    
-    # Minimal platform detection
-    is_osx() { [[ "$OSTYPE" == darwin* ]]; }
-    is_linux() { [[ "$OSTYPE" == linux* ]]; }
+    log_fail() { echo "[FAIL] $*" >&2; }
+    log_echo() { echo "$*"; }
 else
     # Load full modules in normal environment
     if [[ -f "${ZMODDIR}/platform.zsh" ]]; then
