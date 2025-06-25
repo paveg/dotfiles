@@ -11,38 +11,48 @@
 # - Various other workflow helpers
 # ============================================================================
 
+_ghq_preview() {
+  local repo_path="$1"
+  
+  # Try to find and display README files
+  for readme in README.md README.rst README.txt README readme.md readme.rst readme.txt readme; do
+    if [[ -f "$repo_path/$readme" ]]; then
+      echo "📖 $readme"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      bat --color=always --style=grid --line-range :50 "$repo_path/$readme" 2>/dev/null || cat "$repo_path/$readme" 2>/dev/null
+      return 0
+    fi
+  done
+  
+  # Fallback: No README found
+  echo "📁 Repository: $(basename "$repo_path")"
+  echo "📍 Path: $repo_path"
+  echo ""
+  
+  if [[ -d "$repo_path/.git" ]]; then
+    echo "🔧 Git Repository"
+    echo ""
+    if command -v git >/dev/null; then
+      cd "$repo_path" 2>/dev/null && {
+        echo "📊 Latest commits:"
+        git log --oneline --color=always -8 2>/dev/null || echo "  No commit history"
+        echo ""
+        echo "🌿 Branches:"
+        git branch -a --color=always 2>/dev/null | head -8 || echo "  No branches"
+        echo ""
+        echo "📈 Repository status:"
+        git status --porcelain 2>/dev/null | head -5 | sed 's/^/  /' || echo "  Clean working directory"
+      }
+    fi
+  else
+    echo "📄 Directory contents:"
+    ls -la "$repo_path" 2>/dev/null | head -15 || echo "  Cannot list directory"
+  fi
+}
+
 _fzf_cd_ghq() {
   local root="$(ghq root)"
-  local preview_cmd='
-    repo_path="'$root'/{}"
-    if [[ -f "$repo_path/README.md" ]]; then
-      bat --color=always --style=header,grid --line-range :80 "$repo_path/README.md"
-    elif [[ -f "$repo_path/README.rst" ]]; then
-      bat --color=always --style=header,grid --line-range :80 "$repo_path/README.rst"
-    elif [[ -f "$repo_path/README.txt" ]]; then
-      bat --color=always --style=header,grid --line-range :80 "$repo_path/README.txt"
-    elif [[ -f "$repo_path/README" ]]; then
-      bat --color=always --style=header,grid --line-range :80 "$repo_path/README"
-    else
-      echo "📁 Repository: {}"
-      echo "📍 Path: $repo_path"
-      echo ""
-      if [[ -d "$repo_path/.git" ]]; then
-        echo "🔧 Git Repository"
-        if command -v git >/dev/null && cd "$repo_path" 2>/dev/null; then
-          echo "📊 Latest commits:"
-          git log --oneline --color=always -10 2>/dev/null || echo "  No commit history"
-          echo ""
-          echo "🌿 Branches:"
-          git branch -a --color=always 2>/dev/null | head -10 || echo "  No branches"
-        fi
-      else
-        echo "📄 Directory contents:"
-        ls -la "$repo_path" 2>/dev/null | head -20 || echo "  Cannot list directory"
-      fi
-    fi
-  '
-  local repo="$(ghq list | fzf --reverse --height=60% --preview="$preview_cmd" --preview-window=right:50%)"
+  local repo="$(ghq list | fzf --reverse --height=60% --preview="_ghq_preview $root/{}" --preview-window=right:50%)"
   local dir=$root/$repo
   if [[ -n $dir && $dir != $root/ ]]; then
     BUFFER="cd $dir"
