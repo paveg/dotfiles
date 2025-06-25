@@ -68,6 +68,8 @@ jobs:
         if [[ "${{ matrix.business_use }}" == "true" ]]; then
           export BUSINESS_USE=1
           echo "Testing with BUSINESS_USE=1"
+          # Re-initialize chezmoi with business environment
+          chezmoi init --force
         fi
         
         # Apply to test directory
