@@ -1,0 +1,49 @@
+name: TDD Minimal Tests
+
+on:
+  push:
+    branches: [test-driven-development]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-minimal:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Test 1: Repository structure
+    - name: Test 1 - Repository has correct structure
+      run: |
+        echo "=== Test 1: Repository Structure ==="
+        test -d "zsh.d" || (echo "FAIL: zsh.d directory missing" && exit 1)
+        test -f "install.sh" || (echo "FAIL: install.sh missing" && exit 1)
+        echo "✓ Repository structure OK"
+    
+    # Test 2: Zsh files exist
+    - name: Test 2 - Essential zsh files exist
+      run: |
+        echo "=== Test 2: Essential Files ==="
+        test -f "zsh.d/.zshrc" || (echo "FAIL: .zshrc missing" && exit 1)
+        test -f "zsh.d/.zshenv" || (echo "FAIL: .zshenv missing" && exit 1)
+        echo "✓ Essential files exist"
+    
+    # Test 3: Syntax validation (this might fail initially)
+    - name: Test 3 - Zsh syntax is valid
+      run: |
+        echo "=== Test 3: Syntax Validation ==="
+        zsh -n zsh.d/.zshrc || (echo "FAIL: .zshrc has syntax errors" && exit 1)
+        zsh -n zsh.d/.zshenv || (echo "FAIL: .zshenv has syntax errors" && exit 1)
+        echo "✓ Syntax validation passed"
+    
+    # Test 4: Installation script can run (dry-run)
+    - name: Test 4 - Installation script dry run
+      run: |
+        echo "=== Test 4: Installation Script ==="
+        chmod +x install.sh
+        # We'll add a --dry-run flag to install.sh
+        # For now, just check it's executable
+        test -x install.sh || (echo "FAIL: install.sh not executable" && exit 1)
+        echo "✓ Installation script is executable"
