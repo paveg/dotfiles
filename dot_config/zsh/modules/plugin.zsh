@@ -75,4 +75,12 @@ zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
 zinit ice wait"2" lucid as"completion"
 zinit snippet https://github.com/sharkdp/fd/blob/master/contrib/completion/_fd
 
+# mise completion
+zinit ice wait"2" lucid as"completion"
+zinit snippet <(mise completion zsh)
+
+# chezmoi completion  
+zinit ice wait"2" lucid as"completion"
+zinit snippet <(chezmoi completion zsh)
+
 # fzf integration (handled in .zshrc with conditional loading)

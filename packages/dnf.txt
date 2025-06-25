@@ -1,0 +1,13 @@
+# Fedora/RHEL packages (dnf)
+# Essential CLI tools only
+curl
+wget
+git
+zsh
+tmux
+fd-find
+ripgrep
+fzf
+bat
+neovim
+jq

@@ -1,0 +1,14 @@
+# Arch Linux packages (pacman)
+# Essential CLI tools only
+curl
+wget
+git
+zsh
+tmux
+fd
+ripgrep
+fzf
+bat
+exa
+neovim
+jq

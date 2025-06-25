@@ -16,7 +16,7 @@ echo "=== Installing packages ==="
 if ! command -v brew >/dev/null 2>&1; then
     echo "Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    
+
     # Add Homebrew to PATH for this session
     if [[ -f "{{ .homebrew_prefix }}/bin/brew" ]]; then
         eval "$({{ .homebrew_prefix }}/bin/brew shellenv)"
@@ -27,33 +27,47 @@ echo "Installing packages from Brewfile..."
 brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brewfile.work{{ else }}Brewfile{{ end }}"
 
 {{- else if eq .chezmoi.os "linux" }}
-# Linux: Detect package manager and install basics
+# Linux: Use native package managers (no Homebrew)
 if command -v apt >/dev/null 2>&1; then
     echo "Using apt package manager..."
     sudo apt update
-    sudo apt install -y curl wget git zsh build-essential
-    
-    # Install Homebrew on Linux if not present
-    if ! command -v brew >/dev/null 2>&1; then
-        echo "Installing Homebrew for Linux..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    fi
-    
-    # Install packages via Homebrew
-    brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/Brewfile"
-    
+
+    # Install packages from apt.txt
+    echo "Installing packages from apt.txt..."
+    while IFS= read -r package || [[ -n "$package" ]]; do
+        # Skip comments and empty lines
+        [[ "$package" =~ ^[[:space:]]*# ]] || [[ -z "$package" ]] && continue
+        echo "Installing: $package"
+        sudo apt install -y "$package" || echo "Warning: Failed to install $package"
+    done < "{{ .chezmoi.sourceDir }}/packages/apt.txt"
+
 elif command -v dnf >/dev/null 2>&1; then
     echo "Using dnf package manager..."
-    sudo dnf install -y curl wget git zsh gcc gcc-c++ make
-    
+
+    # Install packages from dnf.txt
+    echo "Installing packages from dnf.txt..."
+    while IFS= read -r package || [[ -n "$package" ]]; do
+        # Skip comments and empty lines
+        [[ "$package" =~ ^[[:space:]]*# ]] || [[ -z "$package" ]] && continue
+        echo "Installing: $package"
+        sudo dnf install -y "$package" || echo "Warning: Failed to install $package"
+    done < "{{ .chezmoi.sourceDir }}/packages/dnf.txt"
+
 elif command -v pacman >/dev/null 2>&1; then
     echo "Using pacman package manager..."
-    sudo pacman -S --noconfirm curl wget git zsh base-devel
-    
+
+    # Install packages from pacman.txt
+    echo "Installing packages from pacman.txt..."
+    while IFS= read -r package || [[ -n "$package" ]]; do
+        # Skip comments and empty lines
+        [[ "$package" =~ ^[[:space:]]*# ]] || [[ -z "$package" ]] && continue
+        echo "Installing: $package"
+        sudo pacman -S --noconfirm "$package" || echo "Warning: Failed to install $package"
+    done < "{{ .chezmoi.sourceDir }}/packages/pacman.txt"
+
 else
     echo "No supported package manager found. Please install dependencies manually."
-    echo "Required: curl, wget, git, zsh, build tools"
+    echo "Required packages listed in {{ .chezmoi.sourceDir }}/packages/"
 fi
 
 {{- end }}

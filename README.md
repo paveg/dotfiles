@@ -19,49 +19,80 @@ Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/) for reproducib
 
 ## Installation
 
-1. Install Homebrew:
+**One-command install:**
+
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Personal environment
+
+curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+
+# Business environment
+
+BUSINESS_USE=1 curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
 ```
 
-2. Install and apply dotfiles:
+**Alternative (using chezmoi directly):**
 ```bash
-# Install chezmoi and apply dotfiles in one command
+
+# Personal environment
+
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply paveg
 
-# For business environment
-BUSINESS_USE=1 chezmoi apply
+# Business environment
+
+BUSINESS_USE=1 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply paveg
 ```
+
+The installation script automatically handles:
+- **macOS**: Homebrew installation and package management via Brewfile
+- **Linux**: Native package manager detection (apt/dnf/pacman) and CLI tools installation
+- Environment-specific configuration (personal/business)
+- Zsh setup and optimization
+- Cross-platform compatibility
 
 ## Maintenance
 
 ### Package Management
+
 ```bash
+
 # Update Brewfile with current packages
+
 brewbundle
 
 # Install packages from Brewfile
+
 brew bundle
 brew bundle --file=homebrew/Brewfile.work  # For business packages
 ```
 
 ### Chezmoi Operations
+
 ```bash
+
 # Check status
+
 chezmoi status
 
 # Apply changes
+
 chezmoi apply
 
 # Edit configuration
+
 chezmoi edit ~/.zshrc
 ```
 
 ### Performance Monitoring
+
 ```bash
+
 # Profile zsh startup time
+
 zprofiler
 
 # Measure startup performance
+
 zshtime
 ```
