@@ -1,68 +1,24 @@
-format = """
-$username\
-$hostname\
-$directory\
-$git_branch\
-$git_state\
-$git_status\
-$git_metrics\
-$fill\
-$nodejs\
-$rust\
-$golang\
-$python\
-$cmd_duration $jobs $time\
-$line_break\
-$character"""
+# Inserts a blank line between shell prompts
+add_newline = false
 
-[fill]
-symbol = " "
+# Replace the '❯' symbol in the prompt with '➜'
+[character] # The name of the module we are configuring is 'character'
+success_symbol = '[➜](bold green)' # The 'success_symbol' segment is being set to '➜' with the color 'bold green'
 
 [directory]
-style = "blue"
+truncation_length = 3
+truncate_to_repo = false
+truncation_symbol = "…/"
 
-[character]
-success_symbol = "[❯](purple)"
-error_symbol = "[❯](red)"
-vimcmd_symbol = "[❮](green)"
+[custom.arch]
+command = "uname -m"
+when = """ test $(uname -m) = "x86_64" """
+style = "bold yellow"
+format = "[$output ]($style)"
 
-[git_branch]
-format = "[$branch]($style)"
-style = "bright-black"
+[hostname]
+ssh_only = true
+format = "[$hostname](bold red) "
 
-[git_status]
-format = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style)"
-style = "cyan"
-conflicted = "​"
-untracked = "​"
-modified = "​"
-staged = "​"
-renamed = "​"
-deleted = "​"
-stashed = "≡"
-
-[git_state]
-format = '\([$state( $progress_current/$progress_total)]($style)\) '
-style = "bright-black"
-
-[git_metrics]
-disabled = false
-format = "([+$added]($added_style) )([-$deleted]($deleted_style) )"
-added_style = "bold blue"
-deleted_style = "bold red"
-only_nonzero_diffs = true
-
-[cmd_duration]
-format = "[$duration]($style) "
-style = "yellow"
-
-[time]
-disabled = false
-style = "bold white"
-format = "[$time]($style)"
-
-[jobs]
-style = "bold red"
-symbol = ""
-number_threshold = 1
-format = "[$symbol]($style)"
+[aws.region_aliases]
+ap-northeast-1 = "Tokyo"
