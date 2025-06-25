@@ -11,11 +11,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: 
-          - macos-latest    # macOS 14 (Sonoma)
-          - macos-13        # macOS 13 (Ventura) 
-          - ubuntu-latest   # Ubuntu 24.04 LTS
-          - ubuntu-22.04    # Ubuntu 22.04 LTS
+        include:
+          # Personal environment tests
+          - os: macos-latest
+            business_use: false
+          - os: macos-13  
+            business_use: false
+          - os: ubuntu-latest
+            business_use: false
+          - os: ubuntu-22.04
+            business_use: false
+          # Business environment tests  
+          - os: macos-latest
+            business_use: true
+          - os: ubuntu-latest
+            business_use: true
     
     steps:
     - name: Checkout code
@@ -54,6 +64,12 @@ jobs:
         # Skip package installation in CI for faster tests
         export CI_SKIP_PACKAGES=1
         
+        # Set business environment if needed
+        if [[ "${{ matrix.business_use }}" == "true" ]]; then
+          export BUSINESS_USE=1
+          echo "Testing with BUSINESS_USE=1"
+        fi
+        
         # Apply to test directory
         chezmoi apply --destination="$TEST_HOME" --force
         
@@ -90,6 +106,31 @@ jobs:
         zsh -n "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc syntax error" && exit 1)
         
         echo "✓ Syntax validation passed"
+    
+    - name: Test actual zsh loading
+      run: |
+        echo "=== Testing actual zsh loading ==="
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        
+        # Set required environment for zsh loading
+        export HOME="$TEST_HOME"
+        export ZDOTDIR="$TEST_HOME/.config/zsh"
+        
+        # Test that zsh can load without errors (non-interactive)
+        timeout 30 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
+        
+        echo "✓ Zsh loading test passed"
+    
+    - name: Test business environment
+      if: matrix.business_use == true
+      run: |
+        echo "=== Testing business environment specifics ==="
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        
+        # Check business-specific environment variable is set
+        grep -q "BUSINESS_USE=1" "$TEST_HOME/.zshenv" || (echo "FAIL: BUSINESS_USE not set in .zshenv" && exit 1)
+        
+        echo "✓ Business environment verified"
     
     - name: Test OS-specific content
       run: |
