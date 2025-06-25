@@ -17,11 +17,13 @@ set -euo pipefail
 
 # Cleanup function for backup files
 cleanup_backups() {
-    find . -name "*.backup.*" -type f -delete 2>/dev/null || true
+    # Only run cleanup if we're in the right directory
+    if [[ -d "dot_config" || -d ".github" ]]; then
+        find . -name "*.backup.*" -type f -delete 2>/dev/null || true
+    fi
 }
 
-# Set trap to clean up on exit
-trap cleanup_backups EXIT
+# Note: Cleanup runs explicitly at the end of main() function
 
 # Colors for output
 RED='\033[0;31m'
@@ -346,7 +348,7 @@ main() {
     fi
 
     # Clean up any remaining backup files (safety net)
-    find . -name "*.backup.*" -type f -delete 2>/dev/null || true
+    cleanup_backups
 }
 
 # Run main function
