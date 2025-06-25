@@ -1,4 +1,4 @@
-name: Chezmoi Tests and Formatting
+name: Chezmoi Tests
 
 on:
   push:
@@ -363,4 +363,23 @@ jobs:
             
             echo "✓ Integration test passed"
           ' || (echo "FAIL: Integration test failed" && exit 1)
+        fi
+
+  # Status check job that branch protection can depend on
+  ci-success:
+    runs-on: ubuntu-latest
+    needs: [format-and-lint, test-chezmoi]
+    if: always()
+    steps:
+    - name: Check all jobs status
+      run: |
+        echo "=== CI Status Check ==="
+        if [[ "${{ needs.format-and-lint.result }}" == "success" && "${{ needs.test-chezmoi.result }}" == "success" ]]; then
+          echo "✅ All CI jobs passed successfully"
+          exit 0
+        else
+          echo "❌ CI jobs failed:"
+          echo "  format-and-lint: ${{ needs.format-and-lint.result }}"
+          echo "  test-chezmoi: ${{ needs.test-chezmoi.result }}"
+          exit 1
         fi
