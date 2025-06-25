@@ -13,7 +13,7 @@
 # - Removes unnecessary blank lines
 # ============================================================================
 
-set -euo pipefail
+set -e
 
 # Cleanup function for backup files
 cleanup_backups() {
@@ -191,7 +191,7 @@ format_file() {
     # Validate result
     if validate_syntax "$file"; then
         rm -f "$backup_file"
-        check_indentation "$file"
+        check_indentation "$file" || true  # Don't fail on indentation warnings
         print_success "Formatted $file"
         return 0
     else
@@ -319,6 +319,7 @@ main() {
     local error_count=0
 
     for file in "${all_files[@]}"; do
+        echo "Processing file: $file" >&2  # Debug output
         if [[ "$check_only" == true ]]; then
             # Check mode - validate syntax only
             if validate_syntax "$file"; then
@@ -330,12 +331,16 @@ main() {
             fi
         else
             # Format mode
+            echo "About to format: $file" >&2  # Debug output
             if format_file "$file"; then
+                echo "Successfully formatted: $file" >&2  # Debug output
                 ((success_count++))
             else
+                echo "Failed to format: $file" >&2  # Debug output
                 ((error_count++))
             fi
         fi
+        echo "Finished processing: $file" >&2  # Debug output
     done
 
     # Summary
