@@ -1,0 +1,51 @@
+name: TDD Installation Tests
+
+on:
+  push:
+    branches: [test-driven-development]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-install:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Test 5: Minimal installation (this will likely fail initially)
+    - name: Test 5 - Can perform minimal installation
+      run: |
+        echo "=== Test 5: Minimal Installation ==="
+        # Create a temporary HOME to avoid affecting the runner
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        mkdir -p "$TEST_HOME"
+        export HOME="$TEST_HOME"
+        
+        # Try to run install.sh in CI mode
+        CI=true ./install.sh || (echo "FAIL: Installation failed" && exit 1)
+        echo "✓ Installation completed"
+    
+    # Test 6: Verify installation results
+    - name: Test 6 - Installation creates expected files
+      run: |
+        echo "=== Test 6: Installation Results ==="
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        export HOME="$TEST_HOME"
+        
+        # Check if symlinks were created
+        test -L "$HOME/.zshrc" || (echo "FAIL: .zshrc symlink not created" && exit 1)
+        test -L "$HOME/.zshenv" || (echo "FAIL: .zshenv symlink not created" && exit 1)
+        echo "✓ Symlinks created successfully"
+    
+    # Test 7: Can load zsh with installed config
+    - name: Test 7 - Zsh loads with installed config
+      run: |
+        echo "=== Test 7: Zsh Loading Test ==="
+        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+        export HOME="$TEST_HOME"
+        
+        # Try to load zsh (this will likely fail with missing dependencies)
+        zsh -c 'echo "Zsh loaded"' || (echo "FAIL: Zsh failed to load" && exit 1)
+        echo "✓ Zsh loads successfully"

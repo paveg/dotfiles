@@ -18,5 +18,7 @@ if [[ ! -d $XDG_CONFIG_HOME/op/plugins ]]; then
   log_info "Run 'op plugin init gh' to install 1password plugins"
 fi
 
-# 1password plugins
-source $XDG_CONFIG_HOME/op/plugins.sh
+# 1password plugins (load only if exists)
+if [[ -f $XDG_CONFIG_HOME/op/plugins.sh ]]; then
+  source $XDG_CONFIG_HOME/op/plugins.sh
+fi
