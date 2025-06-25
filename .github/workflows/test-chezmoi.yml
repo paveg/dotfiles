@@ -77,6 +77,14 @@ jobs:
         echo "=== Testing zsh syntax ==="
         export TEST_HOME="$GITHUB_WORKSPACE/test_home"
         
+        # Install zsh for syntax checking
+        if [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
+          sudo apt-get update -qq && sudo apt-get install -y zsh
+        elif [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+          # macOS has zsh by default
+          true
+        fi
+        
         # Test syntax of generated files
         zsh -n "$TEST_HOME/.zshenv" || (echo "FAIL: .zshenv syntax error" && exit 1)
         zsh -n "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc syntax error" && exit 1)
