@@ -24,7 +24,11 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 echo "Installing packages from Brewfile..."
-brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brewfile.work{{ else }}Brewfile{{ end }}"
+# Use --no-upgrade to avoid conflicts with existing installations
+brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brewfile.work{{ else }}Brewfile{{ end }}" --no-upgrade || {
+    echo "Warning: Some packages failed to install. This is often due to already installed packages."
+    echo "You can run 'brew bundle check' to see what's missing."
+}
 
 {{- else if eq .chezmoi.os "linux" }}
 # Linux: Use native package managers (no Homebrew)
