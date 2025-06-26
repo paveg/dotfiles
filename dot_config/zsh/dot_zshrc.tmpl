@@ -14,16 +14,20 @@ typeset -g SHELL_STARTUP_TIME=$(date +%s%3N)
 # Module directory
 readonly ZMODDIR="$ZDOTDIR/modules"
 
+# Debug output
+[[ -n "$ZSHRC_DEBUG" ]] && echo "🔧 Loading zsh configuration with debug mode..."
+
 # Create necessary directories
 [[ -d "$XDG_STATE_HOME/zsh" ]] || mkdir -p "$XDG_STATE_HOME/zsh"
 [[ -d "$XDG_CACHE_HOME/zsh" ]] || mkdir -p "$XDG_CACHE_HOME/zsh"
 
-# Core loading function with compilation
+# Core loading function with compilation and debug output
 function load() {
   local lib=${1:?"Library file required"}
   [[ -f "$lib" ]] || return 1
   [[ -s ${lib} && (! -s ${lib}.zwc || ${lib} -nt ${lib}.zwc) ]] && zcompile ${lib} 2>/dev/null
   source "$lib"
+  [[ -n "$ZSHRC_DEBUG" ]] && echo "✓ Loaded: $(basename "$lib")"
 }
 
 # Load core modules (order matters!)
@@ -157,3 +161,6 @@ fi
 
 # Final setup
 unfunction load 2>/dev/null
+
+# Debug completion message
+[[ -n "$ZSHRC_DEBUG" ]] && echo "✅ Zsh configuration loaded successfully!"
