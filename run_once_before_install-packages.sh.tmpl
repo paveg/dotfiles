@@ -32,6 +32,35 @@ brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brew
 
 {{- else if eq .chezmoi.os "linux" }}
 # Linux: Use native package managers (no Homebrew)
+
+# Function to install atuin on Linux (not available in most repos)
+install_atuin_linux() {
+    if command -v atuin >/dev/null 2>&1; then
+        echo "atuin is already installed"
+        return 0
+    fi
+    
+    echo "Installing atuin via precompiled binary..."
+    
+    # Create temporary directory
+    local temp_dir=$(mktemp -d)
+    cd "$temp_dir"
+    
+    # Download and install atuin
+    curl -LsSf https://setup.atuin.sh | sh || {
+        echo "Warning: Failed to install atuin via setup script"
+        # Fallback: try to install via cargo if available
+        if command -v cargo >/dev/null 2>&1; then
+            echo "Attempting to install atuin via cargo..."
+            cargo install atuin || echo "Warning: Failed to install atuin via cargo"
+        fi
+    }
+    
+    # Cleanup
+    cd - >/dev/null
+    rm -rf "$temp_dir"
+}
+
 if command -v apt >/dev/null 2>&1; then
     echo "Using apt package manager..."
     sudo apt update
@@ -44,6 +73,9 @@ if command -v apt >/dev/null 2>&1; then
         echo "Installing: $package"
         sudo apt install -y "$package" || echo "Warning: Failed to install $package"
     done < "{{ .chezmoi.sourceDir }}/packages/apt.txt"
+    
+    # Install atuin separately (not available in apt repos)
+    install_atuin_linux
 
 elif command -v dnf >/dev/null 2>&1; then
     echo "Using dnf package manager..."
@@ -56,6 +88,9 @@ elif command -v dnf >/dev/null 2>&1; then
         echo "Installing: $package"
         sudo dnf install -y "$package" || echo "Warning: Failed to install $package"
     done < "{{ .chezmoi.sourceDir }}/packages/dnf.txt"
+    
+    # Install atuin separately (not available in dnf repos)
+    install_atuin_linux
 
 elif command -v pacman >/dev/null 2>&1; then
     echo "Using pacman package manager..."

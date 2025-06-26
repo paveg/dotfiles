@@ -12,3 +12,4 @@ bat
 exa
 neovim
 jq
+atuin
