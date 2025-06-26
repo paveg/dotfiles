@@ -13,60 +13,66 @@
 
 
 _fzf_cd_ghq() {
-  # Validate required commands
-  require_command ghq "ghq is required for repository navigation" || return $?
-  require_command fzf "fzf is required for interactive selection" || return $?
+  # Check required commands
+  if ! command -v ghq >/dev/null 2>&1; then
+    echo "Error: ghq is required for repository navigation" >&2
+    zle reset-prompt
+    return 1
+  fi
+
+  if ! command -v fzf >/dev/null 2>&1; then
+    echo "Error: fzf is required for interactive selection" >&2
+    zle reset-prompt
+    return 1
+  fi
 
   local root
-  root="$(ghq root)" || {
-    error "Failed to get ghq root directory"
+  root="$(ghq root 2>/dev/null)" || {
+    echo "Error: Failed to get ghq root directory" >&2
+    zle reset-prompt
     return 1
   }
 
-  local repo="$(ghq list | fzf --reverse --height=60% \
+  local repo
+  repo="$(ghq list 2>/dev/null | fzf --reverse --height=60% \
     --preview="
       repo_path=$root/{}
 
       # Check for README files - if found, use bat directly
-      if [[ -f \"\$repo_path/README.md\" ]]; then
-        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README.md\"
-      elif [[ -f \"\$repo_path/README.rst\" ]]; then
-        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README.rst\"
-      elif [[ -f \"\$repo_path/README.txt\" ]]; then
-        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README.txt\"
-      elif [[ -f \"\$repo_path/README\" ]]; then
-        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README\"
-      elif [[ -f \"\$repo_path/readme.md\" ]]; then
-        bat --color=always --style=header,grid --line-range :80 \"\$repo_path/readme.md\"
+      if [[ -f \$repo_path/README.md ]]; then
+        bat --color=always --style=header,grid --line-range :80 \$repo_path/README.md 2>/dev/null
+      elif [[ -f \$repo_path/README.rst ]]; then
+        bat --color=always --style=header,grid --line-range :80 \$repo_path/README.rst 2>/dev/null
+      elif [[ -f \$repo_path/README.txt ]]; then
+        bat --color=always --style=header,grid --line-range :80 \$repo_path/README.txt 2>/dev/null
+      elif [[ -f \$repo_path/README ]]; then
+        bat --color=always --style=header,grid --line-range :80 \$repo_path/README 2>/dev/null
+      elif [[ -f \$repo_path/readme.md ]]; then
+        bat --color=always --style=header,grid --line-range :80 \$repo_path/readme.md 2>/dev/null
       else
-        echo \"\"
-        echo \"📁 \$(basename \"\$repo_path\")\"
-        echo \"📍 \$repo_path\"
-        echo \"\"
-
-        if [[ -d \"\$repo_path/.git\" ]]; then
-          echo \"🔧 Git Repository\"
-          cd \"\$repo_path\" 2>/dev/null && {
-            echo \"\"
-            echo \"📊 Recent commits:\"
-            git log --oneline --color=always -8 2>/dev/null || echo \"  No commits\"
-            echo \"\"
-            echo \"🌿 Branches:\"
-            git branch -a --color=always 2>/dev/null | head -8 || echo \"  No branches\"
-          }
-        else
-          echo \"📄 Contents:\"
-          ls -la \"\$repo_path\" 2>/dev/null | head -10 || echo \"  Cannot access\"
-        fi
+        echo 📁 \$(basename \$repo_path)
+        echo 📍 \$repo_path
+        echo
+        echo 📄 Contents:
+        ls -la \$repo_path 2>/dev/null | head -10 || echo \"  Cannot access\"
       fi
     " \
     --preview-window=right:50%)"
-  local dir=$root/$repo
-  if [[ -n $dir && $dir != $root/ ]]; then
-    BUFFER="cd $dir"
+
+  # Check if user selected something
+  if [[ -z "$repo" ]]; then
+    zle reset-prompt
+    return 0
+  fi
+
+  local dir="$root/$repo"
+  if [[ -d "$dir" ]]; then
+    BUFFER="cd \"$dir\""
     zle accept-line
   else
+    echo "Error: Directory not found: $dir" >&2
     zle reset-prompt
+    return 1
   fi
 }
 

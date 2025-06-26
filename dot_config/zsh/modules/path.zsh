@@ -61,16 +61,7 @@ fi
 # Ruby
 [[ -d "$HOME/.rbenv/shims" ]] && path_prepend "$HOME/.rbenv/shims"
 
-# Homebrew (already set in .zshenv, but ensure it's there)
-{{- if eq .chezmoi.os "darwin" }}
-if [[ "{{ .chezmoi.arch }}" == "arm64" ]]; then
-  path_prepend "/opt/homebrew/bin"
-  path_prepend "/opt/homebrew/sbin"
-else
-  path_prepend "/usr/local/bin"
-  path_prepend "/usr/local/sbin"
-fi
-{{- end }}
+# Note: Homebrew paths are already set in .zshenv.tmpl
 
 # mise shims (if mise is being used)
 [[ -d "$XDG_DATA_HOME/mise/shims" ]] && path_prepend "$XDG_DATA_HOME/mise/shims"
