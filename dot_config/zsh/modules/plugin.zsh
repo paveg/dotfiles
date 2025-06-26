@@ -199,4 +199,4 @@ fi
 # Performance note: All other completion optimizations are handled in core.zsh
 # through the init_completion() function which coordinates with zinit
 
-debug "✓ Plugin loading completed"
+# Plugin loading completed
