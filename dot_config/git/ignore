@@ -23,3 +23,16 @@
 .mise.toml
 
 **/.claude/settings.local.json
+
+# Local configuration files (not tracked by git)
+# These files contain machine-specific or sensitive configurations
+
+# Zsh local configurations
+.config/zsh/local.zsh
+.config/zsh/local/
+.zsh_local
+
+# General local configuration patterns
+*.local
+*.local.*
+local.*
