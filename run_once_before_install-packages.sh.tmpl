@@ -111,4 +111,16 @@ fi
 
 {{- end }}
 
+# Install Rust tools via cargo (cross-platform)
+echo "=== Installing Rust-based tools ==="
+if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install-rust-tools.sh" ]]; then
+    echo "Running Rust tools installation script (with pre-built binaries + parallel install)..."
+    bash "{{ .chezmoi.sourceDir }}/scripts/install-rust-tools.sh" || {
+        echo "Warning: Some Rust tools may have failed to install"
+        echo "You can run the script manually later: ~/.local/share/chezmoi/scripts/install-rust-tools.sh"
+    }
+else
+    echo "Warning: Rust tools installation script not found"
+fi
+
 echo "✓ Package installation completed"

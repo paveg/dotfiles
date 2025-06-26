@@ -1,0 +1,19 @@
+# mise configuration file
+# https://mise.jdx.dev/configuration.html
+
+[settings]
+# Use XDG directories
+experimental = true
+asdf_compat = false
+
+[tools]
+# Define default tool versions
+# Use mise to manage Rust instead of rustup
+rust = "stable"
+
+# Other runtime versions can be defined here
+node = "lts"
+go   = "latest"
+# python = "3.12"
+# ruby = "3.3"
+

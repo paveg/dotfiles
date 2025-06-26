@@ -12,7 +12,9 @@ Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/) for reproducib
 ## Tools
 
 - [chezmoi](https://www.chezmoi.io/) - Dotfile management
-- [Homebrew](https://brew.sh/) - Package management
+- [Homebrew](https://brew.sh/) - Package management (non-Rust tools)
+- [Cargo](https://doc.rust-lang.org/cargo/) - Rust tools installation
+- [mise](https://mise.jdx.dev/) - Runtime version management (including Rust)
 - [AstroNvim](https://astronvim.com/) - Neovim configuration
 - [Zsh](https://www.zsh.org/) - Shell with performance optimizations
 - [Starship](https://starship.rs/) - Cross-shell prompt
@@ -95,4 +97,22 @@ zprofiler
 # Measure startup performance
 
 zshtime
+```
+
+### Rust Tools Management
+
+```bash
+
+# Install/update Rust tools (fast: pre-built binaries + parallel compilation)
+
+~/.local/share/chezmoi/scripts/install-rust-tools.sh
+
+# Edit tools list (categorized by ESSENTIAL/CORE/DEVELOPMENT/OPTIONAL)
+
+chezmoi edit ~/.local/share/chezmoi/packages/rust-tools.txt
+
+# Manage Rust version with mise
+
+mise install rust@stable
+mise use rust@stable
 ```
