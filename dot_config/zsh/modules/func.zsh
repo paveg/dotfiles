@@ -96,3 +96,55 @@ PROTECTED_BRANCHES='main|master|develop|staging'
 _remove_unnecessary_branches() {
   git branch --merged | egrep -v "\*|${PROTECTED_BRANCHES}" | xargs git branch -d
 }
+
+# Local configuration management functions
+local_config_init() {
+  local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
+  
+  if [[ -f "$config_path" ]]; then
+    echo "Local config already exists: $config_path"
+    echo "Use 'local_config_edit' to modify it."
+    return 1
+  fi
+  
+  # Call the function from local.zsh module
+  if (( $+functions[create_local_template] )); then
+    create_local_template
+  else
+    echo "Error: local.zsh module not loaded" >&2
+    return 1
+  fi
+}
+
+local_config_edit() {
+  local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
+  
+  if [[ ! -f "$config_path" ]]; then
+    echo "Local config doesn't exist. Creating template..."
+    local_config_init || return 1
+  fi
+  
+  "${EDITOR:-vim}" "$config_path"
+}
+
+local_config_show() {
+  local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
+  
+  if [[ -f "$config_path" ]]; then
+    echo "=== Local Config: $config_path ==="
+    cat "$config_path"
+  else
+    echo "No local config found. Use 'local_config_init' to create one."
+  fi
+  
+  # Check other locations
+  if [[ -f "$HOME/.zsh_local" ]]; then
+    echo "=== Traditional Local Config: $HOME/.zsh_local ==="
+    cat "$HOME/.zsh_local"
+  fi
+  
+  if [[ -d "${ZDOTDIR:-$HOME/.config/zsh}/local" ]]; then
+    echo "=== Local Config Directory: ${ZDOTDIR:-$HOME/.config/zsh}/local/ ==="
+    ls -la "${ZDOTDIR:-$HOME/.config/zsh}/local/"
+  fi
+}
