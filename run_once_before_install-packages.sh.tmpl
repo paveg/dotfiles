@@ -109,6 +109,18 @@ else
     echo "Required packages listed in {{ .chezmoi.sourceDir }}/packages/"
 fi
 
+# Install latest NeoVim on Linux
+echo "=== Installing latest NeoVim ==="
+if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install-neovim-latest.sh" ]]; then
+    echo "Running latest NeoVim installation script..."
+    bash "{{ .chezmoi.sourceDir }}/scripts/install-neovim-latest.sh" || {
+        echo "Warning: Latest NeoVim installation may have failed"
+        echo "Falling back to package manager version if available"
+    }
+else
+    echo "Warning: NeoVim installation script not found"
+fi
+
 {{- end }}
 
 # Install Rust tools via cargo (cross-platform)

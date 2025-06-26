@@ -9,6 +9,6 @@ fd-find
 ripgrep
 fzf
 bat
-neovim
+# neovim is installed via dedicated script for latest version
 jq
 # Note: atuin is not available in Fedora repos, install via cargo or binary
