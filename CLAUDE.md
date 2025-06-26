@@ -25,7 +25,10 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 
 ### Package Management
 
-- `brewbundle` - Update Brewfile with current Homebrew packages (custom alias)
+- `brewbundle` - Update current Brewfile (respects BUSINESS_USE environment)
+- `brewbundle_personal` - Update personal Brewfile specifically
+- `brewbundle_work` - Update work Brewfile specifically
+- `brewbundle_diff` - Show differences between personal and work Brewfiles
 - `brew bundle` - Install packages from Brewfile
 - `brew bundle --file=homebrew/Brewfile.work` - Install work-specific packages
 

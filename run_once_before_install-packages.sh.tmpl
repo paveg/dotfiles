@@ -39,13 +39,13 @@ install_atuin_linux() {
         echo "atuin is already installed"
         return 0
     fi
-    
+
     echo "Installing atuin via precompiled binary..."
-    
+
     # Create temporary directory
     local temp_dir=$(mktemp -d)
     cd "$temp_dir"
-    
+
     # Download and install atuin
     curl -LsSf https://setup.atuin.sh | sh || {
         echo "Warning: Failed to install atuin via setup script"
@@ -55,7 +55,7 @@ install_atuin_linux() {
             cargo install atuin || echo "Warning: Failed to install atuin via cargo"
         fi
     }
-    
+
     # Cleanup
     cd - >/dev/null
     rm -rf "$temp_dir"
@@ -73,7 +73,7 @@ if command -v apt >/dev/null 2>&1; then
         echo "Installing: $package"
         sudo apt install -y "$package" || echo "Warning: Failed to install $package"
     done < "{{ .chezmoi.sourceDir }}/packages/apt.txt"
-    
+
     # Install atuin separately (not available in apt repos)
     install_atuin_linux
 
@@ -88,7 +88,7 @@ elif command -v dnf >/dev/null 2>&1; then
         echo "Installing: $package"
         sudo dnf install -y "$package" || echo "Warning: Failed to install $package"
     done < "{{ .chezmoi.sourceDir }}/packages/dnf.txt"
-    
+
     # Install atuin separately (not available in dnf repos)
     install_atuin_linux
 

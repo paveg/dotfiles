@@ -13,7 +13,16 @@
 
 
 _fzf_cd_ghq() {
-  local root="$(ghq root)"
+  # Validate required commands
+  require_command ghq "ghq is required for repository navigation" || return $?
+  require_command fzf "fzf is required for interactive selection" || return $?
+
+  local root
+  root="$(ghq root)" || {
+    error "Failed to get ghq root directory"
+    return 1
+  }
+
   local repo="$(ghq list | fzf --reverse --height=60% \
     --preview="
       repo_path=$root/{}
@@ -63,15 +72,44 @@ _fzf_cd_ghq() {
 
 # This function is for 1password-cli
 opr () {
-    who=$(op whoami)
+    # Validate 1Password CLI
+    require_command op "1Password CLI (op) is required" || return $?
+
+    # Check arguments
+    [[ $# -eq 0 ]] && {
+        error "Usage: opr <command>"
+        return 1
+    }
+
+    # Check if signed in, sign in if needed
+    local who
+    who=$(op whoami 2>/dev/null)
     if [[ $? != 0 ]]; then
-        eval "$(op signin)"
+        debug "Signing into 1Password..."
+        eval "$(op signin)" || {
+            error "Failed to sign into 1Password"
+            return 1
+        }
     fi
+
+    # Determine env file to use
+    local env_file
     if [[ -f "$PWD/.env" ]]; then
-        op run --env-file=$PWD/.env -- $@
+        env_file="$PWD/.env"
+        debug "Using local .env file: $PWD/.env"
+    elif [[ -f "$HOME/.env.1password" ]]; then
+        env_file="$HOME/.env.1password"
+        debug "Using global .env file: $HOME/.env.1password"
     else
-        op run --env-file=$HOME/.env.1password -- $@
+        error "No .env file found in current directory or ~/.env.1password"
+        return 2
     fi
+
+    # Execute command with env file
+    op run --env-file="$env_file" -- "$@" || {
+        error "Failed to execute command with 1Password"
+        return 1
+    }
 }
 
 zprofiler() {
@@ -83,18 +121,83 @@ zshtime() {
 }
 
 brewbundle() {
-  local brewfile="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}/homebrew/Brewfile"
+  local chezmoi_dir="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}"
+  local brewfile
+
+  # Select Brewfile based on BUSINESS_USE environment variable
+  if [[ -n "$BUSINESS_USE" && "$BUSINESS_USE" != "0" ]]; then
+    brewfile="$chezmoi_dir/homebrew/Brewfile.work"
+    echo "Using business Brewfile (BUSINESS_USE=$BUSINESS_USE)"
+  else
+    brewfile="$chezmoi_dir/homebrew/Brewfile"
+    echo "Using personal Brewfile"
+  fi
+
   if [[ ! -f "$brewfile" ]]; then
     echo "Error: Brewfile not found at $brewfile" >&2
+    echo "Available Brewfiles:"
+    ls -la "$chezmoi_dir/homebrew/"Brewfile* 2>/dev/null || echo "  No Brewfiles found"
     return 1
   fi
+
+  echo "Updating $brewfile with current packages..."
   brew bundle dump --verbose --force --cleanup --cask --formula --mas --tap --file="$brewfile"
-  echo "Updated: $brewfile"
+  echo "✓ Updated: $brewfile"
+}
+
+# Brewfile management utilities
+brewbundle_work() {
+  BUSINESS_USE=1 brewbundle
+}
+
+brewbundle_personal() {
+  unset BUSINESS_USE
+  brewbundle
+}
+
+brewbundle_diff() {
+  local chezmoi_dir="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}"
+  local personal_brewfile="$chezmoi_dir/homebrew/Brewfile"
+  local work_brewfile="$chezmoi_dir/homebrew/Brewfile.work"
+
+  if [[ ! -f "$personal_brewfile" || ! -f "$work_brewfile" ]]; then
+    echo "Error: Both Brewfiles must exist for comparison"
+    return 1
+  fi
+
+  echo "=== Differences between personal and work Brewfiles ==="
+  echo "Lines in work Brewfile but not in personal:"
+  comm -13 <(sort "$personal_brewfile") <(sort "$work_brewfile") | grep -v '^#' | grep -v '^$'
+  echo ""
+  echo "Lines in personal Brewfile but not in work:"
+  comm -23 <(sort "$personal_brewfile") <(sort "$work_brewfile") | grep -v '^#' | grep -v '^$'
 }
 
 PROTECTED_BRANCHES='main|master|develop|staging'
 _remove_unnecessary_branches() {
-  git branch --merged | egrep -v "\*|${PROTECTED_BRANCHES}" | xargs git branch -d
+  # Validate git command and repository
+  require_command git "git is required for branch management" || return $?
+
+  # Check if we're in a git repository
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    error "Not in a git repository"
+    return 1
+  fi
+
+  # Check if there are any merged branches to delete
+  local merged_branches
+  merged_branches=$(git branch --merged | egrep -v "\*|${PROTECTED_BRANCHES}")
+
+  if [[ -z "$merged_branches" ]]; then
+    debug "No merged branches to delete"
+    return 0
+  fi
+
+  debug "Removing merged branches (excluding: $PROTECTED_BRANCHES)"
+  echo "$merged_branches" | xargs git branch -d || {
+    error "Failed to delete some branches"
+    return 1
+  }
 }
 
 # Local configuration management functions

@@ -19,13 +19,30 @@
 # Initialize zinit (optimized)
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 
-# Fast zinit installation check
+# Fast zinit installation check with error handling
 if [[ ! -d $ZINIT_HOME/.git ]]; then
+  debug "Installing zinit plugin manager..."
   [[ ! -d $ZINIT_HOME ]] && mkdir -p "$(dirname $ZINIT_HOME)"
-  git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+
+  git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" || {
+    error "Failed to install zinit"
+    warn "Please install zinit manually or check your internet connection"
+    return 1
+  }
+  debug "✓ Zinit installed successfully"
 fi
 
-source "${ZINIT_HOME}/zinit.zsh"
+# Load zinit with error handling
+if [[ -f "${ZINIT_HOME}/zinit.zsh" ]]; then
+  source "${ZINIT_HOME}/zinit.zsh" || {
+    error "Failed to load zinit"
+    return 1
+  }
+else
+  error "Zinit not found at ${ZINIT_HOME}/zinit.zsh"
+  warn "Try deleting $ZINIT_HOME and restarting zsh to reinstall"
+  return 1
+fi
 
 # Performance-optimized plugin loading with turbo mode
 # All plugins delayed to avoid blocking shell startup

@@ -10,6 +10,8 @@
 # - zcompare: Check if a .zsh file needs recompilation to .zwc
 # - load: Load and compile Zsh modules from ZMODDIR (optimized)
 # - init_completion: Initialize completion system with caching
+# - error/warn/debug: Standardized error reporting utilities
+# - require_command: Validate command availability
 # ============================================================================
 
 # Guard against multiple loads - but always ensure functions are defined
@@ -55,4 +57,54 @@ function init_completion() {
   fi
 
   export _COMP_INITIALIZED=1
+}
+
+# ============================================================================
+# Error Handling Utilities
+# ============================================================================
+
+# Standardized error reporting
+error() {
+  echo "Error: $*" >&2
+}
+
+warn() {
+  echo "Warning: $*" >&2
+}
+
+debug() {
+  [[ -n "$ZSHRC_DEBUG" ]] && echo "Debug: $*" >&2
+}
+
+# Command availability validation
+require_command() {
+  local cmd="$1"
+  local message="${2:-$cmd is required but not installed}"
+
+  command -v "$cmd" >/dev/null || {
+    error "$message"
+    return 127
+  }
+}
+
+# Validate file existence with custom error
+require_file() {
+  local file="$1"
+  local message="${2:-File not found: $file}"
+
+  [[ -f "$file" ]] || {
+    error "$message"
+    return 2
+  }
+}
+
+# Validate directory existence with custom error
+require_directory() {
+  local dir="$1"
+  local message="${2:-Directory not found: $dir}"
+
+  [[ -d "$dir" ]] || {
+    error "$message"
+    return 2
+  }
 }
