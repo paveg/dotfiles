@@ -153,7 +153,7 @@ if [[ -o interactive ]]; then
   local end_time=$(date +%s%3N)
 {{- end }}
   local startup_time=$((end_time - ${SHELL_STARTUP_TIME:-$end_time}))
-  
+
   # Success message with startup time
   printf "\033[32m✓\033[0m Zsh loaded successfully"
   if [[ $startup_time -lt 100 ]]; then
