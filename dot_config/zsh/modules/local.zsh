@@ -93,7 +93,7 @@ create_local_template() {
 
 # Example: Conditional loading based on hostname
 # if [[ "$(hostname)" == "work-laptop" ]]; then
-#     export WORK_MODE=1
+#     export BUSINESS_USE=1
 #     alias ll='ls -la --color=auto'
 # fi
 

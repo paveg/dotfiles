@@ -207,7 +207,7 @@ path_prepend "$HOME/work-tools/bin"
 
 # Hostname-based conditional loading
 if [[ "$(hostname)" == "work-laptop" ]]; then
-    export WORK_MODE=1
+    export BUSINESS_USE=1
     git config --global user.email "work@company.com"
 fi
 ```
