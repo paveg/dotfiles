@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Note**: This is the source CLAUDE.md file managed by chezmoi. When working with dotfiles, always edit files using `chezmoi edit` to ensure changes are properly tracked.
+
 ## Repository Overview
 
 This is a personal dotfiles repository managed with [chezmoi](https://www.chezmoi.io/) for reproducible development environment setup across macOS systems. The configuration follows XDG Base Directory Specification and uses Go templates for cross-platform and environment-specific customization.
@@ -17,6 +19,8 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - `chezmoi source-path <file>` - Find source path for a target file
 - `chezmoi managed` - List all files managed by chezmoi
 - `chezmoi init --apply paveg` - Install dotfiles from scratch
+- `curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash` - One-command install (personal)
+- `BUSINESS_USE=1 curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash` - One-command install (business)
 
 ### Environment-Specific Setup
 
@@ -41,6 +45,27 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 
 - `:Lazy update` - Update Neovim plugins
 - `:AstroUpdate` - Update AstroNvim packages
+
+### Testing and Development
+
+- `./tests/test_runner.sh` - Run dotfiles test suite (validates zsh syntax, directory structure, essential files)
+- `./scripts/format-zsh.sh` - Format zsh configuration files for consistency
+- `./scripts/format-markdown.sh` - Format markdown files for consistency
+- `./scripts/install-rust-tools.sh` - Install/update Rust-based development tools via cargo
+- `chezmoi add <file>` - Add a file to chezmoi management after editing
+
+### Rust Tools Management
+
+- **Installation**: `./scripts/install-rust-tools.sh` - Uses pre-built binaries + parallel cargo install for optimal speed
+- **Configuration**: Edit `packages/rust-tools.txt` to add/remove tools (categorized by ESSENTIAL/CORE/DEVELOPMENT/OPTIONAL)
+- **Selective Install**: Interactive selection during installation
+- **Update**: Run the install script again to update all tools to latest versions
+- **Rust version**: Managed via mise (see `~/.config/mise/config.toml`)
+
+**Installation Features:**
+- Essential tools (starship, bat, fd, ripgrep, eza): Pre-built binaries (~30 seconds)
+- Additional tools: Parallel compilation for speed
+- Interactive selection for additional tools
 
 ## Architecture
 
@@ -111,13 +136,17 @@ Uses Go templates for environment-specific configuration:
 - `{{ .business_use }}` - Business vs personal environment detection
 - `{{ .chezmoi.os }}` - OS-specific configurations
 - `{{ .chezmoi.homeDir }}` - Home directory path
+- `{{ .chezmoi.arch }}` - Architecture detection (arm64 vs x86_64)
 - XDG directory variables for proper path handling
+- Homebrew prefix automatically set based on architecture
+- Configuration defined in `.chezmoi.yaml.tmpl`
 
 ### 5. Automated Setup
 
 - `run_once_before_install-packages.sh.tmpl` - Package installation (Homebrew, etc.)
 - `run_once_after_setup-zsh.sh.tmpl` - Zsh configuration and optimization
 - Cross-platform package installation with CI skip capabilities
+- Font installation: UDEVGothic35NFLG fonts are automatically installed to system font directory
 
 ## Important Configuration Details
 
@@ -132,9 +161,10 @@ Uses Go templates for environment-specific configuration:
 
 - **1Password CLI Integration**: `opr` function with environment file detection (`.env` local, `~/.env.1password` global)
 - **1Password GitHub Integration**: Intentionally disabled due to vault configuration complexity (see `alias.zsh` comments)
-- **mise (Runtime Manager)**: Conditional initialization based on shell context, XDG-compliant directories
+- **mise (Runtime Manager)**: Conditional initialization based on shell context, XDG-compliant directories, manages Rust toolchain
 - **Git Configuration**: Modular split (main, work settings, secrets) with environment-specific loading
-- **Homebrew**: Analytics disabled, architecture-aware path configuration
+- **Homebrew**: Analytics disabled, architecture-aware path configuration, Rust tools moved to cargo
+- **Rust Tools**: Centralized management via cargo, defined in `packages/rust-tools.txt`
 
 ### Performance Monitoring Tools
 

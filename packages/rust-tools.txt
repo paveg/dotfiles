@@ -1,0 +1,48 @@
+# Rust Tools List
+# Format: package_name:binary_name:description
+# Categories: ESSENTIAL, CORE, DEVELOPMENT, OPTIONAL
+
+[ESSENTIAL] # Fast pre-built binaries available
+starship::The minimal, blazing-fast, and infinitely customizable prompt
+bat::A cat clone with syntax highlighting and Git integration  
+fd-find:fd:A simple, fast and user-friendly alternative to find
+ripgrep:rg:A line-oriented search tool that recursively searches directories
+eza::A modern replacement for ls
+
+[CORE] # Common tools (cargo install)
+atuin::Interactive shell history with sync
+broot::A new way to see and navigate directory trees
+git-delta:delta:A syntax-highlighting pager for git and diff output
+zellij::A terminal workspace with batteries included
+zoxide::A smarter cd command that learns your habits
+
+[DEVELOPMENT] # Developer-focused tools
+just::A command runner (make alternative)
+tokei::Count your code, quickly
+sd::An intuitive find & replace CLI (sed alternative)
+hyperfine::A command-line benchmarking tool
+bacon::A background rust code checker
+cargo-watch::Watches over Cargo project and runs commands on changes
+
+[SYSTEM] # System monitoring and utilities
+bottom:btm:A graphical process/system monitor
+du-dust:dust:A more intuitive version of du in rust
+procs::A modern replacement for ps
+bandwhich::Terminal bandwidth utilization tool
+
+[OPTIONAL] # Nice-to-have tools (commented by default)
+# mdbook::Create books from markdown files
+# fnm::Fast Node Manager - Node.js version manager
+# cargo-edit::Cargo commands for modifying dependencies
+# cargo-expand::Expand macros in Rust source code
+# cargo-outdated::Display when dependencies are out of date
+# cargo-audit::Audit Cargo.lock for security vulnerabilities
+# cargo-nextest::Next-generation test runner for Rust
+# xh::Friendly and fast tool for sending HTTP requests
+# lsd::The next gen ls command
+# nushell:nu:A new type of shell
+# helix:hx:A post-modern modal text editor
+# alacritty::A cross-platform, GPU-accelerated terminal emulator
+# gitui::Blazing fast terminal-ui for git
+# onefetch::Command-line Git information tool
+# grex::A regex builder
