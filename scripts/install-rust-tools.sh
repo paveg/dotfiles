@@ -128,8 +128,12 @@ install_with_binary_fallback() {
             fi
             ;;
         eza)
-            if [[ "$system" =~ darwin ]]; then
+            if [[ "$system" =~ darwin-aarch64 ]]; then
                 install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_aarch64-apple-darwin.tar.gz" eza
+            elif [[ "$system" =~ darwin-x86_64 ]]; then
+                install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-apple-darwin.tar.gz" eza
+            elif [[ "$system" =~ linux-aarch64 ]]; then
+                install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_aarch64-unknown-linux-gnu.tar.gz" eza
             else
                 install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz" eza
             fi

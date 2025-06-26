@@ -52,6 +52,7 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - `./scripts/format-zsh.sh` - Format zsh configuration files for consistency
 - `./scripts/format-markdown.sh` - Format markdown files for consistency
 - `./scripts/install-rust-tools.sh` - Install/update Rust-based development tools via cargo
+- `./scripts/install-neovim-latest.sh` - Install latest NeoVim on Linux (AppImage, binary, or package manager)
 - `chezmoi add <file>` - Add a file to chezmoi management after editing
 
 ### Rust Tools Management
@@ -66,6 +67,18 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - Essential tools (starship, bat, fd, ripgrep, eza): Pre-built binaries (~30 seconds)
 - Additional tools: Parallel compilation for speed
 - Interactive selection for additional tools
+
+### NeoVim Installation
+
+- **Latest Version**: `./scripts/install-neovim-latest.sh` - Installs latest NeoVim on Linux systems
+- **Multi-method approach**: AppImage (preferred) → Pre-built binary → Package manager fallback
+- **Cross-platform**: Handles x86_64 and ARM64 architectures
+- **Verification**: Tests installation and basic functionality
+
+**Installation Methods Priority:**
+1. AppImage (latest, self-contained, x86_64 only)
+2. Pre-built binary from GitHub releases
+3. Package manager with latest repository (fallback)
 
 ## Architecture
 

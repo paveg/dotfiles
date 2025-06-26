@@ -9,7 +9,7 @@ fd-find
 ripgrep
 fzf
 bat
-exa
-neovim
 jq
+# Note: neovim is installed via dedicated script for latest version
+# Note: exa replaced by eza (installed via cargo)
 # Note: atuin is not available in Ubuntu repos, install via cargo or binary
