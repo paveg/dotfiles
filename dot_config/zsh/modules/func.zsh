@@ -17,7 +17,7 @@ _fzf_cd_ghq() {
   local repo="$(ghq list | fzf --reverse --height=60% \
     --preview="
       repo_path=$root/{}
-      
+
       # Check for README files - if found, use bat directly
       if [[ -f \"\$repo_path/README.md\" ]]; then
         bat --color=always --style=header,grid --line-range :80 \"\$repo_path/README.md\"
@@ -34,7 +34,7 @@ _fzf_cd_ghq() {
         echo \"📁 \$(basename \"\$repo_path\")\"
         echo \"📍 \$repo_path\"
         echo \"\"
-        
+
         if [[ -d \"\$repo_path/.git\" ]]; then
           echo \"🔧 Git Repository\"
           cd \"\$repo_path\" 2>/dev/null && {
@@ -100,13 +100,13 @@ _remove_unnecessary_branches() {
 # Local configuration management functions
 local_config_init() {
   local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
-  
+
   if [[ -f "$config_path" ]]; then
     echo "Local config already exists: $config_path"
     echo "Use 'local_config_edit' to modify it."
     return 1
   fi
-  
+
   # Call the function from local.zsh module
   if (( $+functions[create_local_template] )); then
     create_local_template
@@ -118,31 +118,31 @@ local_config_init() {
 
 local_config_edit() {
   local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
-  
+
   if [[ ! -f "$config_path" ]]; then
     echo "Local config doesn't exist. Creating template..."
     local_config_init || return 1
   fi
-  
+
   "${EDITOR:-vim}" "$config_path"
 }
 
 local_config_show() {
   local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
-  
+
   if [[ -f "$config_path" ]]; then
     echo "=== Local Config: $config_path ==="
     cat "$config_path"
   else
     echo "No local config found. Use 'local_config_init' to create one."
   fi
-  
+
   # Check other locations
   if [[ -f "$HOME/.zsh_local" ]]; then
     echo "=== Traditional Local Config: $HOME/.zsh_local ==="
     cat "$HOME/.zsh_local"
   fi
-  
+
   if [[ -d "${ZDOTDIR:-$HOME/.config/zsh}/local" ]]; then
     echo "=== Local Config Directory: ${ZDOTDIR:-$HOME/.config/zsh}/local/ ==="
     ls -la "${ZDOTDIR:-$HOME/.config/zsh}/local/"

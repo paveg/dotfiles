@@ -21,21 +21,21 @@
 # Load local configuration files
 load_local_config() {
     local config_loaded=false
-    
+
     # 1. Check for single local config file in XDG location
     if [[ -f "$ZDOTDIR/local.zsh" ]]; then
         source "$ZDOTDIR/local.zsh"
         config_loaded=true
         [[ -n "$ZSHRC_DEBUG" ]] && echo "✓ Loaded local config: $ZDOTDIR/local.zsh"
     fi
-    
+
     # 2. Check for traditional location
     if [[ -f "$HOME/.zsh_local" ]]; then
         source "$HOME/.zsh_local"
         config_loaded=true
         [[ -n "$ZSHRC_DEBUG" ]] && echo "✓ Loaded local config: $HOME/.zsh_local"
     fi
-    
+
     # 3. Check for local directory with multiple files
     if [[ -d "$ZDOTDIR/local" ]]; then
         for local_file in "$ZDOTDIR/local"/*.zsh(N); do
@@ -46,7 +46,7 @@ load_local_config() {
             fi
         done
     fi
-    
+
     # Optional: Set indicator for other scripts
     if [[ "$config_loaded" == "true" ]]; then
         export LOCAL_CONFIG_LOADED=1
@@ -56,12 +56,12 @@ load_local_config() {
 # Create local config template function
 create_local_template() {
     local template_path="$ZDOTDIR/local.zsh"
-    
+
     if [[ -f "$template_path" ]]; then
         echo "Local config already exists: $template_path"
         return 1
     fi
-    
+
     cat > "$template_path" << 'EOF'
 #!/usr/bin/env zsh
 # ============================================================================

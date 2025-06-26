@@ -183,29 +183,37 @@ Uses Go templates for environment-specific configuration:
 For machine-specific configurations that should not be tracked by git (work settings, private credentials, etc.):
 
 ### Configuration Locations (checked in order)
+
 1. `~/.config/zsh/local.zsh` - XDG standard location (recommended)
-2. `~/.zsh_local` - Traditional location
-3. `~/.config/zsh/local/` - Directory for multiple local files
+1. `~/.zsh_local` - Traditional location
+1. `~/.config/zsh/local/` - Directory for multiple local files
 
 ### Management Commands
+
 - `local_config_init` - Create local configuration template
 - `local_config_edit` - Edit local configuration (creates if missing)
 - `local_config_show` - Display current local configurations
 
 ### Example Use Cases
+
 ```zsh
+
 # Work-specific aliases
+
 alias work-deploy='kubectl apply -f k8s/'
 alias work-connect='ssh user@work.company.com'
 
 # Environment variables
+
 export WORK_API_KEY="secret-key"
 export COMPANY_DOMAIN="company.com"
 
 # Custom PATH additions
+
 path_prepend "$HOME/work-tools/bin"
 
 # Hostname-based conditional loading
+
 if [[ "$(hostname)" == "work-laptop" ]]; then
     export BUSINESS_USE=1
     git config --global user.email "work@company.com"
@@ -213,6 +221,7 @@ fi
 ```
 
 ### Security Notes
+
 - Local configuration files are automatically ignored by git
 - Safe for sensitive information (API keys, work credentials)
 - Loaded after all main modules for override capability
