@@ -80,18 +80,25 @@ fi
 if command -v atuin >/dev/null; then
   # Similar logic for atuin - immediate load in sessions, lazy load in main shell
   if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]; then
-    eval "$(atuin init zsh)"
+    eval "$(atuin init zsh)" 2>/dev/null || {
+      [[ -n "$ZSHRC_DEBUG" ]] && echo "Warning: atuin init failed"
+    }
   else
     # Lazy loading for performance
     _lazy_atuin() {
       unfunction _lazy_atuin
-      eval "$(atuin init zsh)"
+      eval "$(atuin init zsh)" 2>/dev/null || {
+        echo "Warning: atuin initialization failed"
+        return 1
+      }
       # Re-bind the key after initialization
       [[ -n "$1" ]] && zle "$1"
     }
     zle -N _lazy_atuin
     bindkey '^r' _lazy_atuin
   fi
+else
+  [[ -n "$ZSHRC_DEBUG" ]] && echo "atuin not found - using default ^r binding"
 fi
 
 # Starship prompt - load immediately for visual feedback

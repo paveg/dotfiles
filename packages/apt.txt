@@ -12,3 +12,4 @@ bat
 exa
 neovim
 jq
+# Note: atuin is not available in Ubuntu repos, install via cargo or binary

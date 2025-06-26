@@ -11,3 +11,4 @@ fzf
 bat
 neovim
 jq
+# Note: atuin is not available in Fedora repos, install via cargo or binary
