@@ -77,8 +77,8 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 
 **Installation Methods Priority:**
 1. AppImage (latest, self-contained, x86_64 only)
-2. Pre-built binary from GitHub releases
-3. Package manager with latest repository (fallback)
+1. Pre-built binary from GitHub releases
+1. Package manager with latest repository (fallback)
 
 ## Architecture
 
