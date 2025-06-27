@@ -27,7 +27,12 @@
 	rebase = false
 [merge]
 	conflictstype = diff3
+{{- if eq .chezmoi.os "darwin" }}
 [credential]
 	helper = osxkeychain
+{{- else if eq .chezmoi.os "linux" }}
+[credential]
+	helper = store
+{{- end }}
 [include]
 	path = ~/.config/git/secrets
