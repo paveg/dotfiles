@@ -5,6 +5,8 @@
 # Use XDG directories
 experimental = true
 asdf_compat = false
+# Automatically load .env files in directories
+env_file = ".env"
 
 [tools]
 # Define default tool versions
