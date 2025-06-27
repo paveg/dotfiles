@@ -56,7 +56,7 @@ export GHQ_ROOT="$HOME/repos"
 # Zsh specific
 export HISTFILE="$XDG_STATE_HOME/zsh/history"
 export HISTSIZE=50000
-export SAVEHIST=10000
+export SAVEHIST=50000
 
 # Performance: disable compinit security check in CI/Docker
 {{- if or (env "CI") (env "DOCKER") }}
