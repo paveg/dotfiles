@@ -106,36 +106,36 @@ install_with_binary_fallback() {
             ;;
         bat)
             if [[ "$system" =~ darwin-aarch64 ]]; then
-                install_binary bat "https://github.com/sharkdp/bat/releases/latest/download/bat-v0.24.0-aarch64-apple-darwin.tar.gz" bat
+                install_binary bat "https://github.com/sharkdp/bat/releases/download/v0.25.0/bat-v0.25.0-aarch64-apple-darwin.tar.gz" bat
             elif [[ "$system" =~ darwin-x86_64 ]]; then
-                install_binary bat "https://github.com/sharkdp/bat/releases/latest/download/bat-v0.24.0-x86_64-apple-darwin.tar.gz" bat
+                install_binary bat "https://github.com/sharkdp/bat/releases/download/v0.25.0/bat-v0.25.0-x86_64-apple-darwin.tar.gz" bat
             else
-                install_binary bat "https://github.com/sharkdp/bat/releases/latest/download/bat-v0.24.0-x86_64-unknown-linux-gnu.tar.gz" bat
+                install_binary bat "https://github.com/sharkdp/bat/releases/download/v0.25.0/bat-v0.25.0-x86_64-unknown-linux-gnu.tar.gz" bat
             fi
             ;;
         fd)
             if [[ "$system" =~ darwin ]]; then
-                install_binary fd "https://github.com/sharkdp/fd/releases/latest/download/fd-v10.1.0-aarch64-apple-darwin.tar.gz" fd
+                install_binary fd "https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-aarch64-apple-darwin.tar.gz" fd
             else
-                install_binary fd "https://github.com/sharkdp/fd/releases/latest/download/fd-v10.1.0-x86_64-unknown-linux-gnu.tar.gz" fd
+                install_binary fd "https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-x86_64-unknown-linux-gnu.tar.gz" fd
             fi
             ;;
         ripgrep)
             if [[ "$system" =~ darwin ]]; then
-                install_binary rg "https://github.com/BurntSushi/ripgrep/releases/latest/download/ripgrep-14.1.0-aarch64-apple-darwin.tar.gz" rg
+                install_binary rg "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz" rg
             else
-                install_binary rg "https://github.com/BurntSushi/ripgrep/releases/latest/download/ripgrep-14.1.0-x86_64-unknown-linux-gnu.tar.gz" rg
+                install_binary rg "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-gnu.tar.gz" rg
             fi
             ;;
         eza)
-            if [[ "$system" =~ darwin-aarch64 ]]; then
-                install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_aarch64-apple-darwin.tar.gz" eza
-            elif [[ "$system" =~ darwin-x86_64 ]]; then
-                install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-apple-darwin.tar.gz" eza
+            if [[ "$system" =~ darwin ]]; then
+                # eza doesn't provide pre-built macOS binaries, use cargo install
+                print_warning "No pre-built binary available for eza on macOS, using cargo install..."
+                cargo install eza --root "$HOME/.cargo" --locked
             elif [[ "$system" =~ linux-aarch64 ]]; then
-                install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_aarch64-unknown-linux-gnu.tar.gz" eza
+                install_binary eza "https://github.com/eza-community/eza/releases/download/v0.21.6/eza_aarch64-unknown-linux-gnu.tar.gz" eza
             else
-                install_binary eza "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz" eza
+                install_binary eza "https://github.com/eza-community/eza/releases/download/v0.21.6/eza_x86_64-unknown-linux-gnu.tar.gz" eza
             fi
             ;;
         *)
