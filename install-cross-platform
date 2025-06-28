@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Cross-platform installer for paveg's dotfiles
 # Usage: curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install-cross-platform | bash
 # Usage: BUSINESS_USE=1 curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install-cross-platform | bash
