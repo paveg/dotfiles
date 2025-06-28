@@ -121,6 +121,18 @@ else
     echo "Warning: NeoVim installation script not found"
 fi
 
+# Install special tools on Linux using unified installer
+echo "=== Installing Linux tools (gh, mise, ghq, delta, lazygit) ==="
+if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install-linux-tools.sh" ]]; then
+    echo "Running unified Linux tools installation script..."
+    bash "{{ .chezmoi.sourceDir }}/scripts/install-linux-tools.sh" gh mise ghq || {
+        echo "Warning: Some tools may have failed to install"
+        echo "You can run the script manually later: {{ .chezmoi.sourceDir }}/scripts/install-linux-tools.sh"
+    }
+else
+    echo "Warning: Linux tools installation script not found"
+fi
+
 {{- end }}
 
 # Install Rust tools via cargo (cross-platform)
