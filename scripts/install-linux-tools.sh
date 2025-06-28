@@ -36,6 +36,44 @@ get_arch() {
 # Create necessary directories
 mkdir -p "$HOME/.local/bin"
 
+# Helper function for downloading and extracting archives
+download_and_extract() {
+    local url="$1"
+    local binary_name="$2"
+    local target_dir="$3"
+    local extract_pattern="${4:-$binary_name}"  # Optional: different pattern for finding binary in archive
+    
+    local temp_dir=$(mktemp -d)
+    local archive_name
+    
+    # Determine archive type and download
+    if [[ "$url" == *.zip ]]; then
+        archive_name="archive.zip"
+        curl -fsSL "$url" -o "${temp_dir}/${archive_name}" || return 1
+        unzip -q "${temp_dir}/${archive_name}" -d "${temp_dir}" || return 1
+    elif [[ "$url" == *.tar.gz ]]; then
+        archive_name="archive.tar.gz"
+        curl -fsSL "$url" -o "${temp_dir}/${archive_name}" || return 1
+        tar -xzf "${temp_dir}/${archive_name}" -C "${temp_dir}" || return 1
+    else
+        log_error "Unsupported archive format: $url"
+        rm -rf "${temp_dir}"
+        return 1
+    fi
+    
+    # Find and move binary
+    local binary_path=$(find "${temp_dir}" -name "$extract_pattern" -type f -executable | head -1)
+    if [[ -n "$binary_path" ]]; then
+        mv "$binary_path" "${target_dir}/${binary_name}"
+        chmod +x "${target_dir}/${binary_name}"
+        rm -rf "${temp_dir}"
+        return 0
+    else
+        rm -rf "${temp_dir}"
+        return 1
+    fi
+}
+
 # GitHub CLI (gh) installation
 install_gh() {
     log_info "Installing GitHub CLI (gh)..."
@@ -62,12 +100,7 @@ install_gh() {
         local arch=$(get_arch)
         local url="https://github.com/cli/cli/releases/download/v${version}/gh_${version}_linux_${arch}.tar.gz"
         
-        local temp_dir=$(mktemp -d)
-        curl -L "$url" -o "${temp_dir}/gh.tar.gz"
-        tar -xzf "${temp_dir}/gh.tar.gz" -C "${temp_dir}"
-        mv "${temp_dir}/gh_${version}_linux_${arch}/bin/gh" "$HOME/.local/bin/"
-        chmod +x "$HOME/.local/bin/gh"
-        rm -rf "${temp_dir}"
+        download_and_extract "$url" "gh" "$HOME/.local/bin" "*/bin/gh"
     fi
     
     if command -v gh >/dev/null 2>&1; then
@@ -88,7 +121,7 @@ install_mise() {
     fi
     
     # Use official installer
-    curl https://mise.run | sh
+    curl -fsSL https://mise.run | sh
     
     if [[ -f "$HOME/.local/bin/mise" ]]; then
         log_info "✅ mise installed successfully"
@@ -118,18 +151,10 @@ install_ghq() {
     log_info "Installing ghq v${version} for ${arch}..."
     
     local url="https://github.com/x-motemen/ghq/releases/download/v${version}/ghq_linux_${arch}.zip"
-    local temp_dir=$(mktemp -d)
     
-    curl -L "$url" -o "${temp_dir}/ghq.zip"
-    unzip -q "${temp_dir}/ghq.zip" -d "${temp_dir}"
-    
-    if [[ -f "${temp_dir}/ghq" ]]; then
-        mv "${temp_dir}/ghq" "$HOME/.local/bin/ghq"
-        chmod +x "$HOME/.local/bin/ghq"
-        rm -rf "${temp_dir}"
+    if download_and_extract "$url" "ghq" "$HOME/.local/bin"; then
         log_info "✅ ghq installed successfully"
     else
-        rm -rf "${temp_dir}"
         log_error "Failed to install ghq"
         return 1
     fi
@@ -159,18 +184,9 @@ install_delta() {
         url="https://github.com/dandavison/delta/releases/download/${version}/delta-${version}-aarch64-unknown-linux-gnu.tar.gz"
     fi
     
-    local temp_dir=$(mktemp -d)
-    curl -L "$url" -o "${temp_dir}/delta.tar.gz"
-    tar -xzf "${temp_dir}/delta.tar.gz" -C "${temp_dir}"
-    
-    local delta_binary=$(find "${temp_dir}" -name "delta" -type f -executable | head -1)
-    if [[ -n "$delta_binary" ]]; then
-        mv "$delta_binary" "$HOME/.local/bin/delta"
-        chmod +x "$HOME/.local/bin/delta"
-        rm -rf "${temp_dir}"
+    if download_and_extract "$url" "delta" "$HOME/.local/bin"; then
         log_info "✅ delta installed successfully"
     else
-        rm -rf "${temp_dir}"
         log_error "Failed to install delta"
         return 1
     fi
@@ -200,17 +216,9 @@ install_lazygit() {
         url="https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_Linux_arm64.tar.gz"
     fi
     
-    local temp_dir=$(mktemp -d)
-    curl -L "$url" -o "${temp_dir}/lazygit.tar.gz"
-    tar -xzf "${temp_dir}/lazygit.tar.gz" -C "${temp_dir}"
-    
-    if [[ -f "${temp_dir}/lazygit" ]]; then
-        mv "${temp_dir}/lazygit" "$HOME/.local/bin/lazygit"
-        chmod +x "$HOME/.local/bin/lazygit"
-        rm -rf "${temp_dir}"
+    if download_and_extract "$url" "lazygit" "$HOME/.local/bin"; then
         log_info "✅ lazygit installed successfully"
     else
-        rm -rf "${temp_dir}"
         log_error "Failed to install lazygit"
         return 1
     fi
