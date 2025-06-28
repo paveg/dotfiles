@@ -25,3 +25,14 @@ The installation script will:
 - **Text Processing**: ripgrep, fd, fzf, bat, jq
 - **Editor**: neovim
 - **Monitoring**: htop
+
+## Tools Installed via Dedicated Scripts
+
+Some tools require special installation methods on Linux:
+
+- **neovim**: Latest version via AppImage/binary (script: `install-neovim-latest.sh`)
+- **Linux tools**: gh, mise, ghq, delta, lazygit (script: `install-linux-tools.sh`)
+  - Can install all at once: `./install-linux-tools.sh`
+  - Or specific tools: `./install-linux-tools.sh gh mise ghq`
+- **atuin**: Shell history sync tool (installed via setup script)
+- **Rust tools**: Various CLI tools via cargo (script: `install-rust-tools.sh`)

@@ -11,5 +11,6 @@ fzf
 bat
 jq
 atuin
+unzip
 # Note: neovim is installed via dedicated script for latest version
 # Note: exa replaced by eza (installed via cargo)
