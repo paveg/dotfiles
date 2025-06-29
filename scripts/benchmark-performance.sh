@@ -18,6 +18,13 @@ RESULTS_FILE="${RESULTS_FILE:-/tmp/benchmark-results.json}"
 echo '{"benchmarks": []}' > "$RESULTS_FILE"
 
 # Helper functions
+get_time_ms() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        python3 -c "import time; print(int(time.time() * 1000))"
+    else
+        echo $(( $(date +%s%N) / 1000000 ))
+    fi
+}
 log() {
     echo -e "${BLUE}[BENCHMARK]${NC} $1"
 }
@@ -69,13 +76,13 @@ benchmark_startup() {
     local max_time=0
     
     for ((i=1; i<=ITERATIONS; i++)); do
-        # Measure startup time using time command
-        local start_time=$(date +%s%N)
+        # Measure startup time
+        local start_time=$(get_time_ms)
         
         # Run zsh in non-interactive mode
         if timeout 10 zsh -c 'exit' &>/dev/null; then
-            local end_time=$(date +%s%N)
-            local duration=$(( (end_time - start_time) / 1000000 ))  # Convert to milliseconds
+            local end_time=$(get_time_ms)
+            local duration=$((end_time - start_time))
             
             times+=("$duration")
             total_time=$((total_time + duration))
@@ -125,12 +132,12 @@ benchmark_startup() {
 benchmark_completion() {
     log "Benchmarking completion system..."
     
-    local start_time=$(date +%s%N)
+    local start_time=$(get_time_ms)
     
     # Test completion loading by triggering compinit
     if zsh -c 'autoload -U compinit; compinit -d ~/.zcompdump-test; rm -f ~/.zcompdump-test*' &>/dev/null; then
-        local end_time=$(date +%s%N)
-        local duration=$(( (end_time - start_time) / 1000000 ))
+        local end_time=$(get_time_ms)
+        local duration=$((end_time - start_time))
         
         success "Completion system loaded in ${duration}ms"
         add_result "completion_loading" "$duration" "$duration" "$duration" true
@@ -162,11 +169,11 @@ benchmark_modules() {
     for module in "$module_dir"/*.zsh; do
         if [[ -f "$module" ]]; then
             local module_name=$(basename "$module" .zsh)
-            local start_time=$(date +%s%N)
+            local start_time=$(get_time_ms)
             
             if zsh -c "source '$module'" &>/dev/null; then
-                local end_time=$(date +%s%N)
-                local duration=$(( (end_time - start_time) / 1000000 ))
+                local end_time=$(get_time_ms)
+                local duration=$((end_time - start_time))
                 
                 echo "  $module_name: ${duration}ms"
                 total_time=$((total_time + duration))
@@ -206,11 +213,11 @@ for i in {1..100}; do
 done
 EOF
     
-    local start_time=$(date +%s%N)
+    local start_time=$(get_time_ms)
     
     if zsh -c "zcompile '$test_file'" &>/dev/null; then
-        local end_time=$(date +%s%N)
-        local duration=$(( (end_time - start_time) / 1000000 ))
+        local end_time=$(get_time_ms)
+        local duration=$((end_time - start_time))
         
         success "Compilation completed in ${duration}ms"
         add_result "compilation_time" "$duration" "$duration" "$duration" true
