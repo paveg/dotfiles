@@ -260,11 +260,24 @@ jobs:
           export HOME="$TEST_HOME"
           export ZDOTDIR="$TEST_HOME/.config/zsh"
 
+          # DEBUG: Show environment and files
+          echo "DEBUG: Environment:"
+          echo "  PWD: $(pwd)"
+          echo "  TEST_HOME: $TEST_HOME"
+          echo "  HOME: $HOME"
+          echo "  Test files available:"
+          ls -la tests/modules/test-*.sh || echo "No test files found"
+          
           # Make test scripts executable
           chmod +x tests/run-module-tests.sh
           chmod +x tests/modules/test-*.sh
 
+          # DEBUG: Test the CI-safe test directly first
+          echo "DEBUG: Running CI-safe test directly:"
+          bash tests/modules/test-ci-safe.sh || echo "CI-safe test failed with exit code $?"
+
           # Run module tests
+          echo "DEBUG: Running full module test runner:"
           if ./tests/run-module-tests.sh; then
             echo "✓ Module tests passed"
           else
