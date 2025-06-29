@@ -21,6 +21,9 @@ jobs:
   check-rust-tools:
     name: Check Rust Tools Updates
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'rust-tools' || github.event.inputs.update_type == ''
     outputs:
       has-updates: ${{ steps.check-updates.outputs.has-updates }}
@@ -127,6 +130,9 @@ jobs:
   update-rust-tools:
     name: Update Rust Tools
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     needs: check-rust-tools
     if: needs.check-rust-tools.outputs.has-updates == 'true'
     steps:
@@ -285,6 +291,9 @@ jobs:
   check-submodules:
     name: Check Git Submodules
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'submodules' || github.event.inputs.update_type == ''
     outputs:
       has-updates: ${{ steps.check-subs.outputs.has-updates }}
@@ -315,6 +324,9 @@ jobs:
   update-submodules:
     name: Update Git Submodules
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     needs: check-submodules
     if: needs.check-submodules.outputs.has-updates == 'true'
     steps:
@@ -353,6 +365,9 @@ jobs:
   summary:
     name: Update Summary
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     needs: [check-rust-tools, check-homebrew-updates, check-submodules]
     if: always()
     steps:

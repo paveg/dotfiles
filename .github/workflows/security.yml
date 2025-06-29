@@ -13,6 +13,9 @@ jobs:
   secret-scan:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -36,6 +39,9 @@ jobs:
   dependency-scan:
     name: Dependency Scanning
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -158,6 +164,9 @@ jobs:
   configuration-security:
     name: Configuration Security Review
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -239,6 +248,9 @@ jobs:
   supply-chain-security:
     name: Supply Chain Security
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -272,6 +284,9 @@ jobs:
   security-report:
     name: Generate Security Report
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     needs: [secret-scan, dependency-scan, homebrew-security, configuration-security, supply-chain-security]
     if: always()
     steps:

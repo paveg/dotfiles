@@ -9,6 +9,9 @@ on:
 jobs:
   format-and-lint:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -446,6 +449,9 @@ jobs:
   documentation-validation:
     name: Documentation Validation
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -482,6 +488,9 @@ jobs:
   # Status check job that branch protection can depend on
   ci-success:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     needs: [format-and-lint, test-chezmoi, documentation-validation]
     if: always()
     steps:
