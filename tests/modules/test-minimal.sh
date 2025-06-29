@@ -28,6 +28,10 @@ elif [[ -d "./dot_config/zsh/modules" ]]; then
 elif [[ -d "dot_config/zsh/modules" ]]; then
     MODULE_DIR="dot_config/zsh/modules"
     echo "Using source directory: $MODULE_DIR"
+# FALLBACK: If we're in CI but modules aren't applied, use source as last resort
+elif [[ -n "${TEST_HOME:-}" && -d "dot_config/zsh/modules" ]]; then
+    MODULE_DIR="dot_config/zsh/modules"
+    echo "FALLBACK: Using source directory in CI: $MODULE_DIR"
 else
     echo -e "${RED}✗ Module directory not found. Checked:${NC}"
     echo "  - TEST_HOME: ${TEST_HOME:-unset}"
