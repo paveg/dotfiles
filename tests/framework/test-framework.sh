@@ -214,7 +214,8 @@ assert_exit_code() {
 # Test utilities
 run_in_temp_dir() {
     local command="$1"
-    local temp_dir=$(mktemp -d)
+    local temp_dir
+    temp_dir=$(mktemp -d)
     
     (
         cd "$temp_dir"
@@ -276,9 +277,11 @@ measure_execution_time() {
     local total_time=0
     
     for ((i=1; i<=iterations; i++)); do
-        local start_time=$(date +%s%N)
+        local start_time
+        start_time=$(date +%s%N)
         eval "$command" &>/dev/null
-        local end_time=$(date +%s%N)
+        local end_time
+        end_time=$(date +%s%N)
         local duration=$(( (end_time - start_time) / 1000000 ))  # Convert to milliseconds
         total_time=$((total_time + duration))
     done
@@ -292,7 +295,8 @@ assert_performance() {
     local max_time_ms="$2"
     local message="${3:-Command should complete within time limit}"
     
-    local actual_time=$(measure_execution_time "$command")
+    local actual_time
+    actual_time=$(measure_execution_time "$command")
     
     if [[ $actual_time -le $max_time_ms ]]; then
         test_pass "$message: ${actual_time}ms (limit: ${max_time_ms}ms)"
