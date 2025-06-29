@@ -47,7 +47,8 @@ test_path_prepend() {
         
         # Test duplicate prevention
         path_prepend "$test_path"
-        local count=$(echo "$PATH" | tr ':' '\n' | grep -c "^$test_path$" || true)
+        local count
+        count=$(echo "$PATH" | tr ':' '\n' | grep -c "^$test_path$" || true)
         
         if [[ $count -eq 1 ]]; then
             test_pass "Duplicate path prevention works"
@@ -83,7 +84,8 @@ test_path_append() {
         
         # Test duplicate prevention
         path_append "$test_path"
-        local count=$(echo "$PATH" | tr ':' '\n' | grep -c "^$test_path$" || true)
+        local count
+        count=$(echo "$PATH" | tr ':' '\n' | grep -c "^$test_path$" || true)
         
         if [[ $count -eq 1 ]]; then
             test_pass "Duplicate path prevention works"
@@ -114,7 +116,8 @@ test_path_show() {
         source "$TEST_MODULE_DIR/path.zsh"
         
         # Capture output
-        local output=$(path_show 2>/dev/null || echo "")
+        local output
+        output=$(path_show 2>/dev/null || echo "")
         
         if [[ -n "$output" ]]; then
             # Check if it contains some expected paths
@@ -146,8 +149,10 @@ test_path_clean() {
         path_clean
         
         # Check for duplicates
-        local usr_bin_count=$(echo "$PATH" | tr ':' '\n' | grep -c "^/usr/bin$" || true)
-        local bin_count=$(echo "$PATH" | tr ':' '\n' | grep -c "^/bin$" || true)
+        local usr_bin_count
+        usr_bin_count=$(echo "$PATH" | tr ':' '\n' | grep -c "^/usr/bin$" || true)
+        local bin_count
+        bin_count=$(echo "$PATH" | tr ':' '\n' | grep -c "^/bin$" || true)
         
         if [[ $usr_bin_count -eq 1 && $bin_count -eq 1 ]]; then
             test_pass "Duplicates removed successfully"
@@ -177,7 +182,8 @@ test_path_check() {
         source "$TEST_MODULE_DIR/path.zsh"
         
         # Capture output
-        local output=$(path_check 2>/dev/null || echo "")
+        local output
+        output=$(path_check 2>/dev/null || echo "")
         
         if [[ -n "$output" ]]; then
             test_pass "path_check produces output"
@@ -196,7 +202,8 @@ test_homebrew_path_detection() {
     
     if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         # Mock uname to test different architectures
-        local original_uname=$(which uname)
+        local original_uname
+        original_uname=$(which uname)
         
         # Test ARM64 detection
         mock_command "uname" 'if [[ "$1" == "-m" ]]; then echo "arm64"; else '$original_uname' "$@"; fi'
