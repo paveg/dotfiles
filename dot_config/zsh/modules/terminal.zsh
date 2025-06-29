@@ -47,5 +47,5 @@ safe_tput() {
   fi
 }
 
-# Export the function for use in other scripts (suppress output)
-{ export -f safe_tput } 2>/dev/null || true
+# Note: Function is available in current shell context
+# Export removed to prevent startup output
