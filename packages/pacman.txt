@@ -7,7 +7,6 @@ zsh
 tmux
 fd
 ripgrep
-fzf
 bat
 jq
 atuin

@@ -94,6 +94,18 @@ if command -v apt >/dev/null 2>&1; then
     echo "Using apt package manager..."
     sudo apt update
 
+    # Configure locale to fix ja_JP.UTF-8 warnings
+    echo "Configuring Japanese locale..."
+    if ! locale -a | grep -q "ja_JP.utf8"; then
+        # Enable Japanese locale in /etc/locale.gen
+        sudo sed -i 's/^# ja_JP.UTF-8 UTF-8/ja_JP.UTF-8 UTF-8/' /etc/locale.gen 2>/dev/null || true
+        # Generate locales
+        sudo locale-gen 2>/dev/null || true
+        echo "Japanese locale configured"
+    else
+        echo "Japanese locale already available"
+    fi
+
     # Install packages from apt.txt
     echo "Installing packages from apt.txt..."
     while IFS= read -r package || [[ -n "$package" ]]; do
@@ -157,6 +169,22 @@ if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install-neovim-latest.sh" ]]; then
     }
 else
     echo "Warning: NeoVim installation script not found"
+fi
+
+# Install latest fzf on Linux
+echo "=== Installing latest fzf ==="
+echo "Installing fzf from GitHub releases..."
+FZF_VERSION=$(curl -s "https://api.github.com/repos/junegunn/fzf/releases/latest" | grep -Po '"tag_name": "v\K[^"]*' || echo "0.56.3")
+FZF_URL="https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-linux_amd64.tar.gz"
+
+if curl -fsSL "$FZF_URL" | sudo tar -xz -C /usr/local/bin fzf; then
+    echo "✓ fzf v${FZF_VERSION} installed to /usr/local/bin/fzf"
+    # Ensure /usr/local/bin/fzf takes precedence over system package
+    if command -v update-alternatives >/dev/null 2>&1; then
+        sudo update-alternatives --install /usr/bin/fzf fzf /usr/local/bin/fzf 100 2>/dev/null || true
+    fi
+else
+    echo "Warning: fzf installation failed, falling back to system package if available"
 fi
 
 # Install special tools on Linux using unified installer
