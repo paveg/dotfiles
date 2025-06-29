@@ -5,9 +5,10 @@ wget
 git
 zsh
 tmux
+build-essential
+locales
 fd-find
 ripgrep
-fzf
 bat
 jq
 unzip

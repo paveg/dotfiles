@@ -7,7 +7,6 @@ zsh
 tmux
 fd-find
 ripgrep
-fzf
 bat
 unzip
 # neovim is installed via dedicated script for latest version
