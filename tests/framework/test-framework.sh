@@ -3,20 +3,20 @@
 set -euo pipefail
 
 # Colors for output
-declare -g GREEN='\033[0;32m'
-declare -g RED='\033[0;31m'
-declare -g YELLOW='\033[1;33m'
-declare -g BLUE='\033[0;34m'
-declare -g BOLD='\033[1m'
-declare -g NC='\033[0m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
 
 # Test statistics
-declare -g TESTS_RUN=0
-declare -g TESTS_PASSED=0
-declare -g TESTS_FAILED=0
-declare -g TESTS_SKIPPED=0
-declare -g CURRENT_TEST=""
-declare -g TEST_SUITE_NAME=""
+TESTS_RUN=0
+TESTS_PASSED=0
+TESTS_FAILED=0
+TESTS_SKIPPED=0
+CURRENT_TEST=""
+TEST_SUITE_NAME=""
 
 # Logging functions
 log() {

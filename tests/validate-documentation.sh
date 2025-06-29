@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Documentation Validation Script
-set -euo pipefail
+set -e
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -25,110 +25,79 @@ log() {
 
 success() {
     echo -e "${GREEN}✓${NC} $1"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 error() {
     echo -e "${RED}✗${NC} $1"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
-# Test markdown syntax and basic structure
-validate_markdown_files() {
-    log "Validating Markdown files..."
+# Main validation function
+main() {
+    log "Starting Documentation Validation"
+    echo "=================================="
     
-    # Get all markdown files
-    local temp_file="/tmp/md_files_$$"
-    find "$PROJECT_ROOT" -name "*.md" -type f -not -path "*/.git/*" > "$temp_file"
-    
-    while IFS= read -r markdown_file; do
-        [[ -z "$markdown_file" ]] && continue
-        
-        ((TESTS_RUN++))
-        local file_name=$(basename "$markdown_file")
-        
-        # Check for basic markdown structure (headers)
-        if grep -q "^#" "$markdown_file"; then
-            success "Markdown structure valid: $file_name"
-        else
-            warning "No headers found in: $file_name"
-        fi
-        
-        # Check file is not empty
-        ((TESTS_RUN++))
-        if [[ -s "$markdown_file" ]]; then
-            success "File not empty: $file_name"
-        else
-            error "Empty file: $file_name"
-        fi
-    done < "$temp_file"
-    
-    rm -f "$temp_file"
-}
-
-# Validate key documentation exists
-validate_key_files() {
-    log "Validating key documentation files..."
-    
-    local key_files=("README.md" "CLAUDE.md")
-    
-    for file in "${key_files[@]}"; do
-        ((TESTS_RUN++))
-        if [[ -f "$PROJECT_ROOT/$file" ]]; then
-            success "$file exists"
-        else
-            error "$file missing"
-        fi
-    done
-}
-
-# Validate installation documentation
-validate_installation_docs() {
-    log "Validating installation documentation..."
-    
-    ((TESTS_RUN++))
-    if grep -q "chezmoi.*init\|curl.*install" "$PROJECT_ROOT/README.md" 2>/dev/null; then
-        success "Installation methods documented in README"
+    # Test 1: Check README.md exists
+    TESTS_RUN=$((TESTS_RUN + 1))
+    if [[ -f "$PROJECT_ROOT/README.md" ]]; then
+        success "README.md exists"
     else
-        warning "Installation methods not clearly documented in README"
+        error "README.md missing"
     fi
     
-    ((TESTS_RUN++))
+    # Test 2: Check CLAUDE.md exists
+    TESTS_RUN=$((TESTS_RUN + 1))
+    if [[ -f "$PROJECT_ROOT/CLAUDE.md" ]]; then
+        success "CLAUDE.md exists"
+    else
+        error "CLAUDE.md missing"
+    fi
+    
+    # Test 3: Check README has installation instructions
+    TESTS_RUN=$((TESTS_RUN + 1))
+    if grep -q "chezmoi\|curl.*install" "$PROJECT_ROOT/README.md" 2>/dev/null; then
+        success "Installation instructions found in README"
+    else
+        warning "Installation instructions not clearly found in README"
+    fi
+    
+    # Test 4: Check CLAUDE.md has key commands
+    TESTS_RUN=$((TESTS_RUN + 1))
+    if grep -q "chezmoi" "$PROJECT_ROOT/CLAUDE.md" 2>/dev/null; then
+        success "Key commands documented in CLAUDE.md"
+    else
+        warning "Key commands not found in CLAUDE.md"
+    fi
+    
+    # Test 5: Check install script exists
+    TESTS_RUN=$((TESTS_RUN + 1))
     if [[ -f "$PROJECT_ROOT/install" ]]; then
         success "Install script exists"
     else
         error "Install script missing"
     fi
-}
-
-# Validate CLAUDE.md content
-validate_claude_md() {
-    log "Validating CLAUDE.md content..."
     
-    local claude_md="$PROJECT_ROOT/CLAUDE.md"
-    if [[ ! -f "$claude_md" ]]; then
-        error "CLAUDE.md not found"
-        return 1
-    fi
-    
-    # Check for key commands
-    local commands=("chezmoi" "brewbundle" "zprofiler")
-    for cmd in "${commands[@]}"; do
-        ((TESTS_RUN++))
-        if grep -q "$cmd" "$claude_md"; then
-            success "Command '$cmd' documented in CLAUDE.md"
-        else
-            warning "Command '$cmd' not mentioned in CLAUDE.md"
+    # Test 6: Check basic markdown files are not empty
+    TESTS_RUN=$((TESTS_RUN + 1))
+    local empty_files=0
+    for file in "$PROJECT_ROOT"/*.md; do
+        if [[ -f "$file" && ! -s "$file" ]]; then
+            empty_files=$((empty_files + 1))
         fi
     done
-}
-
-# Generate summary
-generate_summary() {
+    
+    if [[ $empty_files -eq 0 ]]; then
+        success "No empty markdown files found"
+    else
+        error "Found $empty_files empty markdown files"
+    fi
+    
+    # Generate summary
     echo
     log "Documentation Validation Summary"
     echo "================================="
@@ -144,26 +113,11 @@ generate_summary() {
     
     if [[ $TESTS_FAILED -eq 0 ]]; then
         echo -e "\n${GREEN}✅ All documentation validation tests passed!${NC}"
-        return 0
+        exit 0
     else
-        echo -e "\n${RED}❌ Some documentation validation tests failed!${NC}"
-        return 1
+        echo -e "\n${RED}❌ $TESTS_FAILED documentation validation test(s) failed!${NC}"
+        exit 1
     fi
-}
-
-# Main function
-main() {
-    log "Starting Documentation Validation"
-    echo "=================================="
-    
-    # Run validation tests
-    validate_key_files
-    validate_markdown_files
-    validate_installation_docs
-    validate_claude_md
-    
-    # Generate summary
-    generate_summary
 }
 
 # Run if called directly

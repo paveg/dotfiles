@@ -49,7 +49,7 @@ run_test_suite() {
     echo -e "\n${BOLD}🧪 Running Test Suite: $suite_name${NC}"
     echo "=================================================="
     
-    local start_time=$(date +%s%N)
+    local start_time=$(date +%s)
     local result=0
     
     # Capture test output and statistics
@@ -61,7 +61,7 @@ run_test_suite() {
         result=1
     fi
     
-    local end_time=$(date +%s%N)
+    local end_time=$(date +%s)
     local duration=$(( (end_time - start_time) / 1000000 ))  # Convert to milliseconds
     
     # Display output
@@ -89,7 +89,7 @@ run_all_module_tests() {
     
     local total_suites=0
     local failed_suites=0
-    local start_time=$(date +%s%N)
+    local start_time=$(date +%s)
     
     # Find all test files
     while IFS= read -r test_file; do
@@ -99,10 +99,10 @@ run_all_module_tests() {
             ((failed_suites++))
         fi
         
-    done < <(find "$MODULE_TEST_DIR" -name "test-*.sh" -type f -executable | sort)
+    done < <(find "$MODULE_TEST_DIR" -name "test-*.sh" -type f | sort)
     
-    local end_time=$(date +%s%N)
-    local total_duration=$(( (end_time - start_time) / 1000000 ))
+    local end_time=$(date +%s)
+    local total_duration=$((end_time - start_time))
     
     # Generate summary
     generate_summary "$total_suites" "$failed_suites" "$total_duration"
