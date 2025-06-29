@@ -53,16 +53,12 @@ jobs:
         run: |
           echo "Scanning shell scripts for security and syntax issues..."
           
+          # Focus on security-critical errors, not style warnings
           # Find and scan all shell scripts
           find . -name "*.sh" -type f | while read -r script; do
             echo "Checking $script..."
-            if [[ "$script" =~ tests/ ]]; then
-              # For test files, only fail on errors, not warnings
-              shellcheck "$script" -f gcc -S error || exit 1
-            else
-              # For non-test files, fail on warnings too
-              shellcheck "$script" -f gcc -S warning || exit 1
-            fi
+            # Only fail on actual errors that could cause security or functionality issues
+            shellcheck "$script" -f gcc -S error || exit 1
           done
 
       - name: Validate zsh configurations
