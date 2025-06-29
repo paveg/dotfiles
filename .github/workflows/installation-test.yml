@@ -45,6 +45,9 @@ jobs:
     container: ${{ matrix.container }}
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Setup container environment
       if: matrix.container
       run: |
@@ -79,8 +82,8 @@ jobs:
             export HOME=/home/testuser
             cd $HOME
 
-            echo "Installing dotfiles via curl..."
-            curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+            echo "Installing dotfiles via local install script..."
+            bash $GITHUB_WORKSPACE/install
 
             # Verify installation
             test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
@@ -95,8 +98,8 @@ jobs:
           mkdir -p "$INSTALL_DIR"
           cd "$INSTALL_DIR"
 
-          echo "Installing dotfiles via curl..."
-          curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+          echo "Installing dotfiles via local install script..."
+          bash "$GITHUB_WORKSPACE/install"
 
           # Verify installation
           test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
@@ -116,8 +119,8 @@ jobs:
             export HOME=/home/testuser
             cd $HOME
 
-            # Clone repository
-            git clone https://github.com/paveg/dotfiles.git
+            # Use current repository code
+            cp -r $GITHUB_WORKSPACE dotfiles
             cd dotfiles
 
             # Install chezmoi
@@ -140,8 +143,8 @@ jobs:
           mkdir -p "$INSTALL_DIR"
           cd "$INSTALL_DIR"
 
-          # Clone repository
-          git clone https://github.com/paveg/dotfiles.git
+          # Use current repository code
+          cp -r "$GITHUB_WORKSPACE" dotfiles
           cd dotfiles
 
           # Install chezmoi
@@ -176,7 +179,7 @@ jobs:
             cd $HOME
 
             echo "Installing dotfiles with BUSINESS_USE=1..."
-            curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+            bash "$GITHUB_WORKSPACE/install"
 
             # Verify business-specific settings
             grep -q "BUSINESS_USE=1" ~/.zshenv || (echo "FAIL: BUSINESS_USE not set" && exit 1)
@@ -189,7 +192,7 @@ jobs:
           rm -rf ~/.config/zsh ~/.zshenv ~/.local/share/chezmoi 2>/dev/null || true
 
           export BUSINESS_USE=1
-          curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+          bash "$GITHUB_WORKSPACE/install"
 
           # Verify business-specific settings
           grep -q "BUSINESS_USE=1" ~/.zshenv || (echo "FAIL: BUSINESS_USE not set" && exit 1)
@@ -202,6 +205,9 @@ jobs:
     name: Test Upgrade Scenarios
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Setup test environment
       run: |
         sudo apt-get update -qq
@@ -224,7 +230,7 @@ jobs:
         echo "Testing upgrade over existing installation..."
 
         # Install new version
-        curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+        bash "$GITHUB_WORKSPACE/install"
 
         # Verify upgrade worked
         test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not updated" && exit 1)
@@ -241,6 +247,9 @@ jobs:
     name: Test Partial Installation Scenarios
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Setup minimal environment
       run: |
         sudo apt-get update -qq
@@ -254,7 +263,7 @@ jobs:
         sudo apt-get remove -y zsh
 
         # Install should still work but with warnings
-        if curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash; then
+        if bash "$GITHUB_WORKSPACE/install"; then
           echo "✓ Installation completed despite missing zsh"
         else
           echo "✗ Installation failed when zsh missing"
@@ -274,7 +283,7 @@ jobs:
           cd $HOME
 
           # This should work without sudo for user-level installation
-          curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash || true
+          bash "$GITHUB_WORKSPACE/install" || true
 
           # Verify user-level files were created
           test -f ~/.config/zsh/.zshrc && echo "✓ User-level installation succeeded"
@@ -284,6 +293,9 @@ jobs:
     name: Test Error Recovery
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Setup test environment
       run: |
         sudo apt-get update -qq
@@ -302,7 +314,7 @@ jobs:
         echo "partial" > ~/.config/partial_file
 
         # Run installation again - should complete successfully
-        curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+        bash "$GITHUB_WORKSPACE/install"
 
         # Verify completion
         test -f ~/.config/zsh/.zshrc || (echo "FAIL: Recovery installation failed" && exit 1)
@@ -318,7 +330,7 @@ jobs:
         echo "invalid zsh syntax {{{" > ~/.config/zsh/.zshrc
 
         # Installation should handle this gracefully
-        curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+        bash "$GITHUB_WORKSPACE/install"
 
         # Verify the corrupt file was replaced
         if zsh -n ~/.config/zsh/.zshrc; then
@@ -332,6 +344,9 @@ jobs:
     name: Test Installation Performance
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Setup test environment
       run: |
         sudo apt-get update -qq
@@ -344,7 +359,7 @@ jobs:
         start_time=$(date +%s)
 
         # Run installation
-        curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
+        bash "$GITHUB_WORKSPACE/install"
 
         end_time=$(date +%s)
         duration=$((end_time - start_time))
