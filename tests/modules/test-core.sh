@@ -7,7 +7,14 @@ source "$(dirname "$0")/../framework/test-framework.sh"
 
 # Test setup
 setup() {
-    export TEST_MODULE_DIR="$HOME/.config/zsh/modules"
+    # Check if modules exist in the working directory (CI) or home directory (local)
+    if [[ -d "./dot_config/zsh/modules" ]]; then
+        export TEST_MODULE_DIR="./dot_config/zsh/modules"
+    elif [[ -d "$HOME/.config/zsh/modules" ]]; then
+        export TEST_MODULE_DIR="$HOME/.config/zsh/modules"
+    else
+        export TEST_MODULE_DIR=""
+    fi
     export TEMP_TEST_DIR="/tmp/dotfiles-test-$$"
     mkdir -p "$TEMP_TEST_DIR"
 }
@@ -25,7 +32,7 @@ test_zcompare_function() {
     echo 'echo "test"' > "$test_file"
     
     # Source core module to get zcompare function
-    if [[ -f "$TEST_MODULE_DIR/core.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/core.zsh" ]]; then
         source "$TEST_MODULE_DIR/core.zsh"
         
         # Run zcompare
@@ -51,7 +58,7 @@ test_zcompare_skips_uptodate() {
     local test_file="$TEMP_TEST_DIR/test2.zsh"
     echo 'echo "test2"' > "$test_file"
     
-    if [[ -f "$TEST_MODULE_DIR/core.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/core.zsh" ]]; then
         source "$TEST_MODULE_DIR/core.zsh"
         
         # First compilation
@@ -78,7 +85,7 @@ test_zcompare_skips_uptodate() {
 test_init_completion() {
     test_start "init_completion sets up completion system"
     
-    if [[ -f "$TEST_MODULE_DIR/core.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/core.zsh" ]]; then
         # Create a temporary zsh session to test completion
         local test_script="$TEMP_TEST_DIR/test_completion.zsh"
         cat > "$test_script" << 'EOF'
@@ -118,7 +125,7 @@ test_load_function() {
     local test_file="$TEMP_TEST_DIR/test_load.zsh"
     echo 'TEST_LOAD_VAR="loaded"' > "$test_file"
     
-    if [[ -f "$TEST_MODULE_DIR/core.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/core.zsh" ]]; then
         # Test in a subshell to avoid polluting environment
         (
             source "$TEST_MODULE_DIR/core.zsh"
@@ -146,7 +153,7 @@ test_load_function() {
 test_core_error_handling() {
     test_start "core functions handle errors gracefully"
     
-    if [[ -f "$TEST_MODULE_DIR/core.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/core.zsh" ]]; then
         source "$TEST_MODULE_DIR/core.zsh"
         
         # Test zcompare with non-existent file

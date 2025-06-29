@@ -7,7 +7,14 @@ source "$(dirname "$0")/../framework/test-framework.sh"
 
 # Test setup
 setup() {
-    export TEST_MODULE_DIR="$HOME/.config/zsh/modules"
+    # Check if modules exist in the working directory (CI) or home directory (local)
+    if [[ -d "./dot_config/zsh/modules" ]]; then
+        export TEST_MODULE_DIR="./dot_config/zsh/modules"
+    elif [[ -d "$HOME/.config/zsh/modules" ]]; then
+        export TEST_MODULE_DIR="$HOME/.config/zsh/modules"
+    else
+        export TEST_MODULE_DIR=""
+    fi
     export ORIGINAL_PATH="$PATH"
     export TEMP_TEST_DIR="/tmp/dotfiles-test-$$"
     mkdir -p "$TEMP_TEST_DIR"
@@ -23,7 +30,7 @@ teardown() {
 test_path_prepend() {
     test_start "path_prepend adds directories to beginning of PATH"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         source "$TEST_MODULE_DIR/path.zsh"
         
         local test_path="$TEMP_TEST_DIR/prepend_test"
@@ -59,7 +66,7 @@ test_path_prepend() {
 test_path_append() {
     test_start "path_append adds directories to end of PATH"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         source "$TEST_MODULE_DIR/path.zsh"
         
         local test_path="$TEMP_TEST_DIR/append_test"
@@ -103,7 +110,7 @@ test_path_remove() {
 test_path_show() {
     test_start "path_show displays PATH components"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         source "$TEST_MODULE_DIR/path.zsh"
         
         # Capture output
@@ -128,7 +135,7 @@ test_path_show() {
 test_path_clean() {
     test_start "path_clean removes duplicates and invalid paths"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         source "$TEST_MODULE_DIR/path.zsh"
         
         local original_path="$PATH"
@@ -166,7 +173,7 @@ test_path_clean() {
 test_path_check() {
     test_start "path_check validates path entries"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         source "$TEST_MODULE_DIR/path.zsh"
         
         # Capture output
@@ -187,7 +194,7 @@ test_path_check() {
 test_homebrew_path_detection() {
     test_start "Homebrew path detection based on architecture"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         # Mock uname to test different architectures
         local original_uname=$(which uname)
         
@@ -213,7 +220,7 @@ test_homebrew_path_detection() {
 test_environment_variables() {
     test_start "Environment variables are set correctly"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         source "$TEST_MODULE_DIR/path.zsh"
         
         # Check for XDG environment variables (these should always be set)
@@ -240,7 +247,7 @@ test_environment_variables() {
 test_tool_paths() {
     test_start "Tool-specific paths are managed correctly"
     
-    if [[ -f "$TEST_MODULE_DIR/path.zsh" ]]; then
+    if [[ -n "$TEST_MODULE_DIR" && -f "$TEST_MODULE_DIR/path.zsh" ]]; then
         source "$TEST_MODULE_DIR/path.zsh"
         
         # Create mock tool directories
