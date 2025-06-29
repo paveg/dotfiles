@@ -63,13 +63,15 @@ test_zcompare_skips_uptodate() {
         
         # First compilation
         zcompare "$test_file"
-        local first_mtime=$(stat -c %Y "${test_file}.zwc" 2>/dev/null || stat -f %m "${test_file}.zwc")
+        local first_mtime
+        first_mtime=$(stat -c %Y "${test_file}.zwc" 2>/dev/null || stat -f %m "${test_file}.zwc")
         
         sleep 1
         
         # Second compilation (should skip)
         zcompare "$test_file"
-        local second_mtime=$(stat -c %Y "${test_file}.zwc" 2>/dev/null || stat -f %m "${test_file}.zwc")
+        local second_mtime
+        second_mtime=$(stat -c %Y "${test_file}.zwc" 2>/dev/null || stat -f %m "${test_file}.zwc")
         
         if [[ "$first_mtime" == "$second_mtime" ]]; then
             test_pass "zcompare correctly skipped recompilation"
@@ -100,7 +102,8 @@ else
 fi
 EOF
         
-        local result=$(zsh -c "TEST_MODULE_DIR='$TEST_MODULE_DIR'; source '$test_script'" 2>/dev/null || echo "COMPLETION_ERROR")
+        local result
+        result=$(zsh -c "TEST_MODULE_DIR='$TEST_MODULE_DIR'; source '$test_script'" 2>/dev/null || echo "COMPLETION_ERROR")
         
         case "$result" in
             "COMPLETION_SUCCESS")
