@@ -41,10 +41,13 @@ warning() {
 validate_markdown_files() {
     log "Validating Markdown files..."
     
-    local markdown_files
-    mapfile -t markdown_files < <(find "$PROJECT_ROOT" -name "*.md" -type f -not -path "*/.git/*")
+    # Get all markdown files
+    local temp_file="/tmp/md_files_$$"
+    find "$PROJECT_ROOT" -name "*.md" -type f -not -path "*/.git/*" > "$temp_file"
     
-    for markdown_file in "${markdown_files[@]}"; do
+    while IFS= read -r markdown_file; do
+        [[ -z "$markdown_file" ]] && continue
+        
         ((TESTS_RUN++))
         local file_name=$(basename "$markdown_file")
         
@@ -62,7 +65,9 @@ validate_markdown_files() {
         else
             error "Empty file: $file_name"
         fi
-    done
+    done < "$temp_file"
+    
+    rm -f "$temp_file"
 }
 
 # Validate key documentation exists

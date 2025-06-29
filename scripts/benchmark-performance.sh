@@ -20,9 +20,23 @@ echo '{"benchmarks": []}' > "$RESULTS_FILE"
 # Helper functions
 get_time_ms() {
     if [[ "$(uname)" == "Darwin" ]]; then
-        python3 -c "import time; print(int(time.time() * 1000))"
+        # macOS doesn't support %N in date
+        if command -v python3 >/dev/null 2>&1; then
+            python3 -c "import time; print(int(time.time() * 1000))"
+        elif command -v python >/dev/null 2>&1; then
+            python -c "import time; print(int(time.time() * 1000))"
+        else
+            # Fallback to seconds * 1000
+            echo $(( $(date +%s) * 1000 ))
+        fi
     else
-        echo $(( $(date +%s%N) / 1000000 ))
+        # Linux/other Unix systems with nanosecond support
+        if date +%s%N >/dev/null 2>&1; then
+            echo $(( $(date +%s%N) / 1000000 ))
+        else
+            # Fallback for systems without nanosecond support
+            echo $(( $(date +%s) * 1000 ))
+        fi
     fi
 }
 log() {
