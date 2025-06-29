@@ -8,7 +8,10 @@ source "$(dirname "$0")/../framework/test-framework.sh"
 # Test setup
 setup() {
     # Check if modules exist in various possible locations
-    if [[ -d "$HOME/.config/zsh/modules" ]]; then
+    # Priority: Applied test directory (CI) > Home directory > Source directory
+    if [[ -n "${TEST_HOME:-}" && -d "$TEST_HOME/.config/zsh/modules" ]]; then
+        export TEST_MODULE_DIR="$TEST_HOME/.config/zsh/modules"
+    elif [[ -d "$HOME/.config/zsh/modules" ]]; then
         export TEST_MODULE_DIR="$HOME/.config/zsh/modules"
     elif [[ -d "./dot_config/zsh/modules" ]]; then
         export TEST_MODULE_DIR="./dot_config/zsh/modules"
