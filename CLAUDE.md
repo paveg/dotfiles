@@ -41,6 +41,15 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - `zprofiler` - Profile zsh startup time
 - `zshtime` - Measure zsh startup performance
 
+### Tmux Auto-start (Linux)
+
+- **Automatic tmux on SSH**: Automatically starts or attaches to tmux sessions on Linux when connecting via SSH
+- **Control variables**:
+  - `DISABLE_AUTO_TMUX=1` - Disable automatic tmux startup
+  - `AUTO_TMUX=1` - Force automatic tmux startup (even in non-SSH sessions)
+- **Smart detection**: Only activates for SSH sessions, skips CI/Docker environments
+- **Session management**: Attaches to existing sessions or creates new ones
+
 ### Neovim/AstroNvim
 
 - `:Lazy update` - Update Neovim plugins
