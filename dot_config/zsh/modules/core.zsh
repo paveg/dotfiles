@@ -17,7 +17,9 @@
 # Guard against multiple loads - but always ensure functions are defined
 if [[ -n "$_CORE_LOADED" ]]; then
   # Functions should already be defined, but verify
-  [[ $(type -w load 2>/dev/null) ]] && [[ $(type -w init_completion 2>/dev/null) ]] && return 0
+  if (( $+functions[load] )) && (( $+functions[init_completion] )) && (( $+functions[zcompare] )); then
+    return 0
+  fi
 fi
 export _CORE_LOADED=1
 
