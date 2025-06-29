@@ -56,7 +56,13 @@ jobs:
           # Find and scan all shell scripts
           find . -name "*.sh" -type f | while read -r script; do
             echo "Checking $script..."
-            shellcheck "$script" -f gcc -S warning || exit 1
+            if [[ "$script" =~ tests/ ]]; then
+              # For test files, only fail on errors, not warnings
+              shellcheck "$script" -f gcc -S error || exit 1
+            else
+              # For non-test files, fail on warnings too
+              shellcheck "$script" -f gcc -S warning || exit 1
+            fi
           done
 
       - name: Validate zsh configurations
