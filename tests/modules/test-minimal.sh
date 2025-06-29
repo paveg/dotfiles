@@ -10,12 +10,21 @@ NC='\033[0m'
 echo "=== Minimal Module Tests ==="
 
 # Test that essential files exist
-if [[ -d "./dot_config/zsh/modules" ]]; then
-    MODULE_DIR="./dot_config/zsh/modules"
-elif [[ -d "$HOME/.config/zsh/modules" ]]; then
+# Try different possible locations for the module directory
+if [[ -d "$HOME/.config/zsh/modules" ]]; then
     MODULE_DIR="$HOME/.config/zsh/modules"
+elif [[ -d "./dot_config/zsh/modules" ]]; then
+    MODULE_DIR="./dot_config/zsh/modules"
+elif [[ -d "dot_config/zsh/modules" ]]; then
+    MODULE_DIR="dot_config/zsh/modules"
 else
-    echo -e "${RED}✗ Module directory not found${NC}"
+    echo -e "${RED}✗ Module directory not found. Checked:${NC}"
+    echo "  - $HOME/.config/zsh/modules"
+    echo "  - ./dot_config/zsh/modules"
+    echo "  - dot_config/zsh/modules"
+    echo "  - Current directory: $(pwd)"
+    echo "  - Available directories:"
+    find . -name "modules" -type d 2>/dev/null || echo "    No modules directories found"
     exit 1
 fi
 

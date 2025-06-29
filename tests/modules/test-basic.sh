@@ -7,11 +7,13 @@ source "$(dirname "$0")/../framework/test-framework.sh"
 
 # Test setup
 setup() {
-    # Check if modules exist in the working directory (CI) or home directory (local)
-    if [[ -d "./dot_config/zsh/modules" ]]; then
-        export TEST_MODULE_DIR="./dot_config/zsh/modules"
-    elif [[ -d "$HOME/.config/zsh/modules" ]]; then
+    # Check if modules exist in various possible locations
+    if [[ -d "$HOME/.config/zsh/modules" ]]; then
         export TEST_MODULE_DIR="$HOME/.config/zsh/modules"
+    elif [[ -d "./dot_config/zsh/modules" ]]; then
+        export TEST_MODULE_DIR="./dot_config/zsh/modules"
+    elif [[ -d "dot_config/zsh/modules" ]]; then
+        export TEST_MODULE_DIR="dot_config/zsh/modules"
     else
         export TEST_MODULE_DIR=""
     fi
