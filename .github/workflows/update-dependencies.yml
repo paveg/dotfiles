@@ -1,10 +1,7 @@
 name: Update Dependencies
 
 on:
-  schedule:
-    # Run weekly on Mondays at 08:00 UTC
-    - cron: "0 8 * * 1"
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch: # Manual triggering only
     inputs:
       update_type:
         description: "Type of update to perform"
@@ -24,7 +21,7 @@ jobs:
     defaults:
       run:
         shell: bash
-    if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'rust-tools' || github.event.inputs.update_type == ''
+    if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'rust-tools'
     outputs:
       has-updates: ${{ steps.check-updates.outputs.has-updates }}
       update-list: ${{ steps.check-updates.outputs.update-list }}
@@ -82,7 +79,7 @@ jobs:
   check-homebrew-updates:
     name: Check Homebrew Updates
     runs-on: macos-latest
-    if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'homebrew' || github.event.inputs.update_type == ''
+    if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'homebrew'
     outputs:
       has-updates: ${{ steps.check-brew.outputs.has-updates }}
       outdated-formulae: ${{ steps.check-brew.outputs.outdated-formulae }}
@@ -294,7 +291,7 @@ jobs:
     defaults:
       run:
         shell: bash
-    if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'submodules' || github.event.inputs.update_type == ''
+    if: github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'submodules'
     outputs:
       has-updates: ${{ steps.check-subs.outputs.has-updates }}
     steps:
