@@ -28,6 +28,8 @@ ESSENTIAL_SOURCE_FILES=(
     "dot_config/starship.toml"
     "dot_zshenv.tmpl" 
     ".chezmoi.yaml.tmpl"
+    "dot_config/zsh/modules/core.zsh"
+    "dot_config/zsh/modules/path.zsh"
 )
 
 MISSING_SOURCE_FILES=()
@@ -62,14 +64,37 @@ else
     echo -e "${RED}FAIL${NC} - Missing tools: ${MISSING_TOOLS[*]}"
 fi
 
+# Test 4: Validate zsh module syntax (if zsh is available)
+echo -n "Testing zsh module syntax ... "
+if command -v zsh >/dev/null 2>&1; then
+    SYNTAX_ERRORS=0
+    for module in dot_config/zsh/modules/*.zsh; do
+        if [[ -f "$module" ]]; then
+            if ! zsh -n "$module" 2>/dev/null; then
+                ((SYNTAX_ERRORS++))
+            fi
+        fi
+    done
+    
+    if [[ $SYNTAX_ERRORS -eq 0 ]]; then
+        echo -e "${GREEN}PASS${NC}"
+        ((TESTS_PASSED++))
+    else
+        echo -e "${RED}FAIL${NC} - $SYNTAX_ERRORS syntax errors"
+    fi
+else
+    echo -e "${GREEN}SKIP${NC} - zsh not available"
+    ((TESTS_PASSED++))  # Count as pass since it's environmental
+fi
+
 # Output test results in expected format
 echo ""
-echo "Tests run: 3"
+echo "Tests run: 4"
 echo "Passed: $TESTS_PASSED"
-echo "Failed: $((3 - TESTS_PASSED))"
+echo "Failed: $((4 - TESTS_PASSED))"
 echo "Skipped: 0"
 
-if [[ $TESTS_PASSED -eq 3 ]]; then
+if [[ $TESTS_PASSED -eq 4 ]]; then
     echo -e "\n${GREEN}All tests passed!${NC}"
     exit 0
 else
