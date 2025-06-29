@@ -8,6 +8,10 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo "=== Minimal Module Tests ==="
+echo "DEBUG: Environment variables:"
+echo "  TEST_HOME=${TEST_HOME:-unset}"
+echo "  HOME=${HOME:-unset}"
+echo "  PWD=$(pwd)"
 
 # Test that essential files exist
 # Try different possible locations for the module directory
@@ -32,9 +36,21 @@ else
     echo "  - ./dot_config/zsh/modules"
     echo "  - dot_config/zsh/modules"
     echo "  - Current directory: $(pwd)"
-    echo "  - Available directories:"
-    find . -name "modules" -type d 2>/dev/null || echo "    No modules directories found"
-    [[ -n "${TEST_HOME:-}" ]] && find "$TEST_HOME" -name "modules" -type d 2>/dev/null || true
+    echo ""
+    echo "DEBUG: Available directories and files:"
+    find . -name "modules" -type d 2>/dev/null || echo "    No modules directories found in current dir"
+    if [[ -n "${TEST_HOME:-}" ]]; then
+        echo "DEBUG: TEST_HOME directory structure:"
+        find "$TEST_HOME" -name "modules" -type d 2>/dev/null || echo "    No modules directories found in TEST_HOME"
+        if [[ -d "$TEST_HOME/.config" ]]; then
+            echo "  TEST_HOME/.config contents:"
+            ls -la "$TEST_HOME/.config/" 2>/dev/null || echo "    Cannot list .config"
+            if [[ -d "$TEST_HOME/.config/zsh" ]]; then
+                echo "  TEST_HOME/.config/zsh contents:"
+                ls -la "$TEST_HOME/.config/zsh/" 2>/dev/null || echo "    Cannot list .config/zsh"
+            fi
+        fi
+    fi
     exit 1
 fi
 
