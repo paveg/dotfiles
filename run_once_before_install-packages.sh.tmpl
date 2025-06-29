@@ -154,6 +154,27 @@ elif command -v pacman >/dev/null 2>&1; then
     # Install alacritty terminfo
     install_alacritty_terminfo
 
+elif command -v apk >/dev/null 2>&1; then
+    echo "Using apk package manager (Alpine Linux)..."
+
+    # Update package index
+    apk update
+
+    # Install packages from apk.txt
+    echo "Installing packages from apk.txt..."
+    while IFS= read -r package || [[ -n "$package" ]]; do
+        # Skip comments and empty lines
+        [[ "$package" =~ ^[[:space:]]*# ]] || [[ -z "$package" ]] && continue
+        echo "Installing: $package"
+        apk add "$package" || echo "Warning: Failed to install $package"
+    done < "{{ .chezmoi.sourceDir }}/packages/apk.txt"
+
+    # Install alacritty terminfo
+    install_alacritty_terminfo
+
+    # Install atuin separately (not available in apk repos)
+    install_atuin_linux
+
 else
     echo "No supported package manager found. Please install dependencies manually."
     echo "Required packages listed in {{ .chezmoi.sourceDir }}/packages/"

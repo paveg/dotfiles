@@ -1,0 +1,78 @@
+name: Essential Security Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly security scans on Mondays at 06:00 UTC
+    - cron: "0 6 * * 1"
+
+jobs:
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive scanning
+
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+
+  shell-validation:
+    name: Shell Script Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Validate shell scripts
+        run: |
+          echo "Scanning shell scripts for security and syntax issues..."
+          
+          # Focus on security-critical errors, not style warnings
+          # Find and scan all shell scripts
+          find . -name "*.sh" -type f | while read -r script; do
+            echo "Checking $script..."
+            # Only fail on actual errors that could cause security or functionality issues
+            shellcheck "$script" -f gcc -S error || exit 1
+          done
+
+      - name: Validate zsh configurations
+        run: |
+          echo "Validating zsh configurations for syntax..."
+          
+          # Install zsh for validation
+          sudo apt-get install -y zsh
+
+          # Check all zsh files for syntax errors
+          find . -name "*.zsh" -type f | while read -r zsh_file; do
+            echo "Validating $zsh_file..."
+            if ! zsh -n "$zsh_file"; then
+              echo "❌ Syntax error in $zsh_file"
+              exit 1
+            fi
+          done

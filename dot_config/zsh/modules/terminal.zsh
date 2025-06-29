@@ -29,7 +29,7 @@ fi
 if [[ "$TERM" != "dumb" ]]; then
   # Use zsh's built-in color support instead of tput
   autoload -Uz colors && colors
-  
+
   # Export color support for tools that check these
   export COLORTERM="${COLORTERM:-truecolor}"
   export CLICOLOR=1
@@ -39,7 +39,7 @@ fi
 safe_tput() {
   local cmd="$1"
   shift
-  
+
   # Check if tput is available and terminal is not dumb
   if command -v tput >/dev/null 2>&1 && [[ "$TERM" != "dumb" ]]; then
     # Try to execute tput, but suppress errors

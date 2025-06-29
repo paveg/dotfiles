@@ -1,0 +1,134 @@
+name: Installation Testing
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly installation tests on Sunday at 02:00 UTC
+    - cron: "0 2 * * 0"
+
+jobs:
+  test-installation:
+    name: Test Core Installation Scenarios
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Essential OS combinations - Linux and macOS
+          - os: ubuntu-latest
+            container: ubuntu:22.04
+            test_scenario: curl_install
+          - os: ubuntu-latest
+            container: ubuntu:22.04
+            test_scenario: git_clone
+          - os: ubuntu-latest
+            container: ubuntu:22.04
+            test_scenario: business_env
+          - os: macos-latest
+            test_scenario: curl_install
+
+    container: ${{ matrix.container }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup container environment
+        if: matrix.container
+        shell: sh
+        run: |
+          echo "Setting up container environment for ${{ matrix.container }}"
+          apt-get update -qq
+          apt-get install -y curl git zsh sudo
+
+          # Create test user
+          useradd -m -s /bin/bash testuser
+          mkdir -p /etc/sudoers.d
+          echo "testuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/testuser
+          chmod 440 /etc/sudoers.d/testuser
+
+      - name: Test curl installation
+        if: matrix.test_scenario == 'curl_install'
+        run: |
+          echo "Testing curl installation method..."
+
+          if [[ -n "${{ matrix.container }}" ]]; then
+            su - testuser -c '
+              export HOME=/home/testuser
+              cd $HOME
+
+              echo "Installing dotfiles via install script..."
+              bash "$GITHUB_WORKSPACE/install"
+
+              # Verify core files were created
+              test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
+              test -f ~/.zshenv || (echo "FAIL: .zshenv not created" && exit 1)
+
+              # Test zsh can load without errors
+              zsh -c "echo \"Curl installation successful\""
+            '
+          else
+            # macOS - direct installation
+            bash "$GITHUB_WORKSPACE/install"
+
+            # Verify installation
+            test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
+            test -f ~/.zshenv || (echo "FAIL: .zshenv not created" && exit 1)
+
+            # Test zsh loads
+            zsh -c "echo \"Curl installation successful\""
+          fi
+
+      - name: Test git clone installation
+        if: matrix.test_scenario == 'git_clone'
+        run: |
+          echo "Testing git clone installation method..."
+
+          su - testuser -c '
+            export HOME=/home/testuser
+            cd $HOME
+
+            # Copy repository and install chezmoi
+            cp -r "$GITHUB_WORKSPACE" dotfiles
+            cd dotfiles
+
+            # Install chezmoi
+            sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+            export PATH="$HOME/.local/bin:$PATH"
+
+            # Initialize and apply
+            chezmoi init --apply .
+
+            # Verify installation
+            test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
+            test -f ~/.zshenv || (echo "FAIL: .zshenv not created" && exit 1)
+
+            # Test zsh loads
+            zsh -c "echo \"Git clone installation successful\""
+          '
+
+      - name: Test business environment installation
+        if: matrix.test_scenario == 'business_env'
+        run: |
+          echo "Testing business environment installation..."
+
+          su - testuser -c '
+            export HOME=/home/testuser
+            export BUSINESS_USE=1
+            cd $HOME
+
+            echo "Installing dotfiles with BUSINESS_USE=1..."
+            bash "$GITHUB_WORKSPACE/install"
+
+            # Verify business-specific settings
+            grep -q "BUSINESS_USE=1" ~/.zshenv || (echo "FAIL: BUSINESS_USE not set" && exit 1)
+
+            # Test zsh loads with business config
+            zsh -c "echo \"Business installation successful\""
+          '

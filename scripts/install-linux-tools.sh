@@ -93,6 +93,18 @@ install_gh() {
         log_info "Installing gh via dnf..."
         sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
         sudo dnf install gh -y
+    elif command -v apk >/dev/null 2>&1; then
+        log_info "Installing gh via apk (Alpine Linux)..."
+        # GitHub CLI is available in Alpine's community repository
+        apk add github-cli || {
+            log_warn "Failed to install gh via apk, falling back to binary installation"
+            # Fallback to binary installation
+            local version=$(curl -s https://api.github.com/repos/cli/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+            local arch=$(get_arch)
+            local url="https://github.com/cli/cli/releases/download/v${version}/gh_${version}_linux_${arch}.tar.gz"
+            
+            download_and_extract "$url" "gh" "$HOME/.local/bin" "*/bin/gh"
+        }
     else
         # Fallback to binary installation
         log_info "Installing gh from binary..."
