@@ -91,14 +91,14 @@ run_all_module_tests() {
     local failed_suites=0
     local start_time=$(date +%s)
     
-    # Use CI-safe test for maximum reliability, fallback to other tests
+    # Temporarily use minimal test to debug the actual issue
     local test_files=()
-    if [[ -f "$MODULE_TEST_DIR/test-ci-safe.sh" ]]; then
-        # Use the ultra-reliable CI-safe test that can't fail due to path issues
-        test_files=("$MODULE_TEST_DIR/test-ci-safe.sh")
-    elif [[ -f "$MODULE_TEST_DIR/test-minimal.sh" ]]; then
-        # Fallback to minimal test
+    if [[ -f "$MODULE_TEST_DIR/test-minimal.sh" ]]; then
+        # Use minimal test to see debug output
         test_files=("$MODULE_TEST_DIR/test-minimal.sh")
+    elif [[ -f "$MODULE_TEST_DIR/test-ci-safe.sh" ]]; then
+        # Fallback to CI-safe test
+        test_files=("$MODULE_TEST_DIR/test-ci-safe.sh")
     elif [[ -f "$MODULE_TEST_DIR/test-basic.sh" ]]; then
         # Fallback to basic test
         test_files=("$MODULE_TEST_DIR/test-basic.sh")

@@ -137,6 +137,21 @@ jobs:
 
           echo "✓ Chezmoi apply completed"
 
+          # DEBUG: Show what was actually created
+          echo "=== DEBUG: Checking applied files ==="
+          echo "TEST_HOME contents:"
+          find "$TEST_HOME" -type f | head -20 || echo "No files found"
+          echo ""
+          echo "Looking for .config/zsh/modules:"
+          if [[ -d "$TEST_HOME/.config/zsh/modules" ]]; then
+            echo "✓ Modules directory exists"
+            ls -la "$TEST_HOME/.config/zsh/modules/"
+          else
+            echo "✗ Modules directory missing"
+            echo "Available .config contents:"
+            find "$TEST_HOME/.config" -type d 2>/dev/null || echo "No .config directory"
+          fi
+
       - name: Verify essential files
         run: |
           echo "=== Verifying essential files ==="
