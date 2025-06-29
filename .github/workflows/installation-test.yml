@@ -13,6 +13,9 @@ jobs:
   test-fresh-installation:
     name: Test Fresh Installation
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -204,6 +207,9 @@ jobs:
   test-upgrade-scenarios:
     name: Test Upgrade Scenarios
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -246,6 +252,9 @@ jobs:
   test-partial-installation:
     name: Test Partial Installation Scenarios
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -292,6 +301,9 @@ jobs:
   test-error-recovery:
     name: Test Error Recovery
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -343,6 +355,9 @@ jobs:
   test-performance:
     name: Test Installation Performance
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -403,6 +418,9 @@ jobs:
   installation-summary:
     name: Installation Test Summary
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     needs: [test-fresh-installation, test-upgrade-scenarios, test-partial-installation, test-error-recovery, test-performance]
     if: always()
     steps:
