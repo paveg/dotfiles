@@ -7,7 +7,7 @@ on:
     branches: [main]
   schedule:
     # Run weekly security scans on Mondays at 06:00 UTC
-    - cron: '0 6 * * 1'
+    - cron: "0 6 * * 1"
 
 jobs:
   secret-scan:
@@ -17,24 +17,24 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Full history for comprehensive scanning
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive scanning
 
-    - name: Run TruffleHog OSS
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        base: main
-        head: HEAD
-        extra_args: --debug --only-verified
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
 
-    - name: Run GitLeaks
-      uses: gitleaks/gitleaks-action@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITLEAKS_ENABLE_COMMENTS: false
+      - name: Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
 
   dependency-scan:
     name: Dependency Scanning
@@ -43,123 +43,123 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python for safety
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - name: Set up Python for safety
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
 
-    - name: Install safety
-      run: pip install safety
+      - name: Install safety
+        run: pip install safety
 
-    - name: Scan Python dependencies
-      run: |
-        # Create a requirements file from any Python scripts
-        find . -name "*.py" -exec grep -l "import\|from" {} \; | head -5 | while read -r file; do
-          echo "# Dependencies from $file" >> temp_requirements.txt
-          grep -E "^(import|from)" "$file" | sed 's/import //' | sed 's/from //' | awk '{print $1}' >> temp_requirements.txt
-        done
+      - name: Scan Python dependencies
+        run: |
+          # Create a requirements file from any Python scripts
+          find . -name "*.py" -exec grep -l "import\|from" {} \; | head -5 | while read -r file; do
+            echo "# Dependencies from $file" >> temp_requirements.txt
+            grep -E "^(import|from)" "$file" | sed 's/import //' | sed 's/from //' | awk '{print $1}' >> temp_requirements.txt
+          done
 
-        if [[ -s temp_requirements.txt ]]; then
-          echo "Scanning Python dependencies for vulnerabilities..."
-          safety check --file temp_requirements.txt --output json || true
-        else
-          echo "No Python dependencies found to scan"
-        fi
-
-    - name: Scan shell scripts with shellcheck
-      run: |
-        sudo apt-get update && sudo apt-get install -y shellcheck
-        echo "Scanning shell scripts for security issues..."
-
-        # Find and scan all shell scripts
-        find . -name "*.sh" -type f | while read -r script; do
-          echo "Checking $script..."
-          shellcheck "$script" -f json -S warning || true
-        done
-
-    - name: Check for hardcoded secrets patterns
-      run: |
-        echo "Checking for common secret patterns..."
-
-        # Define patterns to search for
-        patterns=(
-          "password\s*=\s*['\"][^'\"]*['\"]"
-          "api_key\s*=\s*['\"][^'\"]*['\"]"
-          "secret\s*=\s*['\"][^'\"]*['\"]"
-          "token\s*=\s*['\"][^'\"]*['\"]"
-          "key\s*=\s*['\"][^'\"]*['\"]"
-          "-----BEGIN.*PRIVATE KEY-----"
-          "sk_live_[a-zA-Z0-9]+"
-          "pk_live_[a-zA-Z0-9]+"
-        )
-
-        found_secrets=false
-        for pattern in "${patterns[@]}"; do
-          if grep -r -E "$pattern" . --exclude-dir=.git --exclude="*.json" --exclude="security.yml"; then
-            echo "⚠️ Found potential secret pattern: $pattern"
-            found_secrets=true
+          if [[ -s temp_requirements.txt ]]; then
+            echo "Scanning Python dependencies for vulnerabilities..."
+            safety check --file temp_requirements.txt --output json || true
+          else
+            echo "No Python dependencies found to scan"
           fi
-        done
 
-        if [[ "$found_secrets" == "true" ]]; then
-          echo "❌ Potential secrets found in code"
-          exit 1
-        else
-          echo "✅ No hardcoded secrets detected"
-        fi
+      - name: Scan shell scripts with shellcheck
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          echo "Scanning shell scripts for security issues..."
+
+          # Find and scan all shell scripts
+          find . -name "*.sh" -type f | while read -r script; do
+            echo "Checking $script..."
+            shellcheck "$script" -f json -S warning || true
+          done
+
+      - name: Check for hardcoded secrets patterns
+        run: |
+          echo "Checking for common secret patterns..."
+
+          # Define patterns to search for
+          patterns=(
+            "password\s*=\s*['\"][^'\"]*['\"]"
+            "api_key\s*=\s*['\"][^'\"]*['\"]"
+            "secret\s*=\s*['\"][^'\"]*['\"]"
+            "token\s*=\s*['\"][^'\"]*['\"]"
+            "key\s*=\s*['\"][^'\"]*['\"]"
+            "-----BEGIN.*PRIVATE KEY-----"
+            "sk_live_[a-zA-Z0-9]+"
+            "pk_live_[a-zA-Z0-9]+"
+          )
+
+          found_secrets=false
+          for pattern in "${patterns[@]}"; do
+            if grep -r -E "$pattern" . --exclude-dir=.git --exclude="*.json" --exclude="security.yml"; then
+              echo "⚠️ Found potential secret pattern: $pattern"
+              found_secrets=true
+            fi
+          done
+
+          if [[ "$found_secrets" == "true" ]]; then
+            echo "❌ Potential secrets found in code"
+            exit 1
+          else
+            echo "✅ No hardcoded secrets detected"
+          fi
 
   homebrew-security:
     name: Homebrew Package Security
     runs-on: macos-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install brew audit tools
-      run: |
-        brew update
-        brew install --quiet jq
+      - name: Install brew audit tools
+        run: |
+          brew update
+          brew install --quiet jq
 
-    - name: Audit Homebrew packages
-      run: |
-        echo "Auditing Homebrew packages for security vulnerabilities..."
+      - name: Audit Homebrew packages
+        run: |
+          echo "Auditing Homebrew packages for security vulnerabilities..."
 
-        # Check main Brewfile
-        if [[ -f "homebrew/Brewfile" ]]; then
-          echo "Checking personal Brewfile..."
+          # Check main Brewfile
+          if [[ -f "homebrew/Brewfile" ]]; then
+            echo "Checking personal Brewfile..."
 
-          # Extract formulae from Brewfile
-          grep '^brew ' homebrew/Brewfile | awk '{print $2}' | tr -d '"' > /tmp/formulae.txt
+            # Extract formulae from Brewfile
+            grep '^brew ' homebrew/Brewfile | awk '{print $2}' | tr -d '"' > /tmp/formulae.txt
 
-          # Check each formula
-          while read -r formula; do
-            echo "Checking $formula..."
-            if brew info "$formula" --json | jq -r '.[0].deprecated // false' | grep -q true; then
-              echo "⚠️ WARNING: $formula is deprecated"
-            fi
+            # Check each formula
+            while read -r formula; do
+              echo "Checking $formula..."
+              if brew info "$formula" --json | jq -r '.[0].deprecated // false' | grep -q true; then
+                echo "⚠️ WARNING: $formula is deprecated"
+              fi
 
-            if brew info "$formula" --json | jq -r '.[0].disabled // false' | grep -q true; then
-              echo "❌ ERROR: $formula is disabled"
-            fi
-          done < /tmp/formulae.txt
-        fi
+              if brew info "$formula" --json | jq -r '.[0].disabled // false' | grep -q true; then
+                echo "❌ ERROR: $formula is disabled"
+              fi
+            done < /tmp/formulae.txt
+          fi
 
-        # Check work Brewfile if it exists
-        if [[ -f "homebrew/Brewfile.work" ]]; then
-          echo "Checking work Brewfile..."
+          # Check work Brewfile if it exists
+          if [[ -f "homebrew/Brewfile.work" ]]; then
+            echo "Checking work Brewfile..."
 
-          grep '^brew ' homebrew/Brewfile.work | awk '{print $2}' | tr -d '"' > /tmp/work_formulae.txt
+            grep '^brew ' homebrew/Brewfile.work | awk '{print $2}' | tr -d '"' > /tmp/work_formulae.txt
 
-          while read -r formula; do
-            echo "Checking work formula $formula..."
-            if brew info "$formula" --json | jq -r '.[0].deprecated // false' | grep -q true; then
-              echo "⚠️ WARNING: Work formula $formula is deprecated"
-            fi
-          done < /tmp/work_formulae.txt
-        fi
+            while read -r formula; do
+              echo "Checking work formula $formula..."
+              if brew info "$formula" --json | jq -r '.[0].deprecated // false' | grep -q true; then
+                echo "⚠️ WARNING: Work formula $formula is deprecated"
+              fi
+            done < /tmp/work_formulae.txt
+          fi
 
   configuration-security:
     name: Configuration Security Review
@@ -168,82 +168,82 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Check file permissions
-      run: |
-        echo "Checking file permissions for security issues..."
+      - name: Check file permissions
+        run: |
+          echo "Checking file permissions for security issues..."
 
-        # Check for overly permissive files
-        find . -type f -perm /o+w -not -path "./.git/*" | while read -r file; do
-          echo "⚠️ World-writable file found: $file"
-        done
+          # Check for overly permissive files
+          find . -type f -perm /o+w -not -path "./.git/*" | while read -r file; do
+            echo "⚠️ World-writable file found: $file"
+          done
 
-        # Check for executable files that shouldn't be
-        find . -name "*.conf" -o -name "*.config" -o -name "*.toml" -o -name "*.yaml" -o -name "*.yml" | while read -r file; do
-          if [[ -x "$file" ]]; then
-            echo "⚠️ Configuration file is executable: $file"
-          fi
-        done
+          # Check for executable files that shouldn't be
+          find . -name "*.conf" -o -name "*.config" -o -name "*.toml" -o -name "*.yaml" -o -name "*.yml" | while read -r file; do
+            if [[ -x "$file" ]]; then
+              echo "⚠️ Configuration file is executable: $file"
+            fi
+          done
 
-    - name: Check for sensitive file patterns
-      run: |
-        echo "Checking for sensitive files..."
+      - name: Check for sensitive file patterns
+        run: |
+          echo "Checking for sensitive files..."
 
-        # Look for potentially sensitive files
-        sensitive_patterns=(
-          "*.pem"
-          "*.key"
-          "*.p12"
-          "*.pfx"
-          "*.jks"
-          "*password*"
-          "*secret*"
-          ".env"
-          "id_rsa"
-          "id_dsa"
-          "id_ecdsa"
-          "id_ed25519"
-        )
+          # Look for potentially sensitive files
+          sensitive_patterns=(
+            "*.pem"
+            "*.key"
+            "*.p12"
+            "*.pfx"
+            "*.jks"
+            "*password*"
+            "*secret*"
+            ".env"
+            "id_rsa"
+            "id_dsa"
+            "id_ecdsa"
+            "id_ed25519"
+          )
 
-        for pattern in "${sensitive_patterns[@]}"; do
-          if find . -name "$pattern" -not -path "./.git/*" | grep -q .; then
-            echo "⚠️ Found potentially sensitive files matching: $pattern"
-            find . -name "$pattern" -not -path "./.git/*"
-          fi
-        done
+          for pattern in "${sensitive_patterns[@]}"; do
+            if find . -name "$pattern" -not -path "./.git/*" | grep -q .; then
+              echo "⚠️ Found potentially sensitive files matching: $pattern"
+              find . -name "$pattern" -not -path "./.git/*"
+            fi
+          done
 
-    - name: Validate zsh configurations
-      run: |
-        echo "Validating zsh configurations for security..."
+      - name: Validate zsh configurations
+        run: |
+          echo "Validating zsh configurations for security..."
 
-        # Install zsh for validation
-        sudo apt-get update && sudo apt-get install -y zsh
+          # Install zsh for validation
+          sudo apt-get update && sudo apt-get install -y zsh
 
-        # Check all zsh files for syntax errors
-        find . -name "*.zsh" -type f | while read -r zsh_file; do
-          echo "Validating $zsh_file..."
-          if ! zsh -n "$zsh_file"; then
-            echo "❌ Syntax error in $zsh_file"
-            exit 1
-          fi
-        done
+          # Check all zsh files for syntax errors
+          find . -name "*.zsh" -type f | while read -r zsh_file; do
+            echo "Validating $zsh_file..."
+            if ! zsh -n "$zsh_file"; then
+              echo "❌ Syntax error in $zsh_file"
+              exit 1
+            fi
+          done
 
-        # Check for dangerous commands in zsh files
-        dangerous_patterns=(
-          "rm\s+-rf\s+/"
-          "chmod\s+777"
-          "eval.*curl"
-          "bash.*curl.*sh"
-          "|.*sh$"
-        )
+          # Check for dangerous commands in zsh files
+          dangerous_patterns=(
+            "rm\s+-rf\s+/"
+            "chmod\s+777"
+            "eval.*curl"
+            "bash.*curl.*sh"
+            "|.*sh$"
+          )
 
-        for pattern in "${dangerous_patterns[@]}"; do
-          if grep -r -E "$pattern" . --include="*.zsh" --exclude-dir=.git; then
-            echo "⚠️ Found potentially dangerous pattern: $pattern"
-          fi
-        done
+          for pattern in "${dangerous_patterns[@]}"; do
+            if grep -r -E "$pattern" . --include="*.zsh" --exclude-dir=.git; then
+              echo "⚠️ Found potentially dangerous pattern: $pattern"
+            fi
+          done
 
   supply-chain-security:
     name: Supply Chain Security
@@ -252,34 +252,34 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Check external script sources
-      run: |
-        echo "Checking external script sources..."
+      - name: Check external script sources
+        run: |
+          echo "Checking external script sources..."
 
-        # Look for curl/wget downloads in scripts
-        if grep -r "curl.*|.*sh\|wget.*|.*sh" . --include="*.sh" --exclude-dir=.git; then
-          echo "⚠️ Found scripts that download and execute external code"
-          echo "Please verify these are from trusted sources and use checksums when possible"
-        fi
+          # Look for curl/wget downloads in scripts
+          if grep -r "curl.*|.*sh\|wget.*|.*sh" . --include="*.sh" --exclude-dir=.git; then
+            echo "⚠️ Found scripts that download and execute external code"
+            echo "Please verify these are from trusted sources and use checksums when possible"
+          fi
 
-        # Check for GitHub raw URLs
-        if grep -r "raw.githubusercontent.com" . --exclude-dir=.git; then
-          echo "⚠️ Found raw GitHub URLs - ensure these are from trusted repositories"
-        fi
+          # Check for GitHub raw URLs
+          if grep -r "raw.githubusercontent.com" . --exclude-dir=.git; then
+            echo "⚠️ Found raw GitHub URLs - ensure these are from trusted repositories"
+          fi
 
-    - name: Verify checksums where possible
-      run: |
-        echo "Checking for checksum verification..."
+      - name: Verify checksums where possible
+        run: |
+          echo "Checking for checksum verification..."
 
-        # Look for checksum verification patterns
-        if grep -r -E "(sha256sum|shasum|md5sum)" . --include="*.sh" --exclude-dir=.git; then
-          echo "✅ Found checksum verification in scripts"
-        else
-          echo "⚠️ No checksum verification found - consider adding for downloaded binaries"
-        fi
+          # Look for checksum verification patterns
+          if grep -r -E "(sha256sum|shasum|md5sum)" . --include="*.sh" --exclude-dir=.git; then
+            echo "✅ Found checksum verification in scripts"
+          else
+            echo "⚠️ No checksum verification found - consider adding for downloaded binaries"
+          fi
 
   security-report:
     name: Generate Security Report
@@ -287,60 +287,67 @@ jobs:
     defaults:
       run:
         shell: bash
-    needs: [secret-scan, dependency-scan, homebrew-security, configuration-security, supply-chain-security]
+    needs:
+      [
+        secret-scan,
+        dependency-scan,
+        homebrew-security,
+        configuration-security,
+        supply-chain-security,
+      ]
     if: always()
     steps:
-    - name: Generate security summary
-      run: |
-        echo "# Security Scan Summary" > security-report.md
-        echo "Generated on: $(date)" >> security-report.md
-        echo "" >> security-report.md
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" > security-report.md
+          echo "Generated on: $(date)" >> security-report.md
+          echo "" >> security-report.md
 
-        echo "## Job Results" >> security-report.md
-        echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> security-report.md
-        echo "- Dependency Scan: ${{ needs.dependency-scan.result }}" >> security-report.md
-        echo "- Homebrew Security: ${{ needs.homebrew-security.result }}" >> security-report.md
-        echo "- Configuration Security: ${{ needs.configuration-security.result }}" >> security-report.md
-        echo "- Supply Chain Security: ${{ needs.supply-chain-security.result }}" >> security-report.md
-        echo "" >> security-report.md
+          echo "## Job Results" >> security-report.md
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> security-report.md
+          echo "- Dependency Scan: ${{ needs.dependency-scan.result }}" >> security-report.md
+          echo "- Homebrew Security: ${{ needs.homebrew-security.result }}" >> security-report.md
+          echo "- Configuration Security: ${{ needs.configuration-security.result }}" >> security-report.md
+          echo "- Supply Chain Security: ${{ needs.supply-chain-security.result }}" >> security-report.md
+          echo "" >> security-report.md
 
-        # Determine overall status
-        if [[ "${{ needs.secret-scan.result }}" == "success" && \
-              "${{ needs.dependency-scan.result }}" == "success" && \
-              "${{ needs.homebrew-security.result }}" == "success" && \
-              "${{ needs.configuration-security.result }}" == "success" && \
-              "${{ needs.supply-chain-security.result }}" == "success" ]]; then
-          echo "## Overall Status: ✅ PASS" >> security-report.md
-          echo "All security scans completed successfully." >> security-report.md
-        else
-          echo "## Overall Status: ❌ ISSUES FOUND" >> security-report.md
-          echo "One or more security scans found issues that need attention." >> security-report.md
-        fi
+          # Determine overall status
+          if [[ "${{ needs.secret-scan.result }}" == "success" && \
+                "${{ needs.dependency-scan.result }}" == "success" && \
+                "${{ needs.homebrew-security.result }}" == "success" && \
+                "${{ needs.configuration-security.result }}" == "success" && \
+                "${{ needs.supply-chain-security.result }}" == "success" ]]; then
+            echo "## Overall Status: ✅ PASS" >> security-report.md
+            echo "All security scans completed successfully." >> security-report.md
+          else
+            echo "## Overall Status: ❌ ISSUES FOUND" >> security-report.md
+            echo "One or more security scans found issues that need attention." >> security-report.md
+          fi
 
-        echo "" >> security-report.md
-        echo "## Recommendations" >> security-report.md
-        echo "- Review any flagged issues in the job logs above" >> security-report.md
-        echo "- Keep dependencies updated regularly" >> security-report.md
-        echo "- Use secrets management for sensitive data" >> security-report.md
-        echo "- Verify checksums for external downloads" >> security-report.md
+          echo "" >> security-report.md
+          echo "## Recommendations" >> security-report.md
+          echo "- Review any flagged issues in the job logs above" >> security-report.md
+          echo "- Keep dependencies updated regularly" >> security-report.md
+          echo "- Use secrets management for sensitive data" >> security-report.md
+          echo "- Verify checksums for external downloads" >> security-report.md
 
-    - name: Upload security report
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-report
-        path: security-report.md
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.md
 
-    - name: Comment on PR (if applicable)
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const report = fs.readFileSync('security-report.md', 'utf8');
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('security-report.md', 'utf8');
 
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: `## 🔒 Security Scan Report\n\n${report}`
-          });
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔒 Security Scan Report\n\n${report}`
+            });

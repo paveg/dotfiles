@@ -13,59 +13,59 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Install zsh for syntax validation
-      run: sudo apt-get update -qq && sudo apt-get install -y zsh
+      - name: Install zsh for syntax validation
+        run: sudo apt-get update -qq && sudo apt-get install -y zsh
 
-    - name: Format zsh files
-      run: |
-        echo "=== Formatting zsh files ==="
-        chmod +x scripts/format-zsh.sh
-        ./scripts/format-zsh.sh -d dot_config/zsh -r
-        echo "✓ Zsh formatting completed"
+      - name: Format zsh files
+        run: |
+          echo "=== Formatting zsh files ==="
+          chmod +x scripts/format-zsh.sh
+          ./scripts/format-zsh.sh -d dot_config/zsh -r
+          echo "✓ Zsh formatting completed"
 
-    - name: Format markdown files
-      run: |
-        echo "=== Formatting markdown files ==="
-        chmod +x scripts/format-markdown.sh
-        ./scripts/format-markdown.sh -d . -r
-        echo "✓ Markdown formatting completed"
+      - name: Format markdown files
+        run: |
+          echo "=== Formatting markdown files ==="
+          chmod +x scripts/format-markdown.sh
+          ./scripts/format-markdown.sh -d . -r
+          echo "✓ Markdown formatting completed"
 
-    - name: Clean up backup files
-      run: |
-        echo "=== Cleaning up backup files ==="
-        find . -name "*.backup.*" -type f -delete 2>/dev/null || true
-        echo "✓ Backup file cleanup completed"
+      - name: Clean up backup files
+        run: |
+          echo "=== Cleaning up backup files ==="
+          find . -name "*.backup.*" -type f -delete 2>/dev/null || true
+          echo "✓ Backup file cleanup completed"
 
-    - name: Check for formatting changes
-      run: |
-        echo "=== Checking for formatting changes ==="
-        if git diff --quiet; then
-          echo "✓ No formatting changes needed"
-        else
-          echo "Files were formatted:"
-          git diff --name-only
-          git status --porcelain
-        fi
+      - name: Check for formatting changes
+        run: |
+          echo "=== Checking for formatting changes ==="
+          if git diff --quiet; then
+            echo "✓ No formatting changes needed"
+          else
+            echo "Files were formatted:"
+            git diff --name-only
+            git status --porcelain
+          fi
 
-    - name: Commit formatting changes
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        echo "=== Committing formatting changes ==="
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+      - name: Commit formatting changes
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "=== Committing formatting changes ==="
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
 
-        if ! git diff --quiet; then
-          git add -A
-          git commit -m "style: auto-format files on main branch [skip ci]" || echo "No changes to commit"
-          git push
-        else
-          echo "No formatting changes to commit"
-        fi
+          if ! git diff --quiet; then
+            git add -A
+            git commit -m "style: auto-format files on main branch [skip ci]" || echo "No changes to commit"
+            git push
+          else
+            echo "No formatting changes to commit"
+          fi
 
   test-chezmoi:
     needs: format-and-lint
@@ -117,315 +117,294 @@ jobs:
     container: ${{ matrix.container }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup container environment
-      if: matrix.container
-      run: |
-        echo "=== Setting up container environment ==="
-        # Install basic tools needed for testing
-        if [[ "${{ matrix.container }}" =~ ^alpine ]]; then
-          apk add --no-cache bash curl git zsh
-        elif [[ "${{ matrix.container }}" =~ ^fedora ]]; then
-          dnf install -y bash curl git zsh which
-        fi
-        echo "✓ Container environment ready"
+      - name: Setup container environment
+        if: matrix.container
+        run: |
+          echo "=== Setting up container environment ==="
+          # Install basic tools needed for testing
+          if [[ "${{ matrix.container }}" =~ ^alpine ]]; then
+            apk add --no-cache bash curl git zsh
+          elif [[ "${{ matrix.container }}" =~ ^fedora ]]; then
+            dnf install -y bash curl git zsh which
+          fi
+          echo "✓ Container environment ready"
 
-    - name: Install chezmoi
-      run: |
-        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install chezmoi
+        run: |
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Test chezmoi configuration
-      run: |
-        echo "=== Testing chezmoi on ${{ matrix.os }} ==="
+      - name: Test chezmoi configuration
+        run: |
+          echo "=== Testing chezmoi on ${{ matrix.os }} ==="
 
-        # Set up chezmoi source directory
-        mkdir -p ~/.local/share/chezmoi
-        cp -r . ~/.local/share/chezmoi/
+          # Set up chezmoi source directory
+          mkdir -p ~/.local/share/chezmoi
+          cp -r . ~/.local/share/chezmoi/
 
-        # Initialize chezmoi
-        chezmoi init
+          # Initialize chezmoi
+          chezmoi init
 
-        # Test template rendering
-        echo "Testing template rendering..."
-        chezmoi execute-template < .chezmoi.yaml.tmpl > /dev/null
+          # Test template rendering
+          echo "Testing template rendering..."
+          chezmoi execute-template < .chezmoi.yaml.tmpl > /dev/null
 
-        echo "✓ Template rendering works"
+          echo "✓ Template rendering works"
 
-    - name: Test chezmoi apply
-      run: |
-        echo "=== Testing chezmoi apply ==="
+      - name: Test chezmoi apply
+        run: |
+          echo "=== Testing chezmoi apply ==="
 
-        # Test actual apply to temporary directory
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-        mkdir -p "$TEST_HOME"
+          # Test actual apply to temporary directory
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+          mkdir -p "$TEST_HOME"
 
-        # Skip package installation in CI for faster tests
-        export CI_SKIP_PACKAGES=1
+          # Skip package installation in CI for faster tests
+          export CI_SKIP_PACKAGES=1
 
-        # Note: Rust tools are now managed via cargo (see scripts/install-rust-tools.sh)
-        # CI relies on fallback handling for missing tools
+          # Note: Rust tools are now managed via cargo (see scripts/install-rust-tools.sh)
+          # CI relies on fallback handling for missing tools
 
-        # Set business environment if needed
-        if [[ "${{ matrix.business_use }}" == "true" ]]; then
-          export BUSINESS_USE=1
-          echo "Testing with BUSINESS_USE=1"
-          # Re-initialize chezmoi with business environment
-          chezmoi init --force
-        fi
+          # Set business environment if needed
+          if [[ "${{ matrix.business_use }}" == "true" ]]; then
+            export BUSINESS_USE=1
+            echo "Testing with BUSINESS_USE=1"
+            # Re-initialize chezmoi with business environment
+            chezmoi init --force
+          fi
 
-        # Apply to test directory
-        chezmoi apply --destination="$TEST_HOME" --force
+          # Apply to test directory
+          chezmoi apply --destination="$TEST_HOME" --force
 
-        echo "✓ Chezmoi apply completed"
+          echo "✓ Chezmoi apply completed"
 
-    - name: Verify essential files
-      run: |
-        echo "=== Verifying essential files ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+      - name: Verify essential files
+        run: |
+          echo "=== Verifying essential files ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
 
-        # Check essential files exist
-        test -f "$TEST_HOME/.zshenv" || (echo "FAIL: .zshenv not created" && exit 1)
-        test -d "$TEST_HOME/.config/zsh" || (echo "FAIL: zsh config dir not created" && exit 1)
-        test -f "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc not created" && exit 1)
-        test -f "$TEST_HOME/.config/starship.toml" || (echo "FAIL: starship config not created" && exit 1)
+          # Check essential files exist
+          test -f "$TEST_HOME/.zshenv" || (echo "FAIL: .zshenv not created" && exit 1)
+          test -d "$TEST_HOME/.config/zsh" || (echo "FAIL: zsh config dir not created" && exit 1)
+          test -f "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc not created" && exit 1)
+          test -f "$TEST_HOME/.config/starship.toml" || (echo "FAIL: starship config not created" && exit 1)
 
-        echo "✓ All essential files created"
+          echo "✓ All essential files created"
 
-    - name: Test zsh syntax
-      run: |
-        echo "=== Testing zsh syntax ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+      - name: Test zsh syntax
+        run: |
+          echo "=== Testing zsh syntax ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
 
-        # Install zsh for syntax checking
-        if [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
-          sudo apt-get update -qq && sudo apt-get install -y zsh
-        elif [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-          # macOS has zsh by default
-          true
-        fi
+          # Install zsh for syntax checking
+          if [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
+            sudo apt-get update -qq && sudo apt-get install -y zsh
+          elif [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+            # macOS has zsh by default
+            true
+          fi
 
-        # Test syntax of generated files
-        zsh -n "$TEST_HOME/.zshenv" || (echo "FAIL: .zshenv syntax error" && exit 1)
-        zsh -n "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc syntax error" && exit 1)
+          # Test syntax of generated files
+          zsh -n "$TEST_HOME/.zshenv" || (echo "FAIL: .zshenv syntax error" && exit 1)
+          zsh -n "$TEST_HOME/.config/zsh/.zshrc" || (echo "FAIL: .zshrc syntax error" && exit 1)
 
-        echo "✓ Syntax validation passed"
+          echo "✓ Syntax validation passed"
 
-    - name: Test actual zsh loading
-      run: |
-        echo "=== Testing actual zsh loading ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+      - name: Test actual zsh loading
+        run: |
+          echo "=== Testing actual zsh loading ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
 
-        # Set required environment for zsh loading
-        export HOME="$TEST_HOME"
-        export ZDOTDIR="$TEST_HOME/.config/zsh"
+          # Set required environment for zsh loading
+          export HOME="$TEST_HOME"
+          export ZDOTDIR="$TEST_HOME/.config/zsh"
 
-        # Test that zsh can load without errors (non-interactive)
-        # Use gtimeout on macOS, timeout on Linux
-        if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-          # Install coreutils for gtimeout on macOS
-          brew install coreutils
-          gtimeout 30 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
-        else
-          timeout 30 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
-        fi
+          # Test that zsh can load without errors (non-interactive)
+          # Use gtimeout on macOS, timeout on Linux
+          if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+            # Install coreutils for gtimeout on macOS
+            brew install coreutils
+            gtimeout 30 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
+          else
+            timeout 30 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
+          fi
 
-        echo "✓ Zsh loading test passed"
+          echo "✓ Zsh loading test passed"
 
-    - name: Test business environment
-      if: matrix.business_use == 'true'
-      run: |
-        echo "=== Testing business environment specifics ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+      - name: Test business environment
+        if: matrix.business_use == 'true'
+        run: |
+          echo "=== Testing business environment specifics ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
 
-        # Check business-specific environment variable is set
-        grep -q "BUSINESS_USE=1" "$TEST_HOME/.zshenv" || (echo "FAIL: BUSINESS_USE not set in .zshenv" && exit 1)
+          # Check business-specific environment variable is set
+          grep -q "BUSINESS_USE=1" "$TEST_HOME/.zshenv" || (echo "FAIL: BUSINESS_USE not set in .zshenv" && exit 1)
 
-        echo "✓ Business environment verified"
+          echo "✓ Business environment verified"
 
-    - name: Install jq for benchmarking
-      run: |
-        if [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
-          if [[ "${{ matrix.container }}" ]]; then
-            if [[ "${{ matrix.container }}" =~ ^alpine ]]; then
-              apk add --no-cache jq
-            elif [[ "${{ matrix.container }}" =~ ^fedora ]]; then
-              dnf install -y jq
+      - name: Install jq for benchmarking
+        run: |
+          if [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
+            if [[ "${{ matrix.container }}" ]]; then
+              if [[ "${{ matrix.container }}" =~ ^alpine ]]; then
+                apk add --no-cache jq
+              elif [[ "${{ matrix.container }}" =~ ^fedora ]]; then
+                dnf install -y jq
+              fi
+            else
+              sudo apt-get update -qq && sudo apt-get install -y jq
+            fi
+          elif [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+            brew install jq
+          fi
+
+      - name: Run performance benchmarks
+        run: |
+          echo "=== Running Performance Benchmarks ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+          export HOME="$TEST_HOME"
+          export ZDOTDIR="$TEST_HOME/.config/zsh"
+          export BENCHMARK_ITERATIONS=10  # Reduced for CI
+          export MAX_STARTUP_TIME=1000   # More lenient for CI
+          export RESULTS_FILE="$GITHUB_WORKSPACE/benchmark-results.json"
+
+          # Make benchmark script executable
+          chmod +x scripts/benchmark-performance.sh
+
+          # Run benchmarks
+          if ./scripts/benchmark-performance.sh; then
+            echo "✓ Performance benchmarks passed"
+
+            # Display results
+            if [[ -f "$RESULTS_FILE" ]]; then
+              echo "=== Benchmark Results ==="
+              jq -r '.benchmarks[] | "\(.name): \(.avg_time_ms)ms"' "$RESULTS_FILE"
             fi
           else
-            sudo apt-get update -qq && sudo apt-get install -y jq
-          fi
-        elif [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-          brew install jq
-        fi
-
-    - name: Run performance benchmarks
-      run: |
-        echo "=== Running Performance Benchmarks ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-        export HOME="$TEST_HOME"
-        export ZDOTDIR="$TEST_HOME/.config/zsh"
-        export BENCHMARK_ITERATIONS=10  # Reduced for CI
-        export MAX_STARTUP_TIME=1000   # More lenient for CI
-        export RESULTS_FILE="$GITHUB_WORKSPACE/benchmark-results.json"
-
-        # Make benchmark script executable
-        chmod +x scripts/benchmark-performance.sh
-
-        # Run benchmarks
-        if ./scripts/benchmark-performance.sh; then
-          echo "✓ Performance benchmarks passed"
-
-          # Display results
-          if [[ -f "$RESULTS_FILE" ]]; then
-            echo "=== Benchmark Results ==="
-            jq -r '.benchmarks[] | "\(.name): \(.avg_time_ms)ms"' "$RESULTS_FILE"
-          fi
-        else
-          echo "✗ Performance benchmarks failed"
-          exit 1
-        fi
-
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: benchmark-results-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.business_use }}-${{ matrix.container || 'native' }}
-        path: benchmark-results.json
-
-    - name: Run module tests
-      run: |
-        echo "=== Running Module Tests ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-        export HOME="$TEST_HOME"
-        export ZDOTDIR="$TEST_HOME/.config/zsh"
-
-        # Make test scripts executable
-        chmod +x tests/run-module-tests.sh
-        chmod +x tests/modules/test-*.sh
-
-        # Run module tests
-        if ./tests/run-module-tests.sh; then
-          echo "✓ Module tests passed"
-        else
-          echo "✗ Module tests failed"
-          exit 1
-        fi
-
-    - name: Upload module test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: module-test-results-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.business_use }}-${{ matrix.container || 'native' }}
-        path: /tmp/module-test-results.json
-
-    - name: Test font installation
-      run: |
-        echo "=== Testing font installation ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-
-        # Verify font files exist in source
-        test -f "fonts/UDEVGothic35NFLG-Regular.ttf" || (echo "FAIL: Regular font missing" && exit 1)
-        test -f "fonts/UDEVGothic35NFLG-Bold.ttf" || (echo "FAIL: Bold font missing" && exit 1)
-        echo "✓ Source font files verified"
-
-        # Check font directory creation and simulate installation
-        if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-          mkdir -p "$TEST_HOME/Library/Fonts"
-          # Simulate font installation
-          cp fonts/*.ttf "$TEST_HOME/Library/Fonts/"
-          test -f "$TEST_HOME/Library/Fonts/UDEVGothic35NFLG-Regular.ttf" || (echo "FAIL: Font not installed" && exit 1)
-          echo "✓ macOS font installation verified"
-        elif [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
-          mkdir -p "$TEST_HOME/.local/share/fonts"
-          # Simulate font installation
-          cp fonts/*.ttf "$TEST_HOME/.local/share/fonts/"
-          test -f "$TEST_HOME/.local/share/fonts/UDEVGothic35NFLG-Regular.ttf" || (echo "FAIL: Font not installed" && exit 1)
-          echo "✓ Linux font installation verified"
-
-          # Test fc-cache simulation (if available)
-          if command -v fc-cache >/dev/null; then
-            fc-cache -f "$TEST_HOME/.local/share/fonts"
-            echo "✓ Font cache update tested"
-          fi
-        fi
-
-    - name: Test error handling and fallbacks
-      run: |
-        echo "=== Testing error handling ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-        export HOME="$TEST_HOME"
-        export ZDOTDIR="$TEST_HOME/.config/zsh"
-
-        # Test 1: Missing mise command fallback
-        echo "Testing mise fallback when command not found..."
-        PATH="/usr/bin:/bin" zsh -c 'source ~/.config/zsh/.zshrc; echo "✓ Survived missing mise"' || echo "✗ Failed mise fallback"
-
-        # Test 2: Missing starship fallback
-        echo "Testing starship fallback when command not found..."
-        PATH="/usr/bin:/bin" zsh -c 'source ~/.config/zsh/.zshrc; echo "✓ Survived missing starship"' || echo "✗ Failed starship fallback"
-
-        # Test 3: 1Password plugin conditional loading
-        echo "Testing 1Password plugin fallback..."
-        if [[ -f "$TEST_HOME/.config/zsh/.zprofile" ]]; then
-          # Should not fail even if op plugin doesn't exist
-          zsh -c 'source ~/.config/zsh/.zprofile; echo "✓ 1Password plugin conditional loading works"' || echo "✗ Failed 1Password fallback"
-        fi
-
-        # Test 4: Brewfile fallback (business vs personal)
-        echo "Testing Brewfile selection fallback..."
-        echo "✓ Error handling and fallback tests completed"
-
-    - name: Test OS-specific content
-      run: |
-        echo "=== Testing OS-specific content ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-
-        if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-          # macOS specific checks (both latest and 13)
-          grep -q "HOMEBREW_PREFIX" "$TEST_HOME/.zshenv" || (echo "FAIL: macOS Homebrew config missing" && exit 1)
-          echo "✓ macOS-specific content verified on ${{ matrix.os }}"
-        elif [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
-          # Linux specific checks - should work on both Ubuntu versions
-          echo "✓ Linux-specific content verified on ${{ matrix.os }}"
-        fi
-
-    - name: Integration test - Full zsh session
-      run: |
-        echo "=== Integration test ==="
-        export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-        export HOME="$TEST_HOME"
-        export ZDOTDIR="$TEST_HOME/.config/zsh"
-
-        # Test full zsh interactive session simulation
-        echo "Testing complete zsh configuration loading..."
-        # Cross-platform timeout for integration test
-        if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-          gtimeout 30 zsh -i -c '
-            echo "Zsh session started"
-
-          # Test alias availability
-          if alias ll >/dev/null 2>&1; then
-            echo "✓ Aliases loaded"
+            echo "✗ Performance benchmarks failed"
+            exit 1
           fi
 
-          # Test function availability
-          if declare -f opr >/dev/null 2>&1; then
-            echo "✓ Custom functions loaded"
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.business_use }}-${{ matrix.container || 'native' }}
+          path: benchmark-results.json
+
+      - name: Run module tests
+        run: |
+          echo "=== Running Module Tests ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+          export HOME="$TEST_HOME"
+          export ZDOTDIR="$TEST_HOME/.config/zsh"
+
+          # Make test scripts executable
+          chmod +x tests/run-module-tests.sh
+          chmod +x tests/modules/test-*.sh
+
+          # Run module tests
+          if ./tests/run-module-tests.sh; then
+            echo "✓ Module tests passed"
+          else
+            echo "✗ Module tests failed"
+            exit 1
           fi
 
-          # Test module system
-          if [[ -n "$ZMODDIR" ]]; then
-            echo "✓ Module system initialized"
+      - name: Upload module test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-test-results-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.business_use }}-${{ matrix.container || 'native' }}
+          path: /tmp/module-test-results.json
+
+      - name: Test font installation
+        run: |
+          echo "=== Testing font installation ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+
+          # Verify font files exist in source
+          test -f "fonts/UDEVGothic35NFLG-Regular.ttf" || (echo "FAIL: Regular font missing" && exit 1)
+          test -f "fonts/UDEVGothic35NFLG-Bold.ttf" || (echo "FAIL: Bold font missing" && exit 1)
+          echo "✓ Source font files verified"
+
+          # Check font directory creation and simulate installation
+          if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+            mkdir -p "$TEST_HOME/Library/Fonts"
+            # Simulate font installation
+            cp fonts/*.ttf "$TEST_HOME/Library/Fonts/"
+            test -f "$TEST_HOME/Library/Fonts/UDEVGothic35NFLG-Regular.ttf" || (echo "FAIL: Font not installed" && exit 1)
+            echo "✓ macOS font installation verified"
+          elif [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
+            mkdir -p "$TEST_HOME/.local/share/fonts"
+            # Simulate font installation
+            cp fonts/*.ttf "$TEST_HOME/.local/share/fonts/"
+            test -f "$TEST_HOME/.local/share/fonts/UDEVGothic35NFLG-Regular.ttf" || (echo "FAIL: Font not installed" && exit 1)
+            echo "✓ Linux font installation verified"
+
+            # Test fc-cache simulation (if available)
+            if command -v fc-cache >/dev/null; then
+              fc-cache -f "$TEST_HOME/.local/share/fonts"
+              echo "✓ Font cache update tested"
+            fi
           fi
 
-          echo "✓ Integration test passed"
-        ' || (echo "FAIL: Integration test failed" && exit 1)
-        else
-          timeout 30 zsh -i -c '
-            echo "Zsh session started"
+      - name: Test error handling and fallbacks
+        run: |
+          echo "=== Testing error handling ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+          export HOME="$TEST_HOME"
+          export ZDOTDIR="$TEST_HOME/.config/zsh"
+
+          # Test 1: Missing mise command fallback
+          echo "Testing mise fallback when command not found..."
+          PATH="/usr/bin:/bin" zsh -c 'source ~/.config/zsh/.zshrc; echo "✓ Survived missing mise"' || echo "✗ Failed mise fallback"
+
+          # Test 2: Missing starship fallback
+          echo "Testing starship fallback when command not found..."
+          PATH="/usr/bin:/bin" zsh -c 'source ~/.config/zsh/.zshrc; echo "✓ Survived missing starship"' || echo "✗ Failed starship fallback"
+
+          # Test 3: 1Password plugin conditional loading
+          echo "Testing 1Password plugin fallback..."
+          if [[ -f "$TEST_HOME/.config/zsh/.zprofile" ]]; then
+            # Should not fail even if op plugin doesn't exist
+            zsh -c 'source ~/.config/zsh/.zprofile; echo "✓ 1Password plugin conditional loading works"' || echo "✗ Failed 1Password fallback"
+          fi
+
+          # Test 4: Brewfile fallback (business vs personal)
+          echo "Testing Brewfile selection fallback..."
+          echo "✓ Error handling and fallback tests completed"
+
+      - name: Test OS-specific content
+        run: |
+          echo "=== Testing OS-specific content ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+
+          if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+            # macOS specific checks (both latest and 13)
+            grep -q "HOMEBREW_PREFIX" "$TEST_HOME/.zshenv" || (echo "FAIL: macOS Homebrew config missing" && exit 1)
+            echo "✓ macOS-specific content verified on ${{ matrix.os }}"
+          elif [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
+            # Linux specific checks - should work on both Ubuntu versions
+            echo "✓ Linux-specific content verified on ${{ matrix.os }}"
+          fi
+
+      - name: Integration test - Full zsh session
+        run: |
+          echo "=== Integration test ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+          export HOME="$TEST_HOME"
+          export ZDOTDIR="$TEST_HOME/.config/zsh"
+
+          # Test full zsh interactive session simulation
+          echo "Testing complete zsh configuration loading..."
+          # Cross-platform timeout for integration test
+          if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
+            gtimeout 30 zsh -i -c '
+              echo "Zsh session started"
 
             # Test alias availability
             if alias ll >/dev/null 2>&1; then
@@ -444,7 +423,28 @@ jobs:
 
             echo "✓ Integration test passed"
           ' || (echo "FAIL: Integration test failed" && exit 1)
-        fi
+          else
+            timeout 30 zsh -i -c '
+              echo "Zsh session started"
+
+              # Test alias availability
+              if alias ll >/dev/null 2>&1; then
+                echo "✓ Aliases loaded"
+              fi
+
+              # Test function availability
+              if declare -f opr >/dev/null 2>&1; then
+                echo "✓ Custom functions loaded"
+              fi
+
+              # Test module system
+              if [[ -n "$ZMODDIR" ]]; then
+                echo "✓ Module system initialized"
+              fi
+
+              echo "✓ Integration test passed"
+            ' || (echo "FAIL: Integration test failed" && exit 1)
+          fi
 
   documentation-validation:
     name: Documentation Validation
@@ -453,37 +453,37 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install documentation tools
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y jq
+      - name: Install documentation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y jq
 
-        # Install markdownlint if possible
-        if command -v npm &>/dev/null; then
-          npm install -g markdownlint-cli
-        fi
+          # Install markdownlint if possible
+          if command -v npm &>/dev/null; then
+            npm install -g markdownlint-cli
+          fi
 
-    - name: Run documentation validation
-      run: |
-        echo "=== Running Documentation Validation ==="
-        chmod +x tests/validate-documentation.sh
+      - name: Run documentation validation
+        run: |
+          echo "=== Running Documentation Validation ==="
+          chmod +x tests/validate-documentation.sh
 
-        if ./tests/validate-documentation.sh; then
-          echo "✓ Documentation validation passed"
-        else
-          echo "✗ Documentation validation failed"
-          exit 1
-        fi
+          if ./tests/validate-documentation.sh; then
+            echo "✓ Documentation validation passed"
+          else
+            echo "✗ Documentation validation failed"
+            exit 1
+          fi
 
-    - name: Upload documentation validation results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: documentation-validation-results
-        path: /tmp/doc-validation-results.json
+      - name: Upload documentation validation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: documentation-validation-results
+          path: /tmp/doc-validation-results.json
 
   # Status check job that branch protection can depend on
   ci-success:
@@ -494,18 +494,18 @@ jobs:
     needs: [format-and-lint, test-chezmoi, documentation-validation]
     if: always()
     steps:
-    - name: Check all jobs status
-      run: |
-        echo "=== CI Status Check ==="
-        if [[ "${{ needs.format-and-lint.result }}" == "success" && \
-              "${{ needs.test-chezmoi.result }}" == "success" && \
-              "${{ needs.documentation-validation.result }}" == "success" ]]; then
-          echo "✅ All CI jobs passed successfully"
-          exit 0
-        else
-          echo "❌ CI jobs failed:"
-          echo "  format-and-lint: ${{ needs.format-and-lint.result }}"
-          echo "  test-chezmoi: ${{ needs.test-chezmoi.result }}"
-          echo "  documentation-validation: ${{ needs.documentation-validation.result }}"
-          exit 1
-        fi
+      - name: Check all jobs status
+        run: |
+          echo "=== CI Status Check ==="
+          if [[ "${{ needs.format-and-lint.result }}" == "success" && \
+                "${{ needs.test-chezmoi.result }}" == "success" && \
+                "${{ needs.documentation-validation.result }}" == "success" ]]; then
+            echo "✅ All CI jobs passed successfully"
+            exit 0
+          else
+            echo "❌ CI jobs failed:"
+            echo "  format-and-lint: ${{ needs.format-and-lint.result }}"
+            echo "  test-chezmoi: ${{ needs.test-chezmoi.result }}"
+            echo "  documentation-validation: ${{ needs.documentation-validation.result }}"
+            exit 1
+          fi

@@ -7,7 +7,7 @@ on:
     branches: [main]
   schedule:
     # Run nightly installation tests at 02:00 UTC
-    - cron: '0 2 * * *'
+    - cron: "0 2 * * *"
 
 jobs:
   test-fresh-installation:
@@ -48,46 +48,62 @@ jobs:
     container: ${{ matrix.container }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup container environment
-      if: matrix.container
-      shell: sh
-      run: |
-        echo "Setting up container environment for ${{ matrix.container }}"
+      - name: Setup container environment
+        if: matrix.container
+        shell: sh
+        run: |
+          echo "Setting up container environment for ${{ matrix.container }}"
 
-        # Install basic tools based on container type
-        if command -v apt-get >/dev/null 2>&1; then
-          apt-get update -qq
-          apt-get install -y curl git zsh sudo
-        elif command -v apk >/dev/null 2>&1; then
-          apk add --no-cache curl git zsh sudo bash
-        elif command -v dnf >/dev/null 2>&1; then
-          dnf install -y curl git zsh sudo which
-        elif command -v yum >/dev/null 2>&1; then
-          yum install -y curl git zsh sudo which
-        fi
+          # Install basic tools based on container type
+          if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq
+            apt-get install -y curl git zsh sudo
+          elif command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl git zsh sudo bash
+          elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y curl git zsh sudo which
+          elif command -v yum >/dev/null 2>&1; then
+            yum install -y curl git zsh sudo which
+          fi
 
-        # Create a test user (containers run as root by default)
-        if ! id testuser >/dev/null 2>&1; then
-          useradd -m -s /bin/bash testuser 2>/dev/null || adduser -D -s /bin/ash testuser
-          echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers 2>/dev/null || echo "testuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/testuser
-        fi
+          # Create a test user (containers run as root by default)
+          if ! id testuser >/dev/null 2>&1; then
+            useradd -m -s /bin/bash testuser 2>/dev/null || adduser -D -s /bin/ash testuser
+            echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers 2>/dev/null || echo "testuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/testuser
+          fi
 
-    - name: Test installation via curl (one-command install)
-      if: matrix.install_method == 'curl'
-      run: |
-        echo "Testing one-command installation..."
+      - name: Test installation via curl (one-command install)
+        if: matrix.install_method == 'curl'
+        run: |
+          echo "Testing one-command installation..."
 
-        # Switch to test user if in container
-        if [[ -n "${{ matrix.container }}" ]]; then
-          su - testuser -c '
-            export HOME=/home/testuser
-            cd $HOME
+          # Switch to test user if in container
+          if [[ -n "${{ matrix.container }}" ]]; then
+            su - testuser -c '
+              export HOME=/home/testuser
+              cd $HOME
+
+              echo "Installing dotfiles via local install script..."
+              bash $GITHUB_WORKSPACE/install
+
+              # Verify installation
+              test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
+              test -f ~/.zshenv || (echo "FAIL: .zshenv not created" && exit 1)
+
+              # Test zsh can load
+              zsh -c "echo \"Installation successful\""
+            '
+          else
+            # macOS or native Linux
+            export INSTALL_DIR="$HOME/dotfiles-test"
+            mkdir -p "$INSTALL_DIR"
+            cd "$INSTALL_DIR"
 
             echo "Installing dotfiles via local install script..."
-            bash $GITHUB_WORKSPACE/install
+            bash "$GITHUB_WORKSPACE/install"
 
             # Verify installation
             test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
@@ -95,36 +111,44 @@ jobs:
 
             # Test zsh can load
             zsh -c "echo \"Installation successful\""
-          '
-        else
-          # macOS or native Linux
-          export INSTALL_DIR="$HOME/dotfiles-test"
-          mkdir -p "$INSTALL_DIR"
-          cd "$INSTALL_DIR"
+          fi
 
-          echo "Installing dotfiles via local install script..."
-          bash "$GITHUB_WORKSPACE/install"
+      - name: Test installation via git clone
+        if: matrix.install_method == 'git_clone'
+        run: |
+          echo "Testing git clone installation method..."
 
-          # Verify installation
-          test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
-          test -f ~/.zshenv || (echo "FAIL: .zshenv not created" && exit 1)
+          if [[ -n "${{ matrix.container }}" ]]; then
+            su - testuser -c '
+              export HOME=/home/testuser
+              cd $HOME
 
-          # Test zsh can load
-          zsh -c "echo \"Installation successful\""
-        fi
+              # Use current repository code
+              cp -r $GITHUB_WORKSPACE dotfiles
+              cd dotfiles
 
-    - name: Test installation via git clone
-      if: matrix.install_method == 'git_clone'
-      run: |
-        echo "Testing git clone installation method..."
+              # Install chezmoi
+              sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+              export PATH="$HOME/.local/bin:$PATH"
 
-        if [[ -n "${{ matrix.container }}" ]]; then
-          su - testuser -c '
-            export HOME=/home/testuser
-            cd $HOME
+              # Initialize and apply
+              chezmoi init --apply .
+
+              # Verify installation
+              test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
+              test -f ~/.zshenv || (echo "FAIL: .zshenv not created" && exit 1)
+
+              # Test zsh can load
+              zsh -c "echo \"Git clone installation successful\""
+            '
+          else
+            # macOS or native Linux
+            export INSTALL_DIR="$HOME/dotfiles-test-git"
+            mkdir -p "$INSTALL_DIR"
+            cd "$INSTALL_DIR"
 
             # Use current repository code
-            cp -r $GITHUB_WORKSPACE dotfiles
+            cp -r "$GITHUB_WORKSPACE" dotfiles
             cd dotfiles
 
             # Install chezmoi
@@ -140,49 +164,38 @@ jobs:
 
             # Test zsh can load
             zsh -c "echo \"Git clone installation successful\""
-          '
-        else
-          # macOS or native Linux
-          export INSTALL_DIR="$HOME/dotfiles-test-git"
-          mkdir -p "$INSTALL_DIR"
-          cd "$INSTALL_DIR"
-
-          # Use current repository code
-          cp -r "$GITHUB_WORKSPACE" dotfiles
-          cd dotfiles
-
-          # Install chezmoi
-          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-          export PATH="$HOME/.local/bin:$PATH"
-
-          # Initialize and apply
-          chezmoi init --apply .
-
-          # Verify installation
-          test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not created" && exit 1)
-          test -f ~/.zshenv || (echo "FAIL: .zshenv not created" && exit 1)
-
-          # Test zsh can load
-          zsh -c "echo \"Git clone installation successful\""
-        fi
-
-    - name: Test business environment installation
-      run: |
-        echo "Testing business environment installation..."
-
-        if [[ -n "${{ matrix.container }}" ]]; then
-          # Create another test user for business environment
-          if ! id bizuser &>/dev/null; then
-            useradd -m -s /bin/bash bizuser
-            echo "bizuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
           fi
 
-          su - bizuser -c '
-            export HOME=/home/bizuser
-            export BUSINESS_USE=1
-            cd $HOME
+      - name: Test business environment installation
+        run: |
+          echo "Testing business environment installation..."
 
-            echo "Installing dotfiles with BUSINESS_USE=1..."
+          if [[ -n "${{ matrix.container }}" ]]; then
+            # Create another test user for business environment
+            if ! id bizuser &>/dev/null; then
+              useradd -m -s /bin/bash bizuser
+              echo "bizuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+            fi
+
+            su - bizuser -c '
+              export HOME=/home/bizuser
+              export BUSINESS_USE=1
+              cd $HOME
+
+              echo "Installing dotfiles with BUSINESS_USE=1..."
+              bash "$GITHUB_WORKSPACE/install"
+
+              # Verify business-specific settings
+              grep -q "BUSINESS_USE=1" ~/.zshenv || (echo "FAIL: BUSINESS_USE not set" && exit 1)
+
+              # Test zsh can load with business config
+              zsh -c "echo \"Business installation successful\""
+            '
+          else
+            # Clean previous installation
+            rm -rf ~/.config/zsh ~/.zshenv ~/.local/share/chezmoi 2>/dev/null || true
+
+            export BUSINESS_USE=1
             bash "$GITHUB_WORKSPACE/install"
 
             # Verify business-specific settings
@@ -190,20 +203,7 @@ jobs:
 
             # Test zsh can load with business config
             zsh -c "echo \"Business installation successful\""
-          '
-        else
-          # Clean previous installation
-          rm -rf ~/.config/zsh ~/.zshenv ~/.local/share/chezmoi 2>/dev/null || true
-
-          export BUSINESS_USE=1
-          bash "$GITHUB_WORKSPACE/install"
-
-          # Verify business-specific settings
-          grep -q "BUSINESS_USE=1" ~/.zshenv || (echo "FAIL: BUSINESS_USE not set" && exit 1)
-
-          # Test zsh can load with business config
-          zsh -c "echo \"Business installation successful\""
-        fi
+          fi
 
   test-upgrade-scenarios:
     name: Test Upgrade Scenarios
@@ -212,43 +212,43 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup test environment
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y curl git zsh
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install previous version simulation
-      run: |
-        echo "Simulating previous installation..."
+      - name: Setup test environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl git zsh
 
-        # Create a mock previous installation
-        mkdir -p ~/.config/zsh
-        echo 'echo "Previous version loaded"' > ~/.config/zsh/.zshrc
-        echo 'export PATH="$HOME/.local/bin:$PATH"' > ~/.zshenv
+      - name: Install previous version simulation
+        run: |
+          echo "Simulating previous installation..."
 
-        # Create some user customizations
-        echo 'alias myalias="echo hello"' > ~/.config/zsh/local.zsh
+          # Create a mock previous installation
+          mkdir -p ~/.config/zsh
+          echo 'echo "Previous version loaded"' > ~/.config/zsh/.zshrc
+          echo 'export PATH="$HOME/.local/bin:$PATH"' > ~/.zshenv
 
-    - name: Test upgrade installation
-      run: |
-        echo "Testing upgrade over existing installation..."
+          # Create some user customizations
+          echo 'alias myalias="echo hello"' > ~/.config/zsh/local.zsh
 
-        # Install new version
-        bash "$GITHUB_WORKSPACE/install"
+      - name: Test upgrade installation
+        run: |
+          echo "Testing upgrade over existing installation..."
 
-        # Verify upgrade worked
-        test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not updated" && exit 1)
+          # Install new version
+          bash "$GITHUB_WORKSPACE/install"
 
-        # Check that customizations are preserved
-        if [[ -f ~/.config/zsh/local.zsh ]]; then
-          grep -q "myalias" ~/.config/zsh/local.zsh && echo "✓ Local customizations preserved"
-        fi
+          # Verify upgrade worked
+          test -f ~/.config/zsh/.zshrc || (echo "FAIL: .zshrc not updated" && exit 1)
 
-        # Test that new configuration loads
-        zsh -c "echo \"Upgrade successful\""
+          # Check that customizations are preserved
+          if [[ -f ~/.config/zsh/local.zsh ]]; then
+            grep -q "myalias" ~/.config/zsh/local.zsh && echo "✓ Local customizations preserved"
+          fi
+
+          # Test that new configuration loads
+          zsh -c "echo \"Upgrade successful\""
 
   test-partial-installation:
     name: Test Partial Installation Scenarios
@@ -257,47 +257,47 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup minimal environment
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y curl git
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Test installation without zsh
-      run: |
-        echo "Testing installation when zsh is not available..."
+      - name: Setup minimal environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl git
 
-        # Remove zsh to test fallback
-        sudo apt-get remove -y zsh
+      - name: Test installation without zsh
+        run: |
+          echo "Testing installation when zsh is not available..."
 
-        # Install should still work but with warnings
-        if bash "$GITHUB_WORKSPACE/install"; then
-          echo "✓ Installation completed despite missing zsh"
-        else
-          echo "✗ Installation failed when zsh missing"
-          exit 1
-        fi
+          # Remove zsh to test fallback
+          sudo apt-get remove -y zsh
 
-    - name: Test installation with limited permissions
-      run: |
-        echo "Testing installation with limited permissions..."
+          # Install should still work but with warnings
+          if bash "$GITHUB_WORKSPACE/install"; then
+            echo "✓ Installation completed despite missing zsh"
+          else
+            echo "✗ Installation failed when zsh missing"
+            exit 1
+          fi
 
-        # Create a user without sudo access
-        sudo useradd -m -s /bin/bash limiteduser
+      - name: Test installation with limited permissions
+        run: |
+          echo "Testing installation with limited permissions..."
 
-        # Test installation as limited user
-        sudo -u limiteduser bash -c '
-          export HOME=/home/limiteduser
-          cd $HOME
+          # Create a user without sudo access
+          sudo useradd -m -s /bin/bash limiteduser
 
-          # This should work without sudo for user-level installation
-          bash "$GITHUB_WORKSPACE/install" || true
+          # Test installation as limited user
+          sudo -u limiteduser bash -c '
+            export HOME=/home/limiteduser
+            cd $HOME
 
-          # Verify user-level files were created
-          test -f ~/.config/zsh/.zshrc && echo "✓ User-level installation succeeded"
-        '
+            # This should work without sudo for user-level installation
+            bash "$GITHUB_WORKSPACE/install" || true
+
+            # Verify user-level files were created
+            test -f ~/.config/zsh/.zshrc && echo "✓ User-level installation succeeded"
+          '
 
   test-error-recovery:
     name: Test Error Recovery
@@ -306,52 +306,52 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup test environment
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y curl git zsh
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Test recovery from interrupted installation
-      run: |
-        echo "Testing recovery from interrupted installation..."
+      - name: Setup test environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl git zsh
 
-        # Simulate interrupted installation
-        mkdir -p ~/.local/share/chezmoi
-        git clone https://github.com/paveg/dotfiles.git ~/.local/share/chezmoi
+      - name: Test recovery from interrupted installation
+        run: |
+          echo "Testing recovery from interrupted installation..."
 
-        # Create partial state
-        mkdir -p ~/.config
-        echo "partial" > ~/.config/partial_file
+          # Simulate interrupted installation
+          mkdir -p ~/.local/share/chezmoi
+          git clone https://github.com/paveg/dotfiles.git ~/.local/share/chezmoi
 
-        # Run installation again - should complete successfully
-        bash "$GITHUB_WORKSPACE/install"
+          # Create partial state
+          mkdir -p ~/.config
+          echo "partial" > ~/.config/partial_file
 
-        # Verify completion
-        test -f ~/.config/zsh/.zshrc || (echo "FAIL: Recovery installation failed" && exit 1)
+          # Run installation again - should complete successfully
+          bash "$GITHUB_WORKSPACE/install"
 
-        echo "✓ Recovery from interrupted installation successful"
+          # Verify completion
+          test -f ~/.config/zsh/.zshrc || (echo "FAIL: Recovery installation failed" && exit 1)
 
-    - name: Test handling of corrupt files
-      run: |
-        echo "Testing handling of corrupt configuration files..."
+          echo "✓ Recovery from interrupted installation successful"
 
-        # Create corrupt configuration
-        mkdir -p ~/.config/zsh
-        echo "invalid zsh syntax {{{" > ~/.config/zsh/.zshrc
+      - name: Test handling of corrupt files
+        run: |
+          echo "Testing handling of corrupt configuration files..."
 
-        # Installation should handle this gracefully
-        bash "$GITHUB_WORKSPACE/install"
+          # Create corrupt configuration
+          mkdir -p ~/.config/zsh
+          echo "invalid zsh syntax {{{" > ~/.config/zsh/.zshrc
 
-        # Verify the corrupt file was replaced
-        if zsh -n ~/.config/zsh/.zshrc; then
-          echo "✓ Corrupt file was replaced with valid configuration"
-        else
-          echo "✗ Configuration file is still corrupt"
-          exit 1
-        fi
+          # Installation should handle this gracefully
+          bash "$GITHUB_WORKSPACE/install"
+
+          # Verify the corrupt file was replaced
+          if zsh -n ~/.config/zsh/.zshrc; then
+            echo "✓ Corrupt file was replaced with valid configuration"
+          else
+            echo "✗ Configuration file is still corrupt"
+            exit 1
+          fi
 
   test-performance:
     name: Test Installation Performance
@@ -360,61 +360,61 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup test environment
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y curl git zsh time
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Measure installation time
-      run: |
-        echo "Measuring installation performance..."
+      - name: Setup test environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl git zsh time
 
-        start_time=$(date +%s)
+      - name: Measure installation time
+        run: |
+          echo "Measuring installation performance..."
 
-        # Run installation
-        bash "$GITHUB_WORKSPACE/install"
+          start_time=$(date +%s)
 
-        end_time=$(date +%s)
-        duration=$((end_time - start_time))
+          # Run installation
+          bash "$GITHUB_WORKSPACE/install"
 
-        echo "Installation completed in ${duration} seconds"
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
 
-        # Installation should complete in reasonable time (less than 5 minutes)
-        if [[ $duration -lt 300 ]]; then
-          echo "✓ Installation performance acceptable"
-        else
-          echo "⚠ Installation took longer than expected: ${duration}s"
-        fi
+          echo "Installation completed in ${duration} seconds"
 
-    - name: Measure shell startup time after installation
-      run: |
-        echo "Measuring shell startup performance..."
+          # Installation should complete in reasonable time (less than 5 minutes)
+          if [[ $duration -lt 300 ]]; then
+            echo "✓ Installation performance acceptable"
+          else
+            echo "⚠ Installation took longer than expected: ${duration}s"
+          fi
 
-        # Measure startup time
-        startup_time=$(time (zsh -i -c exit) 2>&1 | grep real | awk '{print $2}')
-        echo "Shell startup time: $startup_time"
+      - name: Measure shell startup time after installation
+        run: |
+          echo "Measuring shell startup performance..."
 
-        # Convert to milliseconds for comparison
-        if echo "$startup_time" | grep -q "m"; then
-          # Format: 0m0.123s
-          minutes=$(echo "$startup_time" | sed 's/m.*$//')
-          seconds=$(echo "$startup_time" | sed 's/.*m//' | sed 's/s$//')
-          total_ms=$(echo "($minutes * 60 + $seconds) * 1000" | bc -l)
-        else
-          # Format: 0.123s
-          seconds=$(echo "$startup_time" | sed 's/s$//')
-          total_ms=$(echo "$seconds * 1000" | bc -l)
-        fi
+          # Measure startup time
+          startup_time=$(time (zsh -i -c exit) 2>&1 | grep real | awk '{print $2}')
+          echo "Shell startup time: $startup_time"
 
-        # Should be under 1 second
-        if (( $(echo "$total_ms < 1000" | bc -l) )); then
-          echo "✓ Shell startup performance good: ${total_ms}ms"
-        else
-          echo "⚠ Shell startup slower than expected: ${total_ms}ms"
-        fi
+          # Convert to milliseconds for comparison
+          if echo "$startup_time" | grep -q "m"; then
+            # Format: 0m0.123s
+            minutes=$(echo "$startup_time" | sed 's/m.*$//')
+            seconds=$(echo "$startup_time" | sed 's/.*m//' | sed 's/s$//')
+            total_ms=$(echo "($minutes * 60 + $seconds) * 1000" | bc -l)
+          else
+            # Format: 0.123s
+            seconds=$(echo "$startup_time" | sed 's/s$//')
+            total_ms=$(echo "$seconds * 1000" | bc -l)
+          fi
+
+          # Should be under 1 second
+          if (( $(echo "$total_ms < 1000" | bc -l) )); then
+            echo "✓ Shell startup performance good: ${total_ms}ms"
+          else
+            echo "⚠ Shell startup slower than expected: ${total_ms}ms"
+          fi
 
   installation-summary:
     name: Installation Test Summary
@@ -422,38 +422,45 @@ jobs:
     defaults:
       run:
         shell: bash
-    needs: [test-fresh-installation, test-upgrade-scenarios, test-partial-installation, test-error-recovery, test-performance]
+    needs:
+      [
+        test-fresh-installation,
+        test-upgrade-scenarios,
+        test-partial-installation,
+        test-error-recovery,
+        test-performance,
+      ]
     if: always()
     steps:
-    - name: Generate installation test summary
-      run: |
-        echo "# Installation Test Summary" > installation-summary.md
-        echo "Generated on: $(date)" >> installation-summary.md
-        echo "" >> installation-summary.md
+      - name: Generate installation test summary
+        run: |
+          echo "# Installation Test Summary" > installation-summary.md
+          echo "Generated on: $(date)" >> installation-summary.md
+          echo "" >> installation-summary.md
 
-        echo "## Test Results" >> installation-summary.md
-        echo "- Fresh Installation: ${{ needs.test-fresh-installation.result }}" >> installation-summary.md
-        echo "- Upgrade Scenarios: ${{ needs.test-upgrade-scenarios.result }}" >> installation-summary.md
-        echo "- Partial Installation: ${{ needs.test-partial-installation.result }}" >> installation-summary.md
-        echo "- Error Recovery: ${{ needs.test-error-recovery.result }}" >> installation-summary.md
-        echo "- Performance: ${{ needs.test-performance.result }}" >> installation-summary.md
-        echo "" >> installation-summary.md
+          echo "## Test Results" >> installation-summary.md
+          echo "- Fresh Installation: ${{ needs.test-fresh-installation.result }}" >> installation-summary.md
+          echo "- Upgrade Scenarios: ${{ needs.test-upgrade-scenarios.result }}" >> installation-summary.md
+          echo "- Partial Installation: ${{ needs.test-partial-installation.result }}" >> installation-summary.md
+          echo "- Error Recovery: ${{ needs.test-error-recovery.result }}" >> installation-summary.md
+          echo "- Performance: ${{ needs.test-performance.result }}" >> installation-summary.md
+          echo "" >> installation-summary.md
 
-        # Determine overall status
-        if [[ "${{ needs.test-fresh-installation.result }}" == "success" && \
-              "${{ needs.test-upgrade-scenarios.result }}" == "success" && \
-              "${{ needs.test-partial-installation.result }}" == "success" && \
-              "${{ needs.test-error-recovery.result }}" == "success" && \
-              "${{ needs.test-performance.result }}" == "success" ]]; then
-          echo "## Overall Status: ✅ ALL TESTS PASSED" >> installation-summary.md
-          echo "Installation process is working correctly across all tested scenarios." >> installation-summary.md
-        else
-          echo "## Overall Status: ❌ SOME TESTS FAILED" >> installation-summary.md
-          echo "Some installation scenarios need attention." >> installation-summary.md
-        fi
+          # Determine overall status
+          if [[ "${{ needs.test-fresh-installation.result }}" == "success" && \
+                "${{ needs.test-upgrade-scenarios.result }}" == "success" && \
+                "${{ needs.test-partial-installation.result }}" == "success" && \
+                "${{ needs.test-error-recovery.result }}" == "success" && \
+                "${{ needs.test-performance.result }}" == "success" ]]; then
+            echo "## Overall Status: ✅ ALL TESTS PASSED" >> installation-summary.md
+            echo "Installation process is working correctly across all tested scenarios." >> installation-summary.md
+          else
+            echo "## Overall Status: ❌ SOME TESTS FAILED" >> installation-summary.md
+            echo "Some installation scenarios need attention." >> installation-summary.md
+          fi
 
-    - name: Upload installation test summary
-      uses: actions/upload-artifact@v4
-      with:
-        name: installation-test-summary
-        path: installation-summary.md
+      - name: Upload installation test summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: installation-test-summary
+          path: installation-summary.md
