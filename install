@@ -40,6 +40,13 @@ fi
 if ! command -v chezmoi >/dev/null 2>&1; then
     log_info "Installing chezmoi..."
     sh -c "$(curl -fsLS get.chezmoi.io)"
+    
+    # Ensure chezmoi is in PATH
+    if [[ -f "./bin/chezmoi" ]]; then
+        export PATH="$PWD/bin:$PATH"
+    elif [[ -f "$HOME/.local/bin/chezmoi" ]]; then
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
 else
     log_info "chezmoi already installed"
 fi
