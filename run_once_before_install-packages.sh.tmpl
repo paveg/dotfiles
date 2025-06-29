@@ -33,6 +33,35 @@ brew bundle --file="{{ .chezmoi.sourceDir }}/homebrew/{{ if .business_use }}Brew
 {{- else if eq .chezmoi.os "linux" }}
 # Linux: Use native package managers (no Homebrew)
 
+# Function to install alacritty terminfo
+install_alacritty_terminfo() {
+    echo "Checking alacritty terminfo..."
+    if infocmp alacritty >/dev/null 2>&1; then
+        echo "alacritty terminfo is already installed"
+        return 0
+    fi
+
+    echo "Installing alacritty terminfo..."
+    local temp_file=$(mktemp)
+    
+    # Download alacritty.info from official repository
+    if curl -sSL https://raw.githubusercontent.com/alacritty/alacritty/master/extra/alacritty.info -o "$temp_file"; then
+        # Install terminfo (tic will create the necessary directories)
+        if command -v tic >/dev/null 2>&1; then
+            tic -x "$temp_file" 2>/dev/null || sudo tic -x "$temp_file" || {
+                echo "Warning: Failed to install alacritty terminfo"
+                echo "You may need to install it manually with: curl -sSL https://raw.githubusercontent.com/alacritty/alacritty/master/extra/alacritty.info | sudo tic -x -"
+            }
+        else
+            echo "Warning: 'tic' command not found. Please install ncurses package"
+        fi
+    else
+        echo "Warning: Failed to download alacritty terminfo file"
+    fi
+    
+    rm -f "$temp_file"
+}
+
 # Function to install atuin on Linux (not available in most repos)
 install_atuin_linux() {
     if command -v atuin >/dev/null 2>&1; then
@@ -74,6 +103,9 @@ if command -v apt >/dev/null 2>&1; then
         sudo apt install -y "$package" || echo "Warning: Failed to install $package"
     done < "{{ .chezmoi.sourceDir }}/packages/apt.txt"
 
+    # Install alacritty terminfo
+    install_alacritty_terminfo
+
     # Install atuin separately (not available in apt repos)
     install_atuin_linux
 
@@ -89,6 +121,9 @@ elif command -v dnf >/dev/null 2>&1; then
         sudo dnf install -y "$package" || echo "Warning: Failed to install $package"
     done < "{{ .chezmoi.sourceDir }}/packages/dnf.txt"
 
+    # Install alacritty terminfo
+    install_alacritty_terminfo
+
     # Install atuin separately (not available in dnf repos)
     install_atuin_linux
 
@@ -103,6 +138,9 @@ elif command -v pacman >/dev/null 2>&1; then
         echo "Installing: $package"
         sudo pacman -S --noconfirm "$package" || echo "Warning: Failed to install $package"
     done < "{{ .chezmoi.sourceDir }}/packages/pacman.txt"
+
+    # Install alacritty terminfo
+    install_alacritty_terminfo
 
 else
     echo "No supported package manager found. Please install dependencies manually."

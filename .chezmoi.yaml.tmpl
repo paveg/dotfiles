@@ -8,6 +8,9 @@
 data:
   osid: {{ $osID | quote }}
   business_use: {{ $businessUse }}
+  
+  # Auto tmux on Linux (can be overridden with DISABLE_AUTO_TMUX=1 or AUTO_TMUX=1)
+  auto_tmux_linux: {{ if eq .chezmoi.os "linux" }}true{{ else }}false{{ end }}
 
   # XDG directories
   xdg_config_home: "{{ .chezmoi.homeDir }}/.config"
