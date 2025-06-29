@@ -34,6 +34,12 @@ if [[ ! -d $ZINIT_HOME/.git ]]; then
   debug "✓ Zinit installed successfully"
 fi
 
+# Configure zinit for better terminal compatibility
+# Disable color output if terminal doesn't support it properly
+if [[ "$TERM" == "dumb" ]] || ! command -v tput >/dev/null 2>&1; then
+  typeset -g ZINIT[NO_COLOR]=1
+fi
+
 # Load zinit with error handling
 if [[ -f "${ZINIT_HOME}/zinit.zsh" ]]; then
   source "${ZINIT_HOME}/zinit.zsh" || {
@@ -75,15 +81,16 @@ zinit light zsh-users/zsh-history-substring-search
 # ============================================================================
 
 # Remind about aliases you've defined
-zinit ice wait"2" lucid
-zinit light MichaelAquilina/zsh-you-should-use
+# NOTE: Temporarily disabled due to tput errors with alacritty
+# zinit ice wait"2" lucid
+# zinit light MichaelAquilina/zsh-you-should-use
 
 # Auto-close brackets and quotes
 zinit ice wait"1" lucid
 zinit light hlissner/zsh-autopair
 
 # Enhanced tab completion with fzf
-zinit ice wait"2" lucid
+zinit ice wait"1" lucid
 zinit light Aloxaf/fzf-tab
 
 # Interactive git operations with fzf
@@ -91,11 +98,11 @@ zinit ice wait"2" lucid
 zinit light wfxr/forgit
 
 # Fish-like abbreviations (expand shortcuts)
-zinit ice wait"2" lucid
+zinit ice wait"3" lucid
 zinit light olets/zsh-abbr
 
 # Per-directory history
-zinit ice wait"2" lucid
+zinit ice wait"3" lucid
 zinit light jimhester/per-directory-history
 
 # ============================================================================
@@ -103,23 +110,23 @@ zinit light jimhester/per-directory-history
 # ============================================================================
 
 # Docker completion
-zinit ice wait"2" lucid as"completion"
+zinit ice wait"4" lucid as"completion"
 zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker
 
 # Docker Compose completion
-zinit ice wait"2" lucid as"completion"
+zinit ice wait"4" lucid as"completion"
 zinit snippet "https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/docker-compose/_docker-compose"
 
 # ghq completion
-zinit ice wait"2" lucid as"completion"
+zinit ice wait"3" lucid as"completion"
 zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
 
 # fd completion
-zinit ice wait"2" lucid as"completion"
+zinit ice wait"3" lucid as"completion"
 zinit snippet https://github.com/sharkdp/fd/blob/master/contrib/completion/_fd
 
 # eza completion
-zinit ice wait"2" lucid as"completion"
+zinit ice wait"3" lucid as"completion"
 zinit snippet https://github.com/eza-community/eza/blob/main/completions/zsh/_eza
 
 # ============================================================================
@@ -132,11 +139,11 @@ zinit ice wait"3" lucid atload"command -v mise >/dev/null && eval \"\$(mise comp
 zinit light zdharma-continuum/null
 
 # chezmoi - always available
-zinit ice wait"2" lucid atload"command -v chezmoi >/dev/null && eval \"\$(chezmoi completion zsh)\""
+zinit ice wait"4" lucid atload"command -v chezmoi >/dev/null && eval \"\$(chezmoi completion zsh)\""
 zinit light zdharma-continuum/null
 
 # pnpm - always available
-zinit ice wait"2" lucid atload"command -v pnpm >/dev/null && eval \"\$(pnpm completion zsh)\""
+zinit ice wait"4" lucid atload"command -v pnpm >/dev/null && eval \"\$(pnpm completion zsh)\""
 zinit light zdharma-continuum/null
 
 # gh - always available (without 1Password integration for now)
