@@ -1,5 +1,5 @@
-#!/bin/bash
-# One-command installer for paveg's dotfiles
+#!/usr/bin/env bash
+# Cross-platform installer for paveg's dotfiles
 # Usage: curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
 # Usage: BUSINESS_USE=1 curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/install | bash
 
@@ -18,13 +18,17 @@ log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Check if running on macOS
-if [[ "$(uname)" != "Darwin" ]]; then
-    log_error "This installer is currently designed for macOS only."
-    exit 1
-fi
-
 log_info "Starting paveg's dotfiles installation..."
+
+# Detect OS
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)     OS_TYPE=Linux;;
+    Darwin*)    OS_TYPE=Darwin;;
+    *)          log_error "Unsupported OS: ${OS}"; exit 1;;
+esac
+
+log_info "Detected OS: ${OS_TYPE}"
 
 # Set environment for business use if requested
 if [[ -n "${BUSINESS_USE:-}" ]]; then
@@ -56,6 +60,8 @@ echo ""
 log_info "Next steps:"
 echo "  • Restart your terminal: exec \$SHELL -l"
 echo "  • Check configuration: chezmoi status"
-echo "  • Update packages: brewbundle"
+if [[ "${OS_TYPE}" == "Darwin" ]]; then
+    echo "  • Update packages: brewbundle"
+fi
 echo "  • Profile shell startup: zprofiler"
 
