@@ -19,17 +19,17 @@
 : ${XDG_CONFIG_HOME:="$HOME/.config"}
 : ${ZDOTDIR:="$XDG_CONFIG_HOME/zsh"}
 
-# Module system configuration
-typeset -g ZMODDIR="$ZDOTDIR/modules"
+# Module system configuration (only set if not already defined as readonly)
+: ${ZMODDIR:="$ZDOTDIR/modules"}
 typeset -g DOTS_DEBUG="${DOTS_DEBUG:-0}"
 
 # Initialize module system
 init_module_system() {
   local start_time="$(date +%s.%3N)"
-  
+
   # Load the core metadata and loader system first
   local core_dir="$ZMODDIR/core"
-  
+
   # Check if core directory exists
   if [[ ! -d "$core_dir" ]]; then
     # Fallback to legacy flat structure
@@ -37,7 +37,7 @@ init_module_system() {
     load_legacy_modules
     return $?
   fi
-  
+
   # Load metadata system (must be first)
   if [[ -f "$core_dir/metadata.zsh" ]]; then
     source "$core_dir/metadata.zsh"
@@ -45,7 +45,7 @@ init_module_system() {
     echo "Error: metadata.zsh not found in core directory" >&2
     return 1
   fi
-  
+
   # Load enhanced loader
   if [[ -f "$core_dir/loader.zsh" ]]; then
     source "$core_dir/loader.zsh"
@@ -53,20 +53,20 @@ init_module_system() {
     echo "Error: loader.zsh not found in core directory" >&2
     return 1
   fi
-  
+
   # Load modules in the new organized structure
   load_organized_modules
-  
+
   local end_time="$(date +%s.%3N)"
   local total_time=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
-  
+
   [[ "$DOTS_DEBUG" == "1" ]] && echo "Module system initialized in ${total_time}s"
 }
 
 # Load modules from the organized directory structure
 load_organized_modules() {
   local module_dir="$ZMODDIR"
-  
+
   # Define loading order by category (critical for proper initialization)
   local category_order=(
     "core"          # Must be first: platform, terminal, path, core
@@ -77,46 +77,46 @@ load_organized_modules() {
     "experimental"  # Optional experimental features
     "local"         # Local overrides (last)
   )
-  
+
   [[ "$DOTS_DEBUG" == "1" ]] && echo "Loading modules from organized structure"
-  
+
   # Process module filtering
   local skip_modules=()
   local only_modules=()
-  
+
   if [[ -n "$DOTS_SKIP_MODULES" ]]; then
     skip_modules=(${(s:,:)DOTS_SKIP_MODULES})
     [[ "$DOTS_DEBUG" == "1" ]] && echo "Skipping modules: ${skip_modules[*]}"
   fi
-  
+
   if [[ -n "$DOTS_ONLY_MODULES" ]]; then
     only_modules=(${(s:,:)DOTS_ONLY_MODULES})
     [[ "$DOTS_DEBUG" == "1" ]] && echo "Loading only modules: ${only_modules[*]}"
   fi
-  
+
   # Load categories in order
   for category in "${category_order[@]}"; do
     local category_dir="$module_dir/$category"
-    
+
     [[ ! -d "$category_dir" ]] && continue
-    
+
     [[ "$DOTS_DEBUG" == "1" ]] && echo "Loading category: $category"
-    
+
     # Special handling for core category (strict order required)
     if [[ "$category" == "core" ]]; then
       # Core modules must load in this exact order
       local core_order=(
         "metadata"    # Already loaded, but ensure it's marked
-        "loader"      # Already loaded, but ensure it's marked  
+        "loader"      # Already loaded, but ensure it's marked
         "platform"    # Must be first for is_exist_command
         "terminal"    # Early terminal setup
         "core"        # Essential functions
         "path"        # PATH management
       )
-      
+
       for module_name in "${core_order[@]}"; do
         local module_file="$category_dir/$module_name.zsh"
-        
+
         # Skip if already loaded (metadata and loader)
         if [[ "$module_name" == "metadata" ]] || [[ "$module_name" == "loader" ]]; then
           # Just mark as loaded if not already
@@ -126,12 +126,12 @@ load_organized_modules() {
           fi
           continue
         fi
-        
+
         # Apply filtering
         if should_skip_module "$module_name"; then
           continue
         fi
-        
+
         if [[ -f "$module_file" ]]; then
           load_module "$module_file"
         fi
@@ -141,15 +141,15 @@ load_organized_modules() {
       load_modules_by_category "$category" "$module_dir"
     fi
   done
-  
+
   # Load any remaining modules not in the standard categories
   for module_file in "$module_dir"/*.zsh(N); do
     local module_name="${module_file:t:r}"
-    
+
     if should_skip_module "$module_name"; then
       continue
     fi
-    
+
     if ! is_module_loaded "$module_name"; then
       [[ "$DOTS_DEBUG" == "1" ]] && echo "Loading uncategorized module: $module_name"
       load_module "$module_file"
@@ -160,7 +160,7 @@ load_organized_modules() {
 # Check if a module should be skipped based on filtering rules
 should_skip_module() {
   local module_name="$1"
-  
+
   # Check skip list
   if [[ -n "$DOTS_SKIP_MODULES" ]]; then
     local skip_modules=(${(s:,:)DOTS_SKIP_MODULES})
@@ -171,7 +171,7 @@ should_skip_module() {
       fi
     done
   fi
-  
+
   # Check only list (if specified)
   if [[ -n "$DOTS_ONLY_MODULES" ]]; then
     local only_modules=(${(s:,:)DOTS_ONLY_MODULES})
@@ -184,26 +184,26 @@ should_skip_module() {
     [[ "$DOTS_DEBUG" == "1" ]] && echo "Not in only list, skipping: $module_name"
     return 0
   fi
-  
+
   return 1  # Should not skip
 }
 
 # Legacy module loading (fallback for old structure)
 load_legacy_modules() {
   [[ "$DOTS_DEBUG" == "1" ]] && echo "Using legacy module loading"
-  
+
   # Traditional loading order for backward compatibility
   local legacy_order=(
     "platform" "terminal" "core" "config" "alias" "func" "keybind" "plugin" "local"
   )
-  
+
   for module_name in "${legacy_order[@]}"; do
     local module_file="$ZMODDIR/$module_name.zsh"
-    
+
     if [[ -f "$module_file" ]]; then
       [[ "$DOTS_DEBUG" == "1" ]] && echo "Loading legacy module: $module_name"
       source "$module_file"
-      
+
       # Compile for performance
       if (( $+functions[zcompare] )); then
         zcompare "$module_file"
@@ -235,24 +235,24 @@ load_minimal() {
 # Development helpers
 reload_module_system() {
   echo "Reloading module system..."
-  
+
   # Unload all modules
   for key in ${(k)MODULE_METADATA}; do
     if [[ "$key" == *.loaded ]]; then
       MODULE_METADATA[$key]="0"
     fi
   done
-  
+
   # Clear metadata system
   unset MODULE_METADATA
   unset _MODULE_METADATA_INITIALIZED
-  
+
   # Reload
   init_module_system
 }
 
-# Export key functions for external use
-export -f init_module_system load_organized_modules load_legacy_modules should_skip_module
+# Note: In zsh, functions are automatically available to subshells
+# No need to export functions like in bash
 
 # Initialize the module system
 init_module_system

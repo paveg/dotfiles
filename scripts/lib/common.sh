@@ -46,7 +46,7 @@ print_warning() {
 cleanup_backups() {
     local pattern="${1:-*.bak}"
     local backup_count=0
-    
+
     # Find and remove backup files
     while IFS= read -r -d '' backup_file; do
         if [[ -f "$backup_file" ]]; then
@@ -54,7 +54,7 @@ cleanup_backups() {
             ((backup_count++))
         fi
     done < <(find . -name "$pattern" -type f -print0 2>/dev/null || true)
-    
+
     if [[ $backup_count -gt 0 ]]; then
         print_info "Cleaned up $backup_count backup file(s)"
     fi
@@ -66,7 +66,7 @@ error_handler() {
     local exit_code=$1
     local line_number=$2
     local command=$3
-    
+
     print_error "Command failed with exit code $exit_code at line $line_number: $command"
 }
 
@@ -81,14 +81,14 @@ command_exists() {
 get_script_dir() {
     local source="${BASH_SOURCE[0]}"
     local dir
-    
+
     # Resolve symlinks
-    while [[ -h "$source" ]]; do
+    while [[ -L "$source" ]]; do
         dir="$(cd -P "$(dirname "$source")" && pwd)"
         source="$(readlink "$source")"
         [[ $source != /* ]] && source="$dir/$source"
     done
-    
+
     dir="$(cd -P "$(dirname "$source")" && pwd)"
     echo "$dir"
 }
@@ -107,4 +107,3 @@ ensure_dir() {
 export DOTFILES_LIB_DIR="$(get_script_dir)"
 export DOTFILES_SCRIPTS_DIR="$(dirname "$DOTFILES_LIB_DIR")"
 export DOTFILES_ROOT="$(dirname "$DOTFILES_SCRIPTS_DIR")"
-

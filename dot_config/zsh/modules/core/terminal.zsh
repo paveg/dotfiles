@@ -10,50 +10,50 @@
 
 # Module metadata declaration
 declare_module "terminal" \
-  "depends:platform" \
-  "category:core" \
-  "description:Terminal detection and configuration for modern terminals" \
-  "provides:safe_tput,COLORTERM,CLICOLOR" \
-  "external:tput,infocmp" \
-  "optional:tput,infocmp"
+    "depends:platform" \
+    "category:core" \
+    "description:Terminal detection and configuration for modern terminals" \
+    "provides:safe_tput,COLORTERM,CLICOLOR" \
+    "external:tput,infocmp" \
+    "optional:tput,infocmp"
 
 # Fix for alacritty terminal detection
 # Alacritty sets TERM=alacritty but some systems don't have proper terminfo
 if [[ "$TERM" == "alacritty" ]]; then
-  # Check if alacritty terminfo exists
-  if ! infocmp alacritty &>/dev/null; then
-    # Fallback to xterm-256color which is widely supported
-    export TERM="xterm-256color"
-  fi
+    # Check if alacritty terminfo exists
+    if ! infocmp alacritty &>/dev/null; then
+        # Fallback to xterm-256color which is widely supported
+        export TERM="xterm-256color"
+    fi
 fi
 
 # Ensure terminfo is properly set for color support
 # This helps prevent tput errors
 if [[ -z "$TERMINFO" ]] && [[ -d "$HOME/.terminfo" ]]; then
-  export TERMINFO="$HOME/.terminfo"
+    export TERMINFO="$HOME/.terminfo"
 fi
 
 # Set color capability for terminals that support it
 # This helps zinit and plugins detect color support properly
 if [[ "$TERM" != "dumb" ]]; then
-  # Use zsh's built-in color support instead of tput
-  autoload -Uz colors && colors
-  
-  # Export color support for tools that check these
-  export COLORTERM="${COLORTERM:-truecolor}"
-  export CLICOLOR=1
+    # Use zsh's built-in color support instead of tput
+    autoload -Uz colors && colors
+
+    # Export color support for tools that check these
+    export COLORTERM="${COLORTERM:-truecolor}"
+    export CLICOLOR=1
 fi
 
 # Function to safely use tput with fallback
 safe_tput() {
-  local cmd="$1"
-  shift
-  
-  # Check if tput is available and terminal is not dumb
-  if command -v tput >/dev/null 2>&1 && [[ "$TERM" != "dumb" ]]; then
-    # Try to execute tput, but suppress errors
-    tput "$cmd" "$@" 2>/dev/null || true
-  fi
+    local cmd="$1"
+    shift
+
+    # Check if tput is available and terminal is not dumb
+    if command -v tput >/dev/null 2>&1 && [[ "$TERM" != "dumb" ]]; then
+        # Try to execute tput, but suppress errors
+        tput "$cmd" "$@" 2>/dev/null || true
+    fi
 }
 
 # Note: Function is available in current shell context

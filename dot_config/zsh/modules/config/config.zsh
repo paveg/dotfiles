@@ -12,12 +12,12 @@
 
 # Module metadata declaration
 declare_module "config" \
-  "depends:platform" \
-  "category:config" \
-  "description:Basic zsh configuration and options" \
-  "provides:FZF_DEFAULT_OPTS" \
-  "external:" \
-  "optional:"
+    "depends:platform" \
+    "category:config" \
+    "description:Basic zsh configuration and options" \
+    "provides:FZF_DEFAULT_OPTS" \
+    "external:" \
+    "optional:"
 
 # History options (size is set in .zshenv)
 setopt histignorealldups sharehistory

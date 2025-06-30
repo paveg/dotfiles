@@ -35,6 +35,7 @@ BUSINESS_USE=1 curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/
 ```
 
 **Alternative (using chezmoi directly):**
+
 ```bash
 
 # Personal environment
@@ -47,6 +48,7 @@ BUSINESS_USE=1 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply paveg
 ```
 
 The installation script automatically handles:
+
 - **macOS**: Homebrew installation and package management via Brewfile
 - **Linux**: Native package manager detection (apt/dnf/pacman) and CLI tools installation
 - Environment-specific configuration (personal/business)
@@ -116,3 +118,12 @@ chezmoi edit ~/.local/share/chezmoi/packages/rust-tools.txt
 mise install rust@stable
 mise use rust@stable
 ```
+
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[docs/LAZY_LOADING.md](docs/LAZY_LOADING.md)** - Enhanced lazy loading system and performance optimization
+- **[docs/COMPLETION_ENHANCEMENTS.md](docs/COMPLETION_ENHANCEMENTS.md)** - Zsh completion system improvements
+- **[docs/TESTING.md](docs/TESTING.md)** - Testing procedures and validation scripts
+- **[CLAUDE.md](CLAUDE.md)** - Complete guidance for Claude Code development in this repository

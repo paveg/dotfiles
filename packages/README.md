@@ -14,6 +14,7 @@ This directory contains package lists for different Linux distributions.
 These files are automatically used by the installation script based on the detected package manager.
 
 The installation script will:
+
 1. Detect the available package manager
 1. Install packages from the appropriate list
 1. Handle distribution-specific package naming differences

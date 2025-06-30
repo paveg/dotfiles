@@ -12,12 +12,12 @@
 
 # Module metadata declaration
 declare_module "keybind" \
-  "depends:platform,func" \
-  "category:ui" \
-  "description:Key bindings for enhanced shell interaction" \
-  "provides:" \
-  "external:" \
-  "optional:"
+    "depends:platform,func" \
+    "category:ui" \
+    "description:Key bindings for enhanced shell interaction" \
+    "provides:" \
+    "external:" \
+    "optional:"
 
 bindkey -e
 

@@ -55,14 +55,37 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - `:Lazy update` - Update Neovim plugins
 - `:AstroUpdate` - Update AstroNvim packages
 
+### Formatting System
+
+- `mise run format` - Format all files (markdown with prettier, zsh with custom formatter)
+- `mise run format-md` - Format only markdown files using prettier
+- `mise run format-zsh` - Format only zsh files using custom formatter (handles complex zsh syntax)
+- `mise run format-check` - Check formatting without making changes
+- `pnpm run format:md` - Alternative: format markdown via pnpm
+- `pnpm run format:zsh` - Alternative: format zsh via pnpm
+
+### Enhanced Lazy Loading System
+
+- `lazy-stats` - Show lazy loading statistics and timing information
+- `lazy-toggle` - Enable/disable lazy loading system
+- `lazy-warm` - Pre-initialize all lazy tools for testing
+- `tool-stats` - Display tool usage analytics for optimization
+- `mise run test` - Test lazy loading module functionality
+- `mise run benchmark` - Benchmark zsh startup time (5 iterations)
+
 ### Testing and Development
 
 - `./tests/test_runner.sh` - Run dotfiles test suite (validates zsh syntax, directory structure, essential files)
-- `./scripts/format-zsh.sh` - Format zsh configuration files for consistency
-- `./scripts/format-markdown.sh` - Format markdown files for consistency
+- `./scripts/format-zsh.sh -d dot_config/zsh -r` - Format zsh configuration files for consistency
 - `./scripts/install-rust-tools.sh` - Install/update Rust-based development tools via cargo
 - `./scripts/install-neovim-latest.sh` - Install latest NeoVim on Linux (AppImage, binary, or package manager)
 - `chezmoi add <file>` - Add a file to chezmoi management after editing
+
+### Local Development Environment
+
+- `pnpm install` - Install local development dependencies (prettier, etc.)
+- `mise install` - Install mise-managed tools (shfmt, etc.)
+- Files NOT managed by chezmoi: `mise.toml`, `package.json`, `pnpm-lock.yaml`, `node_modules/`, `.prettierrc`
 
 ### Rust Tools Management
 
@@ -73,6 +96,7 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - **Rust version**: Managed via mise (see `~/.config/mise/config.toml`)
 
 **Installation Features:**
+
 - Essential tools (starship, bat, fd, ripgrep, eza): Pre-built binaries (~30 seconds)
 - Additional tools: Parallel compilation for speed
 - Interactive selection for additional tools
@@ -85,6 +109,7 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - **Verification**: Tests installation and basic functionality
 
 **Installation Methods Priority:**
+
 1. AppImage (latest, self-contained, x86_64 only)
 1. Pre-built binary from GitHub releases
 1. Package manager with latest repository (fallback)
@@ -103,6 +128,7 @@ The repository uses chezmoi's template system with XDG-compliant structure:
 ### 2. XDG Base Directory Layout
 
 All configurations are under `dot_config/` (maps to `~/.config/`):
+
 - `dot_config/zsh/` - Shell configuration with performance optimizations
 - `dot_config/git/` - Modular git configuration (main, work, secrets)
 - `dot_config/nvim/` - AstroNvim configuration with custom plugins
@@ -114,6 +140,7 @@ All configurations are under `dot_config/` (maps to `~/.config/`):
 Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and optimization:
 
 **Core Module Loading Order** (critical sequence):
+
 1. `platform.zsh` - OS detection and `is_exist_command` utility (must be first)
 1. `core.zsh` - Essential functions (zcompare, load, init_completion)
 1. `path.zsh` - Comprehensive PATH management system
@@ -127,6 +154,7 @@ Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and o
 **Advanced Performance Optimizations**:
 
 1. **Intelligent PATH Management** (`path.zsh`):
+
 - `path_prepend()` and `path_append()` functions prevent duplicates
 - Architecture-aware Homebrew path detection (ARM64 vs x86_64)
 - Language-specific tool paths in priority order (Rust, Go, Node.js, Python, Ruby)
@@ -134,19 +162,25 @@ Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and o
 - PATH debugging utilities (`path_show`, `path_clean`, `path_check`)
 
 1. **Completion System Optimization**:
+
 - Cached completion initialization via `init_completion()` in `core.zsh`
 - Deferred completion loading through zinit's turbo mode
 - Eval-based completions for modern tools (mise, chezmoi, pnpm, gh, atuin)
 - Strategic timing delays (wait"0", wait"2", wait"3") to prevent startup blocking
 - XDG-compliant cache directory (`$XDG_CACHE_HOME/zsh/zcompdump`)
 
-1. **Smart Tool Initialization**:
-- Context-aware lazy loading: immediate in sessions (tmux/zellij), lazy in main shell
-- Session detection via `$TMUX`, `$ZELLIJ`, and `$SHLVL` variables
-- Tool-specific lazy wrappers that self-destruct after first use
-- Startup time measurement with color-coded performance feedback
+1. **Enhanced Lazy Loading System**:
+
+- **Project context detection**: Automatically detects Node.js, Rust, Python, Docker, K8s projects
+- **Context-aware tool loading**: Tools only load when relevant (e.g., docker in projects with Dockerfile)
+- **Performance tracking**: Detailed timing with `LAZY_LOADING_TIMINGS` array
+- **Session-aware initialization**: Different behavior in tmux/zellij vs standalone shells
+- **Tool usage analytics**: Optional tracking with `TRACK_TOOL_USAGE=1`
+- **Smart completion loading**: Expensive completions (gcloud, aws) only load when needed
+- **Package manager validation**: npm/yarn/pnpm check for package.json before loading
 
 1. **Compilation and Caching**:
+
 - Automatic `.zwc` compilation for all modules via `zcompare()` function
 - Module compilation happens during load for faster subsequentStartup
 - Completion dump caching with timestamp-based invalidation
@@ -155,6 +189,7 @@ Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and o
 ### 4. Template System
 
 Uses Go templates for environment-specific configuration:
+
 - `{{ .business_use }}` - Business vs personal environment detection
 - `{{ .chezmoi.os }}` - OS-specific configurations
 - `{{ .chezmoi.homeDir }}` - Home directory path
@@ -163,7 +198,28 @@ Uses Go templates for environment-specific configuration:
 - Homebrew prefix automatically set based on architecture
 - Configuration defined in `.chezmoi.yaml.tmpl`
 
-### 5. Automated Setup
+### 5. Hybrid Formatting System
+
+**Architecture**: Combination of industry-standard tools for optimal file format support:
+
+- **Prettier for Markdown**: Industry standard formatting for `.md` files via local pnpm installation
+- **Custom zsh formatter**: Handles complex zsh syntax that prettier-plugin-sh couldn't parse
+- **Mise task integration**: Unified interface via `mise run format` commands
+- **Repository-local dependencies**: All formatting tools managed locally, not globally
+
+**Configuration files**:
+
+- `.prettierrc` - Prettier configuration (120 char width, preserve prose wrap)
+- `package.json` - Local development dependencies and npm scripts
+- `mise.toml` - Task runner definitions (NOT managed by chezmoi for local customization)
+
+**Tool coordination**:
+
+- prettier handles markdown formatting with consistent rules
+- Custom script (`scripts/format-zsh.sh`) handles zsh files with syntax validation
+- Both tools accessible via mise tasks and pnpm scripts for flexibility
+
+### 6. Automated Setup
 
 - `run_once_before_install-packages.sh.tmpl` - Package installation (Homebrew, etc.)
 - `run_once_after_setup-zsh.sh.tmpl` - Zsh configuration and optimization
@@ -201,6 +257,31 @@ Uses Go templates for environment-specific configuration:
 - **Session-aware loading**: Different behavior in tmux/zellij vs standalone shells
 - **Cross-platform compatibility**: macOS-specific optimizations with Linux fallbacks
 - **CI/Docker compatibility**: Disabled security checks in containerized environments
+
+### Enhanced Lazy Loading Configuration
+
+**Environment Variables**:
+
+- `LAZY_LOADING_ENABLED=1` - Enable/disable lazy loading system (default: enabled)
+- `LAZY_LOADING_DEBUG=1` - Enable debug output for troubleshooting
+- `TRACK_TOOL_USAGE=1` - Enable tool usage analytics for optimization hints
+- `DOTS_DEBUG=1` - Enable general debug output for modules
+
+**Project Context Detection** (automatic):
+
+- Node.js: `package.json`, `pnpm-workspace.yaml`, `yarn.lock`, `pnpm-lock.yaml`
+- Rust: `Cargo.toml`, `Cargo.lock`
+- Python: `requirements.txt`, `pyproject.toml`, `setup.py`, `poetry.lock`
+- Docker: `Dockerfile`, `docker-compose.yml`, `docker-compose.yaml`
+- Kubernetes: `k8s/` directory, `kubectl.yaml`, `kustomization.yaml`, `$KUBECONFIG`
+- Cloud: `.gcloudignore`, `.gcloud/`, `.aws/`, `$AWS_PROFILE`, `aws-cli.yaml`
+
+**Tool Loading Behavior**:
+
+- Container tools (docker, kubectl) only load in relevant project contexts
+- Package managers (npm, yarn, pnpm) validate project context before loading
+- Cloud tools (aws, gcloud) have expensive completions deferred until first use
+- All tools track performance timing when debug mode is enabled
 
 ## Technical Implementation Patterns
 
