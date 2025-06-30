@@ -7,11 +7,12 @@
 # ============================================================================
 
 # Module metadata declaration
-declare_module "enhanced-lazy-tools" \
-  "depends:platform,core" \
-  "category:tools" \
-  "description:Enhanced lazy loading for mise, atuin, and other existing tools" \
-  "provides:enhanced_mise_loading,enhanced_atuin_loading,enhanced_starship_loading"
+# Note: declare_module will be called automatically by the loader
+# declare_module "enhanced-lazy-tools" \
+#   "depends:platform,core" \
+#   "category:tools" \
+#   "description:Enhanced lazy loading for mise, atuin, and other existing tools" \
+#   "provides:enhanced_mise_loading,enhanced_atuin_loading,enhanced_starship_loading"
 
 # ============================================================================
 # Enhanced Mise Lazy Loading

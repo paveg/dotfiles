@@ -19,8 +19,8 @@
 : ${XDG_CONFIG_HOME:="$HOME/.config"}
 : ${ZDOTDIR:="$XDG_CONFIG_HOME/zsh"}
 
-# Module system configuration
-typeset -g ZMODDIR="$ZDOTDIR/modules"
+# Module system configuration (only set if not already defined as readonly)
+: ${ZMODDIR:="$ZDOTDIR/modules"}
 typeset -g DOTS_DEBUG="${DOTS_DEBUG:-0}"
 
 # Initialize module system
@@ -251,8 +251,8 @@ reload_module_system() {
   init_module_system
 }
 
-# Export key functions for external use
-export -f init_module_system load_organized_modules load_legacy_modules should_skip_module
+# Note: In zsh, functions are automatically available to subshells
+# No need to export functions like in bash
 
 # Initialize the module system
 init_module_system

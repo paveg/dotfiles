@@ -6,11 +6,11 @@ source "${${(%):-%x}:A:h}/metadata.zsh"
 
 # Enhanced module loading function
 load_module() {
-  local module_path="$1"
+  local module_file="$1"
   local force_reload="${2:-false}"
   
   # Extract module name from path
-  local module_name="${module_path:t:r}"
+  local module_name="${module_file:t:r}"
   
   # Check if module is already loaded (unless force reload)
   if [[ "$force_reload" != "true" ]] && is_module_loaded "$module_name"; then
@@ -20,8 +20,8 @@ load_module() {
   fi
   
   # Check if file exists
-  if [[ ! -f "$module_path" ]]; then
-    echo "Error: Module file not found: $module_path" >&2
+  if [[ ! -f "$module_file" ]]; then
+    echo "Error: Module file not found: $module_file" >&2
     return 1
   fi
   
@@ -31,7 +31,7 @@ load_module() {
   # Source the module to get its metadata declaration
   # This is safe because well-formed modules only declare metadata at the top
   local temp_source_output
-  temp_source_output=$(head -20 "$module_path" | grep -E '^(#|declare_module)' | source /dev/stdin 2>&1)
+  temp_source_output=$(head -20 "$module_file" | grep -E '^(#|declare_module)' | source /dev/stdin 2>&1)
   if [[ $? -ne 0 ]] && [[ -n "$temp_source_output" ]]; then
     echo "Warning: Error reading metadata from $module_name: $temp_source_output" >&2
   fi
@@ -58,17 +58,17 @@ load_module() {
   
   # Source the actual module
   local source_start="$(date +%s.%3N)"
-  if source "$module_path"; then
+  if source "$module_file"; then
     local source_end="$(date +%s.%3N)"
     local source_time=$(echo "$source_end - $source_start" | bc 2>/dev/null || echo "0")
     
     # Compile module for performance (using existing zcompare function if available)
     local compile_start="$(date +%s.%3N)"
     if (( $+functions[zcompare] )); then
-      zcompare "$module_path"
+      zcompare "$module_file"
     elif command -v zcompile >/dev/null 2>&1; then
       # Fallback compilation
-      [[ "$module_path.zwc" -ot "$module_path" ]] && zcompile "$module_path" 2>/dev/null
+      [[ "$module_file.zwc" -ot "$module_file" ]] && zcompile "$module_file" 2>/dev/null
     fi
     local compile_end="$(date +%s.%3N)"
     local compile_time=$(echo "$compile_end - $compile_start" | bc 2>/dev/null || echo "0")
@@ -84,7 +84,7 @@ load_module() {
     
     return 0
   else
-    echo "Error: Failed to source module: $module_path" >&2
+    echo "Error: Failed to source module: $module_file" >&2
     return 1
   fi
 }
@@ -180,36 +180,38 @@ load_modules_ordered() {
 load_modules_by_category() {
   local category="$1"
   local module_dir="${2:-$XDG_CONFIG_HOME/zsh/modules}"
+  local category_dir="$module_dir/$category"
   
   [[ "${MODULE_METADATA[system.debug]}" == "1" ]] && \
     echo "Loading modules from category: $category"
   
-  # Find modules in the specified category
-  local category_modules=()
-  for key in ${(k)MODULE_METADATA}; do
-    if [[ "$key" == *.category ]]; then
-      local module="${key%.category}"
-      if [[ "${MODULE_METADATA[$key]}" == "$category" ]]; then
-        category_modules+=("$module")
-      fi
-    fi
-  done
-  
-  # Load modules in dependency order within the category
-  local load_order
-  if ! load_order=($(get_load_order)); then
-    echo "Error: Cannot resolve module dependencies" >&2
-    return 1
+  # Check if category directory exists
+  if [[ ! -d "$category_dir" ]]; then
+    [[ "${MODULE_METADATA[system.debug]}" == "1" ]] && \
+      echo "Category directory not found: $category_dir"
+    return 0
   fi
   
-  # Filter load order to only include modules from this category
-  for module_name in "${load_order[@]}"; do
-    if [[ " ${category_modules[*]} " == *" $module_name "* ]]; then
-      local module_file="$module_dir/$module_name.zsh"
-      if [[ -f "$module_file" ]]; then
-        load_module "$module_file"
-      fi
+  # Load all .zsh files from the category directory
+  for module_file in "$category_dir"/*.zsh(N); do
+    local module_name="${module_file:t:r}"
+    
+    # Skip if module should be skipped
+    if should_skip_module "$module_name"; then
+      continue
     fi
+    
+    # Skip if already loaded
+    if is_module_loaded "$module_name"; then
+      [[ "${MODULE_METADATA[system.debug]}" == "1" ]] && \
+        echo "Module '$module_name' already loaded, skipping"
+      continue
+    fi
+    
+    [[ "${MODULE_METADATA[system.debug]}" == "1" ]] && \
+      echo "Loading module from $category: $module_name"
+    
+    load_module "$module_file"
   done
 }
 

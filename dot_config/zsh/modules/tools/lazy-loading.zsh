@@ -13,11 +13,12 @@
 # ============================================================================
 
 # Module metadata declaration
-declare_module "lazy-loading" \
-  "depends:platform,core" \
-  "category:tools" \
-  "description:Context-aware lazy loading for development tools" \
-  "provides:project_context,lazy_docker,lazy_kubectl,lazy_cloud_tools"
+# Note: declare_module will be called automatically by the loader
+# declare_module "lazy-loading" \
+#   "depends:platform,core" \
+#   "category:tools" \
+#   "description:Context-aware lazy loading for development tools" \
+#   "provides:project_context,lazy_docker,lazy_kubectl,lazy_cloud_tools"
 
 # Global variables for lazy loading state
 typeset -gA LAZY_LOADING_STATE
@@ -464,7 +465,8 @@ lazy_loading_stats() {
     
     if (( ${#LAZY_LOADING_TIMINGS[@]} > 0 )); then
         echo "Tool initialization times:"
-        for tool time in "${(@kv)LAZY_LOADING_TIMINGS}"; do
+        for tool in "${(@k)LAZY_LOADING_TIMINGS}"; do
+            local time="${LAZY_LOADING_TIMINGS[$tool]}"
             printf "  %-15s %6.3fs\n" "$tool:" "$time"
         done
     else
