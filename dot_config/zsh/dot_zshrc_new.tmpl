@@ -1,0 +1,169 @@
+# Main zsh configuration - chezmoi managed
+# Enhanced with module dependency system and categorized loading
+
+# Skip if not interactive
+[[ $- != *i* ]] && return
+
+# Performance marker - use compatible timestamp
+{{- if eq .chezmoi.os "darwin" }}
+typeset -g SHELL_STARTUP_TIME=$(date +%s)000
+{{- else }}
+typeset -g SHELL_STARTUP_TIME=$(date +%s%3N)
+{{- end }}
+
+# Module system configuration
+readonly ZMODDIR="$ZDOTDIR/modules"
+export DOTS_DEBUG="${ZSHRC_DEBUG:-0}"
+
+# Debug output
+[[ -n "$ZSHRC_DEBUG" ]] && echo "🔧 Loading zsh configuration with enhanced module system..."
+
+# Create necessary directories
+[[ -d "$XDG_STATE_HOME/zsh" ]] || mkdir -p "$XDG_STATE_HOME/zsh"
+[[ -d "$XDG_CACHE_HOME/zsh" ]] || mkdir -p "$XDG_CACHE_HOME/zsh"
+
+# Backward compatibility: Define legacy load function for fallback
+function load() {
+  local lib=${1:?"Library file required"}
+  [[ -f "$lib" ]] || return 1
+  [[ -s ${lib} && (! -s ${lib}.zwc || ${lib} -nt ${lib}.zwc) ]] && zcompile ${lib} 2>/dev/null
+  source "$lib"
+  [[ -n "$ZSHRC_DEBUG" ]] && echo "✓ Legacy loaded: $(basename "$lib")"
+}
+
+# Initialize the enhanced module system
+if [[ -f "$ZDOTDIR/init.zsh" ]]; then
+  # Use new module system
+  source "$ZDOTDIR/init.zsh"
+  
+  # Module system will handle loading everything including auto_tmux_linux
+  # Check if it was loaded and call it if available
+  if (( $+functions[auto_tmux_linux] )); then
+    auto_tmux_linux
+  fi
+else
+  # Fallback to legacy loading if init.zsh doesn't exist
+  echo "Warning: Enhanced module system not found, using legacy loading" >&2
+  
+  # Legacy module loading (original order)
+  load "$ZMODDIR/platform.zsh"  # Must be first - provides is_exist_command
+  load "$ZMODDIR/terminal.zsh"  # Terminal detection and fixes
+  
+  # Auto-start tmux on Linux (early in startup for SSH sessions)
+  auto_tmux_linux
+  
+  load "$ZMODDIR/core.zsh"
+  
+  # Initialize completion system (cached)
+  if (( $+functions[init_completion] )); then
+    init_completion
+  else
+    # Fallback to basic compinit if init_completion not available
+    autoload -Uz compinit && compinit
+  fi
+  
+  # Load configuration modules (optimized order)
+  load "$ZMODDIR/config.zsh"    # Basic zsh configuration
+  load "$ZMODDIR/alias.zsh"     # Command aliases
+  load "$ZMODDIR/func.zsh"      # Utility functions
+  load "$ZMODDIR/keybind.zsh"   # Key bindings
+  
+  # Load plugins last (includes syntax highlighting, completions, etc.)
+  load "$ZMODDIR/plugin.zsh"
+  
+  # Load local machine-specific configurations (not tracked by git)
+  load "$ZMODDIR/local.zsh"
+fi
+
+# Tool initialization - smart approach for performance and reliability
+# mise: Conditional initialization based on shell context
+if command -v mise >/dev/null; then
+  # If in tmux, zellij (session active), or nested shell (SHLVL > 2), initialize immediately for consistency
+  # Otherwise use lazy loading for faster startup
+  if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]; then
+    eval "$(mise activate zsh)"
+  else
+    # Lazy loading for main shell startup performance
+    _lazy_mise() {
+      local args=("$@")
+      unfunction _lazy_mise mise
+      eval "$(mise activate zsh)"
+      mise "${args[@]}"
+    }
+    function mise() { _lazy_mise "$@"; }
+  fi
+fi
+
+# atuin: Conditional initialization based on shell context
+if command -v atuin >/dev/null; then
+  if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]; then
+    eval "$(atuin init zsh)"
+  else
+    # Lazy loading wrapper
+    _lazy_atuin() {
+      local args=("$@")
+      unfunction _lazy_atuin atuin
+      eval "$(atuin init zsh)"
+      atuin "${args[@]}"
+    }
+    function atuin() { _lazy_atuin "$@"; }
+  fi
+fi
+
+# Starship prompt - initialize immediately (needed for prompt display)
+if command -v starship >/dev/null; then
+  eval "$(starship init zsh)"
+fi
+
+# Homebrew command-not-found handler - lazy load to avoid startup penalty
+if [[ -f /opt/homebrew/Library/Taps/homebrew/homebrew-command-not-found/handler.sh ]]; then
+  _lazy_command_not_found_handler() {
+    unfunction command_not_found_handler
+    source /opt/homebrew/Library/Taps/homebrew/homebrew-command-not-found/handler.sh
+    command_not_found_handler "$@"
+  }
+  function command_not_found_handler() { _lazy_command_not_found_handler "$@"; }
+fi
+
+# Performance reporting
+if [[ -n "$ZSHRC_DEBUG" ]]; then
+  {{- if eq .chezmoi.os "darwin" }}
+  local end_time=$(date +%s)000
+  local duration=$((end_time - SHELL_STARTUP_TIME))
+  {{- else }}
+  local end_time=$(date +%s%3N)
+  local duration=$((end_time - SHELL_STARTUP_TIME))
+  {{- end }}
+  
+  # Color-coded performance feedback
+  if (( duration < 100 )); then
+    echo "🚀 \033[32mZsh loaded in ${duration}ms\033[0m"
+  elif (( duration < 500 )); then
+    echo "⚡ \033[33mZsh loaded in ${duration}ms\033[0m"
+  else
+    echo "🐌 \033[31mZsh loaded in ${duration}ms\033[0m"
+  fi
+  
+  # Show module loading statistics if available
+  if (( $+functions[get_loading_stats] )); then
+    echo "📊 Module loading statistics:"
+    get_loading_stats
+  fi
+fi
+
+# Module system utilities (if available)
+if (( $+functions[list_modules] )); then
+  # Enhanced aliases for module management
+  alias modules='list_modules'
+  alias module-help='echo "Module system commands:
+  modules                    - List all modules by category
+  module-info <name>         - Show module information
+  module-reload <name>       - Reload a module and its dependents
+  module-validate           - Validate module system integrity
+  module-debug              - Show debug information
+  module-graph              - Generate dependency graph
+  module-stats              - Show loading statistics
+  load_core_only            - Load only core modules (for testing)
+  load_minimal              - Load minimal set of modules
+  reload_module_system      - Reload entire module system"'
+fi

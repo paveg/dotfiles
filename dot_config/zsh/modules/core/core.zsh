@@ -8,6 +8,14 @@
 #
 # Functions:
 # - zcompare: Check if a .zsh file needs recompilation to .zwc
+
+# Module metadata declaration
+declare_module "core" \
+  "depends:platform" \
+  "category:core" \
+  "description:Essential functions for module loading and compilation" \
+  "provides:zcompare,load,init_completion,error,warn,debug,require_command,require_file,require_directory" \
+  "external:zcompile,compinit"
 # - load: Load and compile Zsh modules from ZMODDIR (optimized)
 # - init_completion: Initialize completion system with caching
 # - error/warn/debug: Standardized error reporting utilities

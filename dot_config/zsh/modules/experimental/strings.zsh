@@ -8,6 +8,15 @@
 # - copy_str, lower, upper
 # ============================================================================
 
+# Module metadata declaration
+declare_module "strings" \
+  "depends:platform" \
+  "category:experimental" \
+  "description:String manipulation and text processing utilities" \
+  "provides:copy_str,lower,upper" \
+  "external:tr,cat" \
+  "optional:"
+
 copy_str() {
   if [[ $# -eq 0 ]]; then
     cat <&0

@@ -11,6 +11,15 @@
 # - logging (main logging function)
 # ============================================================================
 
+# Module metadata declaration
+declare_module "logging" \
+  "depends:platform" \
+  "category:experimental" \
+  "description:Logging and color utilities for debugging" \
+  "provides:is_logging_pass,is_logging_info,ink,logging,log_pass,log_fail,log_warn,log_info,log_echo" \
+  "external:date" \
+  "optional:"
+
 is_logging_pass() {
   if [[ "${ENABLE_LOGGING_PASS:-1}" = 1 ]]; then
     return 0

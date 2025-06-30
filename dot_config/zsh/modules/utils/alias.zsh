@@ -13,6 +13,15 @@
 # - System utilities
 # ============================================================================
 
+# Module metadata declaration
+declare_module "alias" \
+  "depends:platform" \
+  "category:utils" \
+  "description:Command aliases and shortcuts for productivity" \
+  "provides:vi,vim,zmod,ls,ll,la,lt,cat,find,lg,k,bi,be,rc,ga,gb,gc,gco,gcb,gd,gf,gp,gr,grb,gs,rub,rm,cp,mv,mkdir" \
+  "external:nvim,eza,bat,fd,gh,lazygit,op" \
+  "optional:op,gh"
+
 alias vi="nvim"
 alias vim="nvim"
 
