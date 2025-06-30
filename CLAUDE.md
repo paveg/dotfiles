@@ -208,11 +208,13 @@ Uses Go templates for environment-specific configuration:
 - **Repository-local dependencies**: All formatting tools managed locally, not globally
 
 **Configuration files**:
+
 - `.prettierrc` - Prettier configuration (120 char width, preserve prose wrap)
 - `package.json` - Local development dependencies and npm scripts
 - `mise.toml` - Task runner definitions (NOT managed by chezmoi for local customization)
 
 **Tool coordination**:
+
 - prettier handles markdown formatting with consistent rules
 - Custom script (`scripts/format-zsh.sh`) handles zsh files with syntax validation
 - Both tools accessible via mise tasks and pnpm scripts for flexibility
@@ -259,12 +261,14 @@ Uses Go templates for environment-specific configuration:
 ### Enhanced Lazy Loading Configuration
 
 **Environment Variables**:
+
 - `LAZY_LOADING_ENABLED=1` - Enable/disable lazy loading system (default: enabled)
 - `LAZY_LOADING_DEBUG=1` - Enable debug output for troubleshooting
 - `TRACK_TOOL_USAGE=1` - Enable tool usage analytics for optimization hints
 - `DOTS_DEBUG=1` - Enable general debug output for modules
 
 **Project Context Detection** (automatic):
+
 - Node.js: `package.json`, `pnpm-workspace.yaml`, `yarn.lock`, `pnpm-lock.yaml`
 - Rust: `Cargo.toml`, `Cargo.lock`
 - Python: `requirements.txt`, `pyproject.toml`, `setup.py`, `poetry.lock`
@@ -273,6 +277,7 @@ Uses Go templates for environment-specific configuration:
 - Cloud: `.gcloudignore`, `.gcloud/`, `.aws/`, `$AWS_PROFILE`, `aws-cli.yaml`
 
 **Tool Loading Behavior**:
+
 - Container tools (docker, kubectl) only load in relevant project contexts
 - Package managers (npm, yarn, pnpm) validate project context before loading
 - Cloud tools (aws, gcloud) have expensive completions deferred until first use

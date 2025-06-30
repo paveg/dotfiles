@@ -31,3 +31,4 @@ This directory contains comprehensive documentation for the dotfiles repository.
 ## Main Documentation
 
 For general setup and usage, see the main [README.md](../README.md) and [CLAUDE.md](../CLAUDE.md) files in the repository root.
+
