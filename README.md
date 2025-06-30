@@ -118,3 +118,12 @@ chezmoi edit ~/.local/share/chezmoi/packages/rust-tools.txt
 mise install rust@stable
 mise use rust@stable
 ```
+
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[docs/LAZY_LOADING.md](docs/LAZY_LOADING.md)** - Enhanced lazy loading system and performance optimization
+- **[docs/COMPLETION_ENHANCEMENTS.md](docs/COMPLETION_ENHANCEMENTS.md)** - Zsh completion system improvements
+- **[docs/TESTING.md](docs/TESTING.md)** - Testing procedures and validation scripts
+- **[CLAUDE.md](CLAUDE.md)** - Complete guidance for Claude Code development in this repository

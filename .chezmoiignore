@@ -27,10 +27,8 @@ __pycache__/
 .idea/
 
 # Ignore documentation (handled separately)
-README.md
 LICENSE
 CHANGELOG.md
-docs/
 
 # Ignore test files
 tests/
@@ -55,6 +53,7 @@ Pipfile.lock
 # Development files (not for deployment)
 README.md
 CLAUDE.md
+docs/
 scripts/
 packages/
 install
@@ -71,7 +70,6 @@ tests/
 *.tmp
 .DS_Store
 
-*.md
 
 # Local mise configuration (not managed by chezmoi)
 mise.toml
