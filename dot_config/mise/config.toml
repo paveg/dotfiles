@@ -14,8 +14,12 @@ env_file = ".env"
 rust = "stable"
 
 # Other runtime versions can be defined here
-node = "lts"
+ruby = "latest"
+node = "latest"
 go   = "latest"
-ghq = "latest"
+ghq  = "latest"
 # python = "3.12"
-# ruby = "3.3"
+
+# relatively npm packages in global
+"npm:@anthropic-ai/claude-code" = "latest"
+"npm:@google/gemini-cli" = "latest"
