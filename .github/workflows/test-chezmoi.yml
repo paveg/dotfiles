@@ -15,22 +15,39 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
     
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 'lts/*'
+    
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: latest
+    
+    - name: Install dependencies
+      run: pnpm install
+    
     - name: Install zsh for syntax validation
       run: sudo apt-get update -qq && sudo apt-get install -y zsh
+      
+    # Note: We use a hybrid formatting approach:
+    # - Prettier (via pnpm) for markdown files (industry standard)
+    # - Custom script for zsh files (handles complex zsh syntax)
     
-    - name: Format zsh files
+    - name: Check markdown formatting
       run: |
-        echo "=== Formatting zsh files ==="
+        echo "=== Checking markdown formatting ==="
+        pnpm run format:check
+        echo "✓ Markdown formatting check completed"
+    
+    - name: Format files if needed
+      run: |
+        echo "=== Applying formatting if needed ==="
+        pnpm run format:md
         chmod +x scripts/format-zsh.sh
         ./scripts/format-zsh.sh -d dot_config/zsh -r
-        echo "✓ Zsh formatting completed"
-    
-    - name: Format markdown files
-      run: |
-        echo "=== Formatting markdown files ==="
-        chmod +x scripts/format-markdown.sh
-        ./scripts/format-markdown.sh -d . -r
-        echo "✓ Markdown formatting completed"
+        echo "✓ Formatting completed"
     
     - name: Clean up backup files
       run: |
