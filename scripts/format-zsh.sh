@@ -15,38 +15,15 @@
 
 set -euo pipefail
 
-# Cleanup function for backup files
-cleanup_backups() {
-    # Only run cleanup if we're in the right directory
-    if [[ -d "dot_config" || -d ".github" ]]; then
-        find . -name "*.backup.*" -type f -delete 2>/dev/null || true
-    fi
-}
-
-# Note: Cleanup runs explicitly at the end of main() function
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Source common library
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SOURCE_DIR}/lib/common.sh"
 
 # Configuration
 SHEBANG="#!/usr/bin/env zsh"
 MAX_CONSECUTIVE_BLANK_LINES=2
 
-# Print colored output
-print_status() {
-    local color=$1
-    local message=$2
-    printf "${color}%s${NC}\n" "$message"
-}
-
-print_info() { print_status "$BLUE" "ℹ $1"; }
-print_success() { print_status "$GREEN" "✓ $1"; }
-print_warning() { print_status "$YELLOW" "⚠ $1"; }
-print_error() { print_status "$RED" "✗ $1"; }
+# Note: print functions are now provided by common.sh
 
 # Check if file is a zsh file (excluding history files)
 is_zsh_file() {
@@ -348,7 +325,7 @@ main() {
     fi
 
     # Clean up any remaining backup files (safety net)
-    cleanup_backups
+    cleanup_backups "*.backup.*"
 }
 
 # Run main function
