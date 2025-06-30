@@ -13,6 +13,15 @@
 # - path_check: Check if PATH contains expected development tools
 # ============================================================================
 
+# Module metadata declaration
+declare_module "path" \
+  "depends:platform" \
+  "category:core" \
+  "description:PATH management and development tool path configuration" \
+  "provides:path_prepend,path_append,path_show,path_clean,path_check" \
+  "external:cargo,go,pnpm" \
+  "optional:cargo,go,pnpm"
+
 # Ensure XDG directories are set
 : ${XDG_DATA_HOME:="$HOME/.local/share"}
 : ${XDG_CONFIG_HOME:="$HOME/.config"}

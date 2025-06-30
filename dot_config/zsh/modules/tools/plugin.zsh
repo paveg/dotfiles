@@ -18,6 +18,15 @@
 # - `zinit times` : Show plugin loading times
 # ============================================================================
 
+# Module metadata declaration
+declare_module "plugin" \
+  "depends:platform,core" \
+  "category:tools" \
+  "description:Zsh plugin management with performance optimization" \
+  "provides:ZINIT_HOME" \
+  "external:git" \
+  "optional:"
+
 # Initialize zinit (optimized)
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 

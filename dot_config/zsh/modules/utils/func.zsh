@@ -11,6 +11,14 @@
 # - Various other workflow helpers
 # ============================================================================
 
+# Module metadata declaration
+declare_module "func" \
+  "depends:platform,core" \
+  "category:utils" \
+  "description:Utility functions for improved workflow" \
+  "provides:_fzf_cd_ghq,opr,zprofiler,zshtime,brewbundle,brewbundle_work,brewbundle_personal,brewbundle_diff,_remove_unnecessary_branches,local_config_init,local_config_edit,local_config_show" \
+  "external:ghq,fzf,bat,op,brew,git" \
+  "optional:ghq,fzf,bat,op"
 
 _fzf_cd_ghq() {
   # Check required commands

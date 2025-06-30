@@ -8,6 +8,13 @@
 # Functions:
 # - ostype, os_detect, is_osx, is_linux
 # - is_exist_command (command existence checking)
+
+# Module metadata declaration
+declare_module "platform" \
+  "category:core" \
+  "description:OS detection and command existence checking" \
+  "provides:ostype,os_detect,is_osx,is_linux,is_exist_command,auto_tmux_linux,is_debug" \
+  "external:uname,tmux"
 # ============================================================================
 
 # ostype returns the lowercase OS name

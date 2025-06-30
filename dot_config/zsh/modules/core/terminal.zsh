@@ -8,6 +8,15 @@
 # Must be loaded early to ensure proper terminal setup before other modules.
 # ============================================================================
 
+# Module metadata declaration
+declare_module "terminal" \
+  "depends:platform" \
+  "category:core" \
+  "description:Terminal detection and configuration for modern terminals" \
+  "provides:safe_tput,COLORTERM,CLICOLOR" \
+  "external:tput,infocmp" \
+  "optional:tput,infocmp"
+
 # Fix for alacritty terminal detection
 # Alacritty sets TERM=alacritty but some systems don't have proper terminfo
 if [[ "$TERM" == "alacritty" ]]; then
