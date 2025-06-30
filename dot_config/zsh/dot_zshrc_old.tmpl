@@ -1,0 +1,178 @@
+# Main zsh configuration - chezmoi managed
+# Performance optimized with lazy loading and smart initialization
+
+# Skip if not interactive
+[[ $- != *i* ]] && return
+
+# Performance marker - use compatible timestamp
+{{- if eq .chezmoi.os "darwin" }}
+typeset -g SHELL_STARTUP_TIME=$(date +%s)000
+{{- else }}
+typeset -g SHELL_STARTUP_TIME=$(date +%s%3N)
+{{- end }}
+
+# Module directory
+readonly ZMODDIR="$ZDOTDIR/modules"
+
+# Debug output
+[[ -n "$ZSHRC_DEBUG" ]] && echo "🔧 Loading zsh configuration with debug mode..."
+
+# Create necessary directories
+[[ -d "$XDG_STATE_HOME/zsh" ]] || mkdir -p "$XDG_STATE_HOME/zsh"
+[[ -d "$XDG_CACHE_HOME/zsh" ]] || mkdir -p "$XDG_CACHE_HOME/zsh"
+
+# Core loading function with compilation and debug output
+function load() {
+  local lib=${1:?"Library file required"}
+  [[ -f "$lib" ]] || return 1
+  [[ -s ${lib} && (! -s ${lib}.zwc || ${lib} -nt ${lib}.zwc) ]] && zcompile ${lib} 2>/dev/null
+  source "$lib"
+  [[ -n "$ZSHRC_DEBUG" ]] && echo "✓ Loaded: $(basename "$lib")"
+}
+
+# Load core modules (order matters!)
+load "$ZMODDIR/platform.zsh"  # Must be first - provides is_exist_command
+load "$ZMODDIR/terminal.zsh"  # Terminal detection and fixes
+
+# Auto-start tmux on Linux (early in startup for SSH sessions)
+auto_tmux_linux
+
+load "$ZMODDIR/core.zsh"
+
+# Initialize completion system (cached) - ensure core.zsh is loaded first
+if (( $+functions[init_completion] )); then
+  init_completion
+else
+  # Fallback to basic compinit if init_completion not available
+  autoload -Uz compinit && compinit
+fi
+
+# Load configuration modules (optimized order)
+load "$ZMODDIR/config.zsh"    # Basic zsh configuration
+load "$ZMODDIR/alias.zsh"     # Command aliases
+load "$ZMODDIR/func.zsh"      # Utility functions
+load "$ZMODDIR/keybind.zsh"   # Key bindings
+
+# Load plugins last (includes syntax highlighting, completions, etc.)
+load "$ZMODDIR/plugin.zsh"
+
+# Load local machine-specific configurations (not tracked by git)
+load "$ZMODDIR/local.zsh"
+
+# Note: logging.zsh and strings.zsh are available but not auto-loaded
+# Source manually if needed: load "$ZMODDIR/logging.zsh"
+
+# Tool initialization - smart approach for performance and reliability
+# mise: Conditional initialization based on shell context
+if command -v mise >/dev/null; then
+  # If in tmux, zellij (session active), or nested shell (SHLVL > 2), initialize immediately for consistency
+  # Otherwise use lazy loading for faster startup
+  if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]; then
+    eval "$(mise activate zsh)"
+  else
+    # Lazy loading for main shell startup performance
+    _lazy_mise() {
+      local args=("$@")
+      unfunction _lazy_mise mise
+      eval "$(mise activate zsh)"
+      mise "${args[@]}"
+    }
+    function mise() { _lazy_mise "$@" }
+  fi
+fi
+
+# atuin: History search tool with conditional loading
+if command -v atuin >/dev/null; then
+  # Similar logic for atuin - immediate load in sessions, lazy load in main shell
+  if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]; then
+    eval "$(atuin init zsh)" 2>/dev/null || {
+      [[ -n "$ZSHRC_DEBUG" ]] && echo "Warning: atuin init failed"
+    }
+  else
+    # Lazy loading for performance
+    _lazy_atuin() {
+      unfunction _lazy_atuin
+      eval "$(atuin init zsh)" 2>/dev/null || {
+        echo "Warning: atuin initialization failed"
+        return 1
+      }
+      # Re-bind the key after initialization
+      [[ -n "$1" ]] && zle "$1"
+    }
+    zle -N _lazy_atuin
+    bindkey '^r' _lazy_atuin
+  fi
+else
+  [[ -n "$ZSHRC_DEBUG" ]] && echo "atuin not found - using default ^r binding"
+fi
+
+# Starship prompt - load immediately for visual feedback
+# This is fast enough and provides immediate prompt
+if command -v starship >/dev/null; then
+  eval "$(starship init zsh)"
+fi
+
+{{- if eq .chezmoi.os "darwin" }}
+# macOS specific initializations
+# Homebrew command-not-found handler - lazy load for performance
+_brew_command_not_found() {
+  local handler="{{ .homebrew_prefix }}/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
+  if [[ -f "$handler" ]]; then
+    source "$handler"
+    # Remove this handler after first load
+    unfunction _brew_command_not_found
+  fi
+}
+# Set up command_not_found handler
+command_not_found_handler() {
+  # Try to load Homebrew handler (only once)
+  if typeset -f _brew_command_not_found >/dev/null; then
+    _brew_command_not_found 2>/dev/null
+  fi
+  
+  # Always show command not found message
+  echo "zsh: command not found: $1" >&2
+  return 127
+}
+{{- end }}
+
+# Performance reporting (development mode)
+if [[ -n "${ZPROFILER:-}" ]] || [[ -n "${ZSH_PROF:-}" ]]; then
+{{- if eq .chezmoi.os "darwin" }}
+  local end_time=$(date +%s)000
+{{- else }}
+  local end_time=$(date +%s%3N)
+{{- end }}
+  local startup_time=$((end_time - ${SHELL_STARTUP_TIME:-$end_time}))
+  echo "Zsh startup time: ${startup_time}ms"
+fi
+
+# Auto-rehash for new commands (if supported)
+setopt auto_rehash 2>/dev/null || setopt rehash 2>/dev/null || true
+
+# Startup success notification
+if [[ -o interactive ]]; then
+{{- if eq .chezmoi.os "darwin" }}
+  local end_time=$(date +%s)000
+{{- else }}
+  local end_time=$(date +%s%3N)
+{{- end }}
+  local startup_time=$((end_time - ${SHELL_STARTUP_TIME:-$end_time}))
+
+  # Success message with startup time
+  printf "\033[32m✓\033[0m Zsh loaded successfully"
+  if [[ $startup_time -lt 100 ]]; then
+    printf " \033[32m(${startup_time}ms)\033[0m"
+  elif [[ $startup_time -lt 500 ]]; then
+    printf " \033[33m(${startup_time}ms)\033[0m"
+  else
+    printf " \033[31m(${startup_time}ms - consider optimization)\033[0m"
+  fi
+  echo
+fi
+
+# Final setup
+unfunction load 2>/dev/null
+
+# Debug completion message
+[[ -n "$ZSHRC_DEBUG" ]] && echo "✅ Zsh configuration loaded successfully!"
