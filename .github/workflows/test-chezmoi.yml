@@ -48,21 +48,6 @@ jobs:
           git diff --name-only
           git status --porcelain
         fi
-    
-    - name: Commit formatting changes
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        echo "=== Committing formatting changes ==="
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        if ! git diff --quiet; then
-          git add -A
-          git commit -m "style: auto-format files on main branch [skip ci]" || echo "No changes to commit"
-          git push
-        else
-          echo "No formatting changes to commit"
-        fi
 
   test-chezmoi:
     needs: format-and-lint
