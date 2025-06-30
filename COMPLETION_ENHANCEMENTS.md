@@ -139,8 +139,10 @@ The completion system has been significantly enhanced to support all installed t
 1. Determine appropriate timing level (wait"0", wait"2", or wait"3")
 1. Add existence check with `command -v`
 1. Use appropriate completion method:
+
 - `eval "$(tool completion zsh)"` for dynamic completions
 - `complete -W "options" tool` for simple static completions
+
 1. Follow existing patterns for consistency
 
 ### Tool-Specific Notes
@@ -153,6 +155,7 @@ The completion system has been significantly enhanced to support all installed t
 ## Testing
 
 To test the completions after applying changes:
+
 1. Restart zsh or run `source ~/.zshrc`
 1. Test specific completions: `tool <TAB>`
 1. Check startup performance: `zshtime` or `ZPROFILER=1 zsh`
@@ -161,6 +164,7 @@ To test the completions after applying changes:
 ## Future Enhancements
 
 Potential areas for expansion:
+
 - Language-specific completions (Python, Ruby, Java tools)
 - IDE/Editor tool completions (nvim plugins, VS Code CLI)
 - Database tool completions (PostgreSQL, MySQL clients)

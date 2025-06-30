@@ -35,6 +35,7 @@ BUSINESS_USE=1 curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/
 ```
 
 **Alternative (using chezmoi directly):**
+
 ```bash
 
 # Personal environment
@@ -47,6 +48,7 @@ BUSINESS_USE=1 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply paveg
 ```
 
 The installation script automatically handles:
+
 - **macOS**: Homebrew installation and package management via Brewfile
 - **Linux**: Native package manager detection (apt/dnf/pacman) and CLI tools installation
 - Environment-specific configuration (personal/business)

@@ -15,12 +15,12 @@
 
 # Module metadata declaration
 declare_module "path" \
-  "depends:platform" \
-  "category:core" \
-  "description:PATH management and development tool path configuration" \
-  "provides:path_prepend,path_append,path_show,path_clean,path_check" \
-  "external:cargo,go,pnpm" \
-  "optional:cargo,go,pnpm"
+    "depends:platform" \
+    "category:core" \
+    "description:PATH management and development tool path configuration" \
+    "provides:path_prepend,path_append,path_show,path_clean,path_check" \
+    "external:cargo,go,pnpm" \
+    "optional:cargo,go,pnpm"
 
 # Ensure XDG directories are set
 : ${XDG_DATA_HOME:="$HOME/.local/share"}
@@ -28,18 +28,18 @@ declare_module "path" \
 
 # Safely prepend directory to PATH (if exists and not already in PATH)
 path_prepend() {
-  local dir="$1"
-  if [[ -d "$dir" && ":$PATH:" != *":$dir:"* ]]; then
-    export PATH="$dir:$PATH"
-  fi
+    local dir="$1"
+    if [[ -d "$dir" && ":$PATH:" != *":$dir:"* ]]; then
+        export PATH="$dir:$PATH"
+    fi
 }
 
 # Safely append directory to PATH (if exists and not already in PATH)
 path_append() {
-  local dir="$1"
-  if [[ -d "$dir" && ":$PATH:" != *":$dir:"* ]]; then
-    export PATH="$PATH:$dir"
-  fi
+    local dir="$1"
+    if [[ -d "$dir" && ":$PATH:" != *":$dir:"* ]]; then
+        export PATH="$PATH:$dir"
+    fi
 }
 
 # Configure development tool paths
@@ -55,9 +55,9 @@ path_prepend "$HOME/bin"
 
 # Go
 if [[ -n "$GOPATH" ]]; then
-  path_prepend "$GOPATH/bin"
+    path_prepend "$GOPATH/bin"
 elif [[ -d "$HOME/go/bin" ]]; then
-  path_prepend "$HOME/go/bin"
+    path_prepend "$HOME/go/bin"
 fi
 
 # Node.js package managers
@@ -77,43 +77,43 @@ fi
 
 # Show current PATH entries in a readable format
 path_show() {
-  echo "Current PATH entries ($(echo $PATH | tr ':' '\n' | wc -l | tr -d ' ') total):"
-  echo $PATH | tr ':' '\n' | nl
+    echo "Current PATH entries ($(echo $PATH | tr ':' '\n' | wc -l | tr -d ' ') total):"
+    echo $PATH | tr ':' '\n' | nl
 }
 
 # Clean duplicate PATH entries
 path_clean() {
-  export PATH=$(echo $PATH | tr ':' '\n' | awk '!seen[$0]++' | tr '\n' ':' | sed 's/:$//')
-  echo "PATH cleaned. New entry count: $(echo $PATH | tr ':' '\n' | wc -l | tr -d ' ')"
+    export PATH=$(echo $PATH | tr ':' '\n' | awk '!seen[$0]++' | tr '\n' ':' | sed 's/:$//')
+    echo "PATH cleaned. New entry count: $(echo $PATH | tr ':' '\n' | wc -l | tr -d ' ')"
 }
 
 # Check if PATH contains expected development tools
 path_check() {
-  echo "Checking development tool availability in PATH:"
+    echo "Checking development tool availability in PATH:"
 
-  local tools=(
-    "brew:/opt/homebrew/bin"
-    "cargo:$HOME/.cargo/bin"
-    "go:$GOBIN"
-    "pnpm:$PNPM_HOME"
-    "yarn:$HOME/.yarn/bin"
-  )
+    local tools=(
+        "brew:/opt/homebrew/bin"
+        "cargo:$HOME/.cargo/bin"
+        "go:$GOBIN"
+        "pnpm:$PNPM_HOME"
+        "yarn:$HOME/.yarn/bin"
+    )
 
-  for tool_info in $tools; do
-    local tool=${tool_info%%:*}
-    local expected_path=${tool_info#*:}
+    for tool_info in $tools; do
+        local tool=${tool_info%%:*}
+        local expected_path=${tool_info#*:}
 
-    if command -v $tool >/dev/null 2>&1; then
-      local actual_path=$(command -v $tool)
-      echo "✓ $tool: $actual_path"
-      if [[ "$actual_path" == "$expected_path/$tool" ]]; then
-        echo "  → Correctly found in expected path"
-      else
-        echo "  → Found in different path (expected: $expected_path)"
-      fi
-    else
-      echo "✗ $tool: not found"
-    fi
-    echo
-  done
+        if command -v $tool >/dev/null 2>&1; then
+            local actual_path=$(command -v $tool)
+            echo "✓ $tool: $actual_path"
+            if [[ "$actual_path" == "$expected_path/$tool" ]]; then
+                echo "  → Correctly found in expected path"
+            else
+                echo "  → Found in different path (expected: $expected_path)"
+            fi
+        else
+            echo "✗ $tool: not found"
+        fi
+        echo
+    done
 }

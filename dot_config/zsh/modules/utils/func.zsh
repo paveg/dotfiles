@@ -13,37 +13,37 @@
 
 # Module metadata declaration
 declare_module "func" \
-  "depends:platform,core" \
-  "category:utils" \
-  "description:Utility functions for improved workflow" \
-  "provides:_fzf_cd_ghq,opr,zprofiler,zshtime,brewbundle,brewbundle_work,brewbundle_personal,brewbundle_diff,_remove_unnecessary_branches,local_config_init,local_config_edit,local_config_show" \
-  "external:ghq,fzf,bat,op,brew,git" \
-  "optional:ghq,fzf,bat,op"
+    "depends:platform,core" \
+    "category:utils" \
+    "description:Utility functions for improved workflow" \
+    "provides:_fzf_cd_ghq,opr,zprofiler,zshtime,brewbundle,brewbundle_work,brewbundle_personal,brewbundle_diff,_remove_unnecessary_branches,local_config_init,local_config_edit,local_config_show" \
+    "external:ghq,fzf,bat,op,brew,git" \
+    "optional:ghq,fzf,bat,op"
 
 _fzf_cd_ghq() {
-  # Check required commands
-  if ! command -v ghq >/dev/null 2>&1; then
-    echo "Error: ghq is required for repository navigation" >&2
-    zle reset-prompt
-    return 1
-  fi
+    # Check required commands
+    if ! command -v ghq >/dev/null 2>&1; then
+        echo "Error: ghq is required for repository navigation" >&2
+        zle reset-prompt
+        return 1
+    fi
 
-  if ! command -v fzf >/dev/null 2>&1; then
-    echo "Error: fzf is required for interactive selection" >&2
-    zle reset-prompt
-    return 1
-  fi
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo "Error: fzf is required for interactive selection" >&2
+        zle reset-prompt
+        return 1
+    fi
 
-  local root
-  root="$(ghq root 2>/dev/null)" || {
-    echo "Error: Failed to get ghq root directory" >&2
-    zle reset-prompt
-    return 1
-  }
+    local root
+    root="$(ghq root 2>/dev/null)" || {
+        echo "Error: Failed to get ghq root directory" >&2
+        zle reset-prompt
+        return 1
+    }
 
-  local repo
-  repo="$(ghq list 2>/dev/null | fzf --reverse --height=60% \
-    --preview="
+    local repo
+    repo="$(ghq list 2>/dev/null | fzf --reverse --height=60% \
+        --preview="
       repo_path=$root/{}
 
       # Check for README files - if found, use bat directly
@@ -65,27 +65,27 @@ _fzf_cd_ghq() {
         ls -la \$repo_path 2>/dev/null | head -10 || echo \"  Cannot access\"
       fi
     " \
-    --preview-window=right:50%)"
+        --preview-window=right:50%)"
 
-  # Check if user selected something
-  if [[ -z "$repo" ]]; then
-    zle reset-prompt
-    return 0
-  fi
+    # Check if user selected something
+    if [[ -z "$repo" ]]; then
+        zle reset-prompt
+        return 0
+    fi
 
-  local dir="$root/$repo"
-  if [[ -d "$dir" ]]; then
-    BUFFER="cd \"$dir\""
-    zle accept-line
-  else
-    echo "Error: Directory not found: $dir" >&2
-    zle reset-prompt
-    return 1
-  fi
+    local dir="$root/$repo"
+    if [[ -d "$dir" ]]; then
+        BUFFER="cd \"$dir\""
+        zle accept-line
+    else
+        echo "Error: Directory not found: $dir" >&2
+        zle reset-prompt
+        return 1
+    fi
 }
 
 # This function is for 1password-cli
-opr () {
+opr() {
     # Validate 1Password CLI
     require_command op "1Password CLI (op) is required" || return $?
 
@@ -127,141 +127,141 @@ opr () {
 }
 
 zprofiler() {
-  ZSHRC_PROFILE=1 zsh -i -c zprof
+    ZSHRC_PROFILE=1 zsh -i -c zprof
 }
 
 zshtime() {
-  for i in $(seq 1 10); do time zsh -i -c exit >/dev/null; done
+    for i in $(seq 1 10); do time zsh -i -c exit >/dev/null; done
 }
 
 brewbundle() {
-  local chezmoi_dir="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}"
-  local brewfile
+    local chezmoi_dir="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}"
+    local brewfile
 
-  # Select Brewfile based on BUSINESS_USE environment variable
-  if [[ -n "$BUSINESS_USE" && "$BUSINESS_USE" != "0" ]]; then
-    brewfile="$chezmoi_dir/homebrew/Brewfile.work"
-    echo "Using business Brewfile (BUSINESS_USE=$BUSINESS_USE)"
-  else
-    brewfile="$chezmoi_dir/homebrew/Brewfile"
-    echo "Using personal Brewfile"
-  fi
+    # Select Brewfile based on BUSINESS_USE environment variable
+    if [[ -n "$BUSINESS_USE" && "$BUSINESS_USE" != "0" ]]; then
+        brewfile="$chezmoi_dir/homebrew/Brewfile.work"
+        echo "Using business Brewfile (BUSINESS_USE=$BUSINESS_USE)"
+    else
+        brewfile="$chezmoi_dir/homebrew/Brewfile"
+        echo "Using personal Brewfile"
+    fi
 
-  if [[ ! -f "$brewfile" ]]; then
-    echo "Error: Brewfile not found at $brewfile" >&2
-    echo "Available Brewfiles:"
-    ls -la "$chezmoi_dir/homebrew/"Brewfile* 2>/dev/null || echo "  No Brewfiles found"
-    return 1
-  fi
+    if [[ ! -f "$brewfile" ]]; then
+        echo "Error: Brewfile not found at $brewfile" >&2
+        echo "Available Brewfiles:"
+        ls -la "$chezmoi_dir/homebrew/"Brewfile* 2>/dev/null || echo "  No Brewfiles found"
+        return 1
+    fi
 
-  echo "Updating $brewfile with current packages..."
-  brew bundle dump --verbose --force --cleanup --cask --formula --mas --tap --file="$brewfile"
-  echo "✓ Updated: $brewfile"
+    echo "Updating $brewfile with current packages..."
+    brew bundle dump --verbose --force --cleanup --cask --formula --mas --tap --file="$brewfile"
+    echo "✓ Updated: $brewfile"
 }
 
 # Brewfile management utilities
 brewbundle_work() {
-  BUSINESS_USE=1 brewbundle
+    BUSINESS_USE=1 brewbundle
 }
 
 brewbundle_personal() {
-  unset BUSINESS_USE
-  brewbundle
+    unset BUSINESS_USE
+    brewbundle
 }
 
 brewbundle_diff() {
-  local chezmoi_dir="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}"
-  local personal_brewfile="$chezmoi_dir/homebrew/Brewfile"
-  local work_brewfile="$chezmoi_dir/homebrew/Brewfile.work"
+    local chezmoi_dir="${CHEZMOI_SOURCE_DIR:-$HOME/.local/share/chezmoi}"
+    local personal_brewfile="$chezmoi_dir/homebrew/Brewfile"
+    local work_brewfile="$chezmoi_dir/homebrew/Brewfile.work"
 
-  if [[ ! -f "$personal_brewfile" || ! -f "$work_brewfile" ]]; then
-    echo "Error: Both Brewfiles must exist for comparison"
-    return 1
-  fi
+    if [[ ! -f "$personal_brewfile" || ! -f "$work_brewfile" ]]; then
+        echo "Error: Both Brewfiles must exist for comparison"
+        return 1
+    fi
 
-  echo "=== Differences between personal and work Brewfiles ==="
-  echo "Lines in work Brewfile but not in personal:"
-  comm -13 <(sort "$personal_brewfile") <(sort "$work_brewfile") | grep -v '^#' | grep -v '^$'
-  echo ""
-  echo "Lines in personal Brewfile but not in work:"
-  comm -23 <(sort "$personal_brewfile") <(sort "$work_brewfile") | grep -v '^#' | grep -v '^$'
+    echo "=== Differences between personal and work Brewfiles ==="
+    echo "Lines in work Brewfile but not in personal:"
+    comm -13 <(sort "$personal_brewfile") <(sort "$work_brewfile") | grep -v '^#' | grep -v '^$'
+    echo ""
+    echo "Lines in personal Brewfile but not in work:"
+    comm -23 <(sort "$personal_brewfile") <(sort "$work_brewfile") | grep -v '^#' | grep -v '^$'
 }
 
 PROTECTED_BRANCHES='main|master|develop|staging'
 _remove_unnecessary_branches() {
-  # Validate git command and repository
-  require_command git "git is required for branch management" || return $?
+    # Validate git command and repository
+    require_command git "git is required for branch management" || return $?
 
-  # Check if we're in a git repository
-  if ! git rev-parse --git-dir >/dev/null 2>&1; then
-    error "Not in a git repository"
-    return 1
-  fi
+    # Check if we're in a git repository
+    if ! git rev-parse --git-dir >/dev/null 2>&1; then
+        error "Not in a git repository"
+        return 1
+    fi
 
-  # Check if there are any merged branches to delete
-  local merged_branches
-  merged_branches=$(git branch --merged | egrep -v "\*|${PROTECTED_BRANCHES}")
+    # Check if there are any merged branches to delete
+    local merged_branches
+    merged_branches=$(git branch --merged | egrep -v "\*|${PROTECTED_BRANCHES}")
 
-  if [[ -z "$merged_branches" ]]; then
-    debug "No merged branches to delete"
-    return 0
-  fi
+    if [[ -z "$merged_branches" ]]; then
+        debug "No merged branches to delete"
+        return 0
+    fi
 
-  debug "Removing merged branches (excluding: $PROTECTED_BRANCHES)"
-  echo "$merged_branches" | xargs git branch -d || {
-    error "Failed to delete some branches"
-    return 1
-  }
+    debug "Removing merged branches (excluding: $PROTECTED_BRANCHES)"
+    echo "$merged_branches" | xargs git branch -d || {
+        error "Failed to delete some branches"
+        return 1
+    }
 }
 
 # Local configuration management functions
 local_config_init() {
-  local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
+    local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
 
-  if [[ -f "$config_path" ]]; then
-    echo "Local config already exists: $config_path"
-    echo "Use 'local_config_edit' to modify it."
-    return 1
-  fi
+    if [[ -f "$config_path" ]]; then
+        echo "Local config already exists: $config_path"
+        echo "Use 'local_config_edit' to modify it."
+        return 1
+    fi
 
-  # Call the function from local.zsh module
-  if (( $+functions[create_local_template] )); then
-    create_local_template
-  else
-    echo "Error: local.zsh module not loaded" >&2
-    return 1
-  fi
+    # Call the function from local.zsh module
+    if (($ + functions[create_local_template])); then
+        create_local_template
+    else
+        echo "Error: local.zsh module not loaded" >&2
+        return 1
+    fi
 }
 
 local_config_edit() {
-  local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
+    local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
 
-  if [[ ! -f "$config_path" ]]; then
-    echo "Local config doesn't exist. Creating template..."
-    local_config_init || return 1
-  fi
+    if [[ ! -f "$config_path" ]]; then
+        echo "Local config doesn't exist. Creating template..."
+        local_config_init || return 1
+    fi
 
-  "${EDITOR:-vim}" "$config_path"
+    "${EDITOR:-vim}" "$config_path"
 }
 
 local_config_show() {
-  local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
+    local config_path="${ZDOTDIR:-$HOME/.config/zsh}/local.zsh"
 
-  if [[ -f "$config_path" ]]; then
-    echo "=== Local Config: $config_path ==="
-    cat "$config_path"
-  else
-    echo "No local config found. Use 'local_config_init' to create one."
-  fi
+    if [[ -f "$config_path" ]]; then
+        echo "=== Local Config: $config_path ==="
+        cat "$config_path"
+    else
+        echo "No local config found. Use 'local_config_init' to create one."
+    fi
 
-  # Check other locations
-  if [[ -f "$HOME/.zsh_local" ]]; then
-    echo "=== Traditional Local Config: $HOME/.zsh_local ==="
-    cat "$HOME/.zsh_local"
-  fi
+    # Check other locations
+    if [[ -f "$HOME/.zsh_local" ]]; then
+        echo "=== Traditional Local Config: $HOME/.zsh_local ==="
+        cat "$HOME/.zsh_local"
+    fi
 
-  if [[ -d "${ZDOTDIR:-$HOME/.config/zsh}/local" ]]; then
-    echo "=== Local Config Directory: ${ZDOTDIR:-$HOME/.config/zsh}/local/ ==="
-    ls -la "${ZDOTDIR:-$HOME/.config/zsh}/local/"
-  fi
+    if [[ -d "${ZDOTDIR:-$HOME/.config/zsh}/local" ]]; then
+        echo "=== Local Config Directory: ${ZDOTDIR:-$HOME/.config/zsh}/local/ ==="
+        ls -la "${ZDOTDIR:-$HOME/.config/zsh}/local/"
+    fi
 }

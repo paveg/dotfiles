@@ -71,6 +71,12 @@ tests/
 *.tmp
 .DS_Store
 
-CLAUDE.md
-COMPLETION_ENHANCEMENTS.md
-TESTING.md
+*.md
+
+# Local mise configuration (not managed by chezmoi)
+mise.toml
+
+# Node.js development files (not managed by chezmoi)
+package.json
+pnpm-lock.yaml
+node_modules/

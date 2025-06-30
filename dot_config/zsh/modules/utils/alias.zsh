@@ -15,12 +15,12 @@
 
 # Module metadata declaration
 declare_module "alias" \
-  "depends:platform" \
-  "category:utils" \
-  "description:Command aliases and shortcuts for productivity" \
-  "provides:vi,vim,zmod,ls,ll,la,lt,cat,find,lg,k,bi,be,rc,ga,gb,gc,gco,gcb,gd,gf,gp,gr,grb,gs,rub,rm,cp,mv,mkdir" \
-  "external:nvim,eza,bat,fd,gh,lazygit,op" \
-  "optional:op,gh"
+    "depends:platform" \
+    "category:utils" \
+    "description:Command aliases and shortcuts for productivity" \
+    "provides:vi,vim,zmod,ls,ll,la,lt,cat,find,lg,k,bi,be,rc,ga,gb,gc,gco,gcb,gd,gf,gp,gr,grb,gs,rub,rm,cp,mv,mkdir" \
+    "external:nvim,eza,bat,fd,gh,lazygit,op" \
+    "optional:op,gh"
 
 alias vi="nvim"
 alias vim="nvim"
@@ -30,23 +30,23 @@ alias zmod="nvim $ZMODDIR"
 
 # Check if is_exist_command is available, define fallback if not
 if ! command -v is_exist_command >/dev/null 2>&1; then
-  is_exist_command() { command -v "$1" >/dev/null 2>&1; }
+    is_exist_command() { command -v "$1" >/dev/null 2>&1; }
 fi
 
 is_exist_command eza && {
-  alias ls="eza"
-  alias ll="eza -l"
-  alias la="eza -la"
-  alias lt="eza -T"
-  alias l.="eza -d .*"
+    alias ls="eza"
+    alias ll="eza -l"
+    alias la="eza -la"
+    alias lt="eza -T"
+    alias l.="eza -d .*"
 }
 
 is_exist_command bat && {
-  alias cat="bat -p"
+    alias cat="bat -p"
 }
 
 is_exist_command fd && {
-  alias find="fd"
+    alias find="fd"
 }
 
 # 1Password gh integration - disabled due to vault configuration issues
@@ -85,4 +85,3 @@ alias rm="rm -i"
 alias cp="cp -i"
 alias mv="mv -i"
 alias mkdir="mkdir -p"
-

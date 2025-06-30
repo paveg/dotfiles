@@ -73,6 +73,7 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - **Rust version**: Managed via mise (see `~/.config/mise/config.toml`)
 
 **Installation Features:**
+
 - Essential tools (starship, bat, fd, ripgrep, eza): Pre-built binaries (~30 seconds)
 - Additional tools: Parallel compilation for speed
 - Interactive selection for additional tools
@@ -85,6 +86,7 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - **Verification**: Tests installation and basic functionality
 
 **Installation Methods Priority:**
+
 1. AppImage (latest, self-contained, x86_64 only)
 1. Pre-built binary from GitHub releases
 1. Package manager with latest repository (fallback)
@@ -103,6 +105,7 @@ The repository uses chezmoi's template system with XDG-compliant structure:
 ### 2. XDG Base Directory Layout
 
 All configurations are under `dot_config/` (maps to `~/.config/`):
+
 - `dot_config/zsh/` - Shell configuration with performance optimizations
 - `dot_config/git/` - Modular git configuration (main, work, secrets)
 - `dot_config/nvim/` - AstroNvim configuration with custom plugins
@@ -114,6 +117,7 @@ All configurations are under `dot_config/` (maps to `~/.config/`):
 Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and optimization:
 
 **Core Module Loading Order** (critical sequence):
+
 1. `platform.zsh` - OS detection and `is_exist_command` utility (must be first)
 1. `core.zsh` - Essential functions (zcompare, load, init_completion)
 1. `path.zsh` - Comprehensive PATH management system
@@ -127,6 +131,7 @@ Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and o
 **Advanced Performance Optimizations**:
 
 1. **Intelligent PATH Management** (`path.zsh`):
+
 - `path_prepend()` and `path_append()` functions prevent duplicates
 - Architecture-aware Homebrew path detection (ARM64 vs x86_64)
 - Language-specific tool paths in priority order (Rust, Go, Node.js, Python, Ruby)
@@ -134,6 +139,7 @@ Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and o
 - PATH debugging utilities (`path_show`, `path_clean`, `path_check`)
 
 1. **Completion System Optimization**:
+
 - Cached completion initialization via `init_completion()` in `core.zsh`
 - Deferred completion loading through zinit's turbo mode
 - Eval-based completions for modern tools (mise, chezmoi, pnpm, gh, atuin)
@@ -141,12 +147,14 @@ Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and o
 - XDG-compliant cache directory (`$XDG_CACHE_HOME/zsh/zcompdump`)
 
 1. **Smart Tool Initialization**:
+
 - Context-aware lazy loading: immediate in sessions (tmux/zellij), lazy in main shell
 - Session detection via `$TMUX`, `$ZELLIJ`, and `$SHLVL` variables
 - Tool-specific lazy wrappers that self-destruct after first use
 - Startup time measurement with color-coded performance feedback
 
 1. **Compilation and Caching**:
+
 - Automatic `.zwc` compilation for all modules via `zcompare()` function
 - Module compilation happens during load for faster subsequentStartup
 - Completion dump caching with timestamp-based invalidation
@@ -155,6 +163,7 @@ Located in `dot_config/zsh/modules/`, featuring sophisticated lazy loading and o
 ### 4. Template System
 
 Uses Go templates for environment-specific configuration:
+
 - `{{ .business_use }}` - Business vs personal environment detection
 - `{{ .chezmoi.os }}` - OS-specific configurations
 - `{{ .chezmoi.homeDir }}` - Home directory path

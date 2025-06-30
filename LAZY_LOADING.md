@@ -45,18 +45,19 @@ dot_config/zsh/modules/tools/
 ### Baseline Measurements
 
 Based on performance analysis:
+
 - **Current startup time**: 160-180ms (already well-optimized)
 - **Target improvement**: 30-50% reduction in non-development contexts
 - **Context-aware loading**: Tools only initialize when relevant
 
 ### Expected Impact
 
-| Scenario | Before | After | Improvement |
-|----------|--------|-------|-------------|
-| Non-development directory | 160ms | 100-120ms | ~30% |
-| Node.js project | 160ms | 140ms | ~15% |
-| Container project | 160ms | 130ms | ~20% |
-| Clean environment | 160ms | 80-100ms | ~40% |
+| Scenario                  | Before | After     | Improvement |
+| ------------------------- | ------ | --------- | ----------- |
+| Non-development directory | 160ms  | 100-120ms | ~30%        |
+| Node.js project           | 160ms  | 140ms     | ~15%        |
+| Container project         | 160ms  | 130ms     | ~20%        |
+| Clean environment         | 160ms  | 80-100ms  | ~40%        |
 
 ## Usage
 
@@ -108,11 +109,13 @@ tool-stats
 ### Container Tools
 
 **Docker & Docker Compose**
+
 - Load only in directories with `Dockerfile` or `docker-compose.yml`
 - Completion loads on first use or in Docker contexts
 - Aliases available after first initialization
 
 **Kubernetes Tools (kubectl, helm)**
+
 - Load only in k8s contexts or when `KUBECONFIG` is set
 - kubectl aliases (`k`, `kg`, `kd`, etc.) available after initialization
 - Expensive completions delayed until needed
@@ -120,22 +123,26 @@ tool-stats
 ### Package Managers
 
 **Node.js Tools (npm, yarn, pnpm)**
+
 - Load only in Node.js projects (detected by `package.json`)
 - Error message suggests `command npm` to force execution
 - Completions load with tool initialization
 
 **Python Tools (poetry)**
+
 - Load only in Python projects
 - Similar forcing mechanism available
 
 ### Cloud Tools
 
 **AWS CLI**
+
 - Loads in projects with AWS configuration
 - Handles both v1 and v2 completion formats
 - Context detection via `.aws/` or `$AWS_PROFILE`
 
 **Google Cloud**
+
 - Expensive completion only loads when needed
 - Multiple completion source detection
 - Context detection via `.gcloudignore` or `.gcloud/`
@@ -143,16 +150,19 @@ tool-stats
 ## Enhanced Existing Tools
 
 ### mise (Runtime Manager)
+
 - **Project-aware loading**: Immediate loading if `.mise.toml` or version files present
 - **Session detection**: Better logic for tmux/zellij contexts
 - **Performance tracking**: Measures initialization time
 
 ### atuin (History Search)
+
 - **Smart session detection**: More intelligent immediate vs lazy loading
 - **Improved key binding**: Better Ctrl+R integration
 - **Performance monitoring**: Tracks initialization timing
 
 ### starship (Prompt)
+
 - **Caching**: Caches initialization for faster subsequent loads
 - **Cache invalidation**: Regenerates when starship binary updates
 - **Performance tracking**: Monitors initialization time
@@ -162,6 +172,7 @@ tool-stats
 ### Adding New Lazy Tools
 
 1. **Check tool availability**:
+
    ```zsh
    if is_exist_command newtool; then
        # Setup lazy loading
@@ -169,16 +180,17 @@ tool-stats
    ```
 
 2. **Create lazy wrapper**:
+
    ```zsh
    _lazy_newtool() {
        local args=("$@")
        unfunction _lazy_newtool newtool
-       
+
        # Load completions if needed
        if is_project_context "relevant"; then
            eval "$(newtool completion zsh)"
        fi
-       
+
        command newtool "${args[@]}"
    }
    function newtool() { _lazy_newtool "$@"; }
@@ -237,6 +249,7 @@ export TRACK_TOOL_USAGE=1
 ## Migration
 
 The enhanced lazy loading is designed to be:
+
 - **Backward compatible**: Existing functionality preserved
 - **Opt-in**: Can be disabled if needed
 - **Non-breaking**: Falls back gracefully if tools are missing
@@ -253,6 +266,7 @@ The enhanced lazy loading is designed to be:
 ### Common Issues
 
 **Tool not loading in project context**:
+
 ```bash
 # Check project detection
 echo $PROJECT_CONTEXT
@@ -262,6 +276,7 @@ cd . && echo $PROJECT_CONTEXT
 ```
 
 **Performance regression**:
+
 ```bash
 # Benchmark comparison
 ./scripts/benchmark-startup.sh --compare
@@ -271,6 +286,7 @@ lazy-stats
 ```
 
 **Tool not available**:
+
 ```bash
 # Force execution
 command docker --version
@@ -282,6 +298,7 @@ is_exist_command docker && echo "available" || echo "missing"
 ### Debug Mode
 
 Enable comprehensive debugging:
+
 ```bash
 export DOTS_DEBUG=1
 export LAZY_LOADING_DEBUG=1
@@ -289,6 +306,7 @@ zsh -l
 ```
 
 This will show:
+
 - Module loading times
 - Lazy tool initialization
 - Project context detection
