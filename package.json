@@ -1,0 +1,20 @@
+{
+  "name": "chezmoi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "format": "npm run format:md && npm run format:zsh",
+    "format:check": "prettier --check .",
+    "format:md": "prettier --write \"**/*.{md,markdown}\"",
+    "format:zsh": "./scripts/format-zsh.sh -d dot_config/zsh -r",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.3",
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

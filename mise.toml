@@ -1,0 +1,80 @@
+# mise configuration for dotfiles repository
+# This file is NOT managed by chezmoi to allow local customization
+
+[tools]
+shfmt = "latest"
+
+[tasks.refactor]
+description = "Create shared utilities to eliminate code duplication"
+run = """
+echo "Creating lazy-utils.zsh with shared functions..."
+cat > dot_config/zsh/modules/tools/lazy-utils.zsh << 'EOF'
+#!/usr/bin/env zsh
+# Shared utilities for lazy loading modules
+
+# Performance timing wrapper
+lazy_time() {
+    local name="$1"; shift
+    local start=$(date +%s.%3N 2>/dev/null || date +%s)
+    "$@"
+    local end=$(date +%s.%3N 2>/dev/null || date +%s)
+    local duration=$(echo "$end - $start" | bc 2>/dev/null || echo "0")
+    [[ -n "$DOTS_DEBUG" ]] && echo "[PERF] $name: ${duration}s"
+}
+
+# Session detection
+is_in_session() {
+    [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]] || [[ "${SHLVL:-1}" -gt 2 ]]
+}
+
+# Debug output
+lazy_debug() {
+    [[ -n "$DOTS_DEBUG" ]] && echo "[LAZY] $*"
+}
+EOF
+echo "✅ Created lazy-utils.zsh"
+"""
+
+[tasks.test]
+description = "Test the lazy loading modules"
+run = """
+echo "Testing lazy loading..."
+zsh -c '
+    source dot_config/zsh/modules/core/platform.zsh
+    source dot_config/zsh/modules/core/core.zsh
+    source dot_config/zsh/modules/tools/lazy-utils.zsh 2>/dev/null || true
+    source dot_config/zsh/modules/tools/enhanced-lazy-tools.zsh
+    source dot_config/zsh/modules/tools/lazy-loading.zsh
+    
+    echo "✓ Modules loaded successfully"
+    type is_in_session >/dev/null 2>&1 && echo "✓ Shared functions available"
+'
+"""
+
+[tasks.benchmark]
+description = "Benchmark zsh startup time"
+run = """
+echo "Benchmarking startup (5 runs)..."
+for i in {1..5}; do
+    /usr/bin/time -p zsh -i -c exit 2>&1 | grep real | awk '{print $2}'
+done | awk '{sum+=$1} END {printf "Average: %.3fs\\n", sum/NR}'
+"""
+
+[tasks.format]
+description = "Format all files (MD with prettier, zsh with custom)"
+run = """
+pnpm run format:md
+./scripts/format-zsh.sh -d dot_config/zsh -r
+"""
+
+[tasks.format-check]
+description = "Check formatting without making changes"
+run = "pnpm run format:check"
+
+[tasks.format-md]
+description = "Format only markdown files"
+run = "pnpm run format:md"
+
+[tasks.format-zsh]
+description = "Format shell files using custom formatter"
+run = "./scripts/format-zsh.sh -d dot_config/zsh -r"
