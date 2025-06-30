@@ -68,7 +68,7 @@ jobs:
           fi
 
   test-chezmoi:
-    needs: format-and-lint
+    # Run in parallel with format-and-lint for faster CI
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -88,10 +88,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Cache chezmoi binary
+        uses: actions/cache@v4
+        id: cache-chezmoi
+        with:
+          path: ~/.local/bin/chezmoi
+          key: ${{ runner.os }}-chezmoi-${{ hashFiles('.github/workflows/test-chezmoi.yml') }}
+
       - name: Install chezmoi
+        if: steps.cache-chezmoi.outputs.cache-hit != 'true'
         run: |
           sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          
+      - name: Add chezmoi to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Cache Homebrew (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-homebrew-${{ hashFiles('.github/workflows/test-chezmoi.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-homebrew-
 
       - name: Test chezmoi configuration
         run: |
@@ -194,11 +213,10 @@ jobs:
           export ZDOTDIR="$TEST_HOME/.config/zsh"
 
           # Test that zsh can load without errors (non-interactive)
-          # Use gtimeout on macOS, timeout on Linux
+          # Use timeout on Linux, skip timeout on macOS for speed
           if [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-            # Install coreutils for gtimeout on macOS
-            brew install coreutils
-            gtimeout 60 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
+            # Direct test without timeout for faster execution
+            zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
           else
             timeout 60 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
           fi
@@ -216,42 +234,8 @@ jobs:
 
           echo "✓ Business environment verified"
 
-      - name: Install jq for benchmarking
-        run: |
-          if [[ "${{ matrix.os }}" =~ ^ubuntu- ]]; then
-            sudo apt-get update -qq && sudo apt-get install -y jq
-          elif [[ "${{ matrix.os }}" =~ ^macos- ]]; then
-            brew install jq
-          fi
-
-      - name: Run performance benchmarks
-        run: |
-          echo "=== Running Performance Benchmarks ==="
-          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
-          export HOME="$TEST_HOME"
-          export ZDOTDIR="$TEST_HOME/.config/zsh"
-          export BENCHMARK_ITERATIONS=3  # Minimal for CI
-          export MAX_STARTUP_TIME=2000   # Very lenient for CI
-          export RESULTS_FILE="$GITHUB_WORKSPACE/benchmark-results.json"
-
-          # Make benchmark script executable
-          chmod +x scripts/benchmark-performance.sh
-
-          # Run benchmarks with timeout
-          timeout 120 ./scripts/benchmark-performance.sh || echo "✓ Performance benchmarks completed (timeout is acceptable)"
-
-          # Display results if available
-          if [[ -f "$RESULTS_FILE" ]]; then
-            echo "=== Benchmark Results ==="
-            jq -r '.benchmarks[]? | "\(.name): \(.avg_time_ms)ms"' "$RESULTS_FILE" 2>/dev/null || echo "Benchmark results not in expected format"
-          fi
-
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: benchmark-results-${{ matrix.os }}-${{ matrix.business_use }}
-          path: benchmark-results.json
+      # Skip heavy benchmarks in CI for speed
+      # Benchmarks can run on scheduled workflows or main branch only
 
       - name: Run module tests
         run: |
@@ -463,3 +447,51 @@ jobs:
             echo "  documentation-validation: ${{ needs.documentation-validation.result }}"
             exit 1
           fi
+  
+  # Run benchmarks only on main branch to avoid slowing down PRs
+  benchmark:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y zsh jq
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Setup test environment
+        run: |
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+          mkdir -p "$TEST_HOME"
+          export CI_SKIP_PACKAGES=1
+          
+          chezmoi init
+          chezmoi apply --destination="$TEST_HOME" --force
+      
+      - name: Run performance benchmarks
+        run: |
+          echo "=== Running Performance Benchmarks ==="
+          export TEST_HOME="$GITHUB_WORKSPACE/test_home"
+          export HOME="$TEST_HOME"
+          export ZDOTDIR="$TEST_HOME/.config/zsh"
+          export BENCHMARK_ITERATIONS=5
+          export MAX_STARTUP_TIME=1000
+          export RESULTS_FILE="$GITHUB_WORKSPACE/benchmark-results.json"
+          
+          chmod +x scripts/benchmark-performance.sh
+          ./scripts/benchmark-performance.sh || echo "Benchmark completed"
+          
+          if [[ -f "$RESULTS_FILE" ]]; then
+            echo "=== Benchmark Results ==="
+            jq -r '.benchmarks[]? | "\(.name): \(.avg_time_ms)ms"' "$RESULTS_FILE"
+          fi
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results-main
+          path: benchmark-results.json
