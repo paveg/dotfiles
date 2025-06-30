@@ -16,6 +16,6 @@ rust = "stable"
 # Other runtime versions can be defined here
 node = "lts"
 go   = "latest"
+ghq = "latest"
 # python = "3.12"
 # ruby = "3.3"
-

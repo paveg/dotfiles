@@ -71,3 +71,5 @@ tests/
 *.tmp
 .DS_Store
 
+CLAUDE.md
+COMPLETION_ENHANCEMENTS.md
