@@ -127,3 +127,41 @@ if (( $+functions[list_modules] )); then
   reload_module_system      - Reload entire module system"'
 fi
 
+# ============================================================================
+# Zsh Loading Complete Message
+# ============================================================================
+
+# Show completion message for normal interactive shells (not in debug mode)
+if [[ -z "$ZSHRC_DEBUG" ]] && [[ "$-" == *i* ]]; then
+  {{- if eq .chezmoi.os "darwin" }}
+  local end_time=$(date +%s)000
+  local duration=$((end_time - SHELL_STARTUP_TIME))
+  {{- else }}
+  local end_time=$(date +%s%3N)
+  local duration=$((end_time - SHELL_STARTUP_TIME))
+  {{- end }}
+  
+  # Show brief completion message with performance - only if startup took significant time
+  if (( duration > 50 )); then
+    if (( duration < 200 )); then
+      printf "\033[32m✨ Zsh ready\033[0m (\033[32m${duration}ms\033[0m)\n"
+    elif (( duration < 600 )); then
+      printf "\033[33m⚡ Zsh ready\033[0m (\033[33m${duration}ms\033[0m)\n"
+    else
+      printf "\033[31m🐌 Zsh ready\033[0m (\033[31m${duration}ms\033[0m)\n"
+    fi
+  fi
+  
+  # Show available tools summary for first-time users only
+  local first_run_marker="$XDG_STATE_HOME/zsh/dotfiles_ready"
+  if [[ ! -f "$first_run_marker" ]]; then
+    echo ""
+    echo "\033[36m🎉 Dotfiles loaded successfully!\033[0m"
+    echo "   Available tools: \033[36mzprofiler\033[0m, \033[36mlazy-stats\033[0m, \033[36mbrewbundle\033[0m, \033[36mtool-stats\033[0m"
+    echo "   Performance: \033[36mzprofiler\033[0m | Lazy loading: \033[36mlazy-stats\033[0m | Packages: \033[36mbrewbundle\033[0m"
+    echo ""
+    mkdir -p "$XDG_STATE_HOME/zsh"
+    touch "$first_run_marker"
+  fi
+fi
+

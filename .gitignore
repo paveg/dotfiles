@@ -4,3 +4,5 @@
 .zsh_history
 .zsh_sessions
 node_modules
+# Backup files from experimental integration
+dot_config/zsh/modules/experimental/*.backup

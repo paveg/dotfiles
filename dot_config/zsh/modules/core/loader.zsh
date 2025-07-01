@@ -30,11 +30,11 @@ load_module() {
   local start_time="$(date +%s.%3N)"
 
   # Source the module to get its metadata declaration
-  # This is safe because well-formed modules only declare metadata at the top
-  local temp_source_output
-  temp_source_output=$(head -20 "$module_file" | grep -E '^(#|declare_module)' | source /dev/stdin 2>&1)
-  if [[ $? -ne 0 ]] && [[ -n "$temp_source_output" ]]; then
-    echo "Warning: Error reading metadata from $module_name: $temp_source_output" >&2
+  # This is safer: extract just the declare_module line and eval it
+  local declare_line
+  declare_line=$(grep -m1 '^declare_module' "$module_file" 2>/dev/null || true)
+  if [[ -n "$declare_line" ]]; then
+    eval "$declare_line" 2>/dev/null || true
   fi
 
   # Check if module has been declared (has metadata)
@@ -297,15 +297,28 @@ validate_modules() {
     fi
   done
 
-  # Check for missing module files
+  # Check for missing module files (check both old flat structure and new organized structure)
   local module_dir="${XDG_CONFIG_HOME}/zsh/modules"
   for key in ${(k)MODULE_METADATA}; do
     if [[ "$key" == *.loaded ]]; then
       local module="${key%.loaded}"
-      local module_file="$module_dir/$module.zsh"
+      local module_file=""
 
-      if [[ ! -f "$module_file" ]]; then
-        echo "✗ Module file missing for declared module '$module': $module_file"
+      # Check organized structure first
+      for category in core config utils ui tools experimental local; do
+        if [[ -f "$module_dir/$category/$module.zsh" ]]; then
+          module_file="$module_dir/$category/$module.zsh"
+          break
+        fi
+      done
+
+      # Fall back to flat structure
+      if [[ -z "$module_file" ]] && [[ -f "$module_dir/$module.zsh" ]]; then
+        module_file="$module_dir/$module.zsh"
+      fi
+
+      if [[ -z "$module_file" ]]; then
+        echo "✗ Module file missing for declared module '$module' (checked organized and flat structures)"
         ((errors++))
       fi
     fi

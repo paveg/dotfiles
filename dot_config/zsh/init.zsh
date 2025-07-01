@@ -38,9 +38,25 @@ init_module_system() {
     return $?
   fi
 
-  # Load metadata system (must be first)
+  # CRITICAL: Load platform.zsh first as it provides is_exist_command
+  if [[ -f "$core_dir/platform.zsh" ]]; then
+    source "$core_dir/platform.zsh"
+    [[ "$DOTS_DEBUG" == "1" ]] && echo "Platform module loaded (provides is_exist_command)"
+  else
+    echo "Error: platform.zsh not found in core directory" >&2
+    return 1
+  fi
+
+  # Load metadata system (after platform)
   if [[ -f "$core_dir/metadata.zsh" ]]; then
     source "$core_dir/metadata.zsh"
+    # Now that metadata system is loaded, declare platform module
+    declare_module "platform" \
+        "category:core" \
+        "description:OS detection and command existence checking" \
+        "provides:ostype,os_detect,is_osx,is_linux,is_exist_command,auto_tmux_linux,is_debug" \
+        "external:uname,tmux"
+    mark_module_loaded "platform"
   else
     echo "Error: metadata.zsh not found in core directory" >&2
     return 1
@@ -108,7 +124,7 @@ load_organized_modules() {
       local core_order=(
         "metadata"    # Already loaded, but ensure it's marked
         "loader"      # Already loaded, but ensure it's marked
-        "platform"    # Must be first for is_exist_command
+        "platform"    # Already loaded, but ensure it's marked
         "terminal"    # Early terminal setup
         "core"        # Essential functions
         "path"        # PATH management
@@ -117,8 +133,8 @@ load_organized_modules() {
       for module_name in "${core_order[@]}"; do
         local module_file="$category_dir/$module_name.zsh"
 
-        # Skip if already loaded (metadata and loader)
-        if [[ "$module_name" == "metadata" ]] || [[ "$module_name" == "loader" ]]; then
+        # Skip if already loaded (metadata, loader, and platform)
+        if [[ "$module_name" == "metadata" ]] || [[ "$module_name" == "loader" ]] || [[ "$module_name" == "platform" ]]; then
           # Just mark as loaded if not already
           if [[ -z "${MODULE_METADATA[$module_name.loaded]}" ]]; then
             declare_module "$module_name" "category:core"

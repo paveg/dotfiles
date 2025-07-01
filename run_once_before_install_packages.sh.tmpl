@@ -161,9 +161,9 @@ fi
 
 # Install latest NeoVim on Linux
 echo "=== Installing latest NeoVim ==="
-if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install-neovim-latest.sh" ]]; then
+if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install_neovim_latest.sh" ]]; then
     echo "Running latest NeoVim installation script..."
-    bash "{{ .chezmoi.sourceDir }}/scripts/install-neovim-latest.sh" || {
+    bash "{{ .chezmoi.sourceDir }}/scripts/install_neovim_latest.sh" || {
         echo "Warning: Latest NeoVim installation may have failed"
         echo "Falling back to package manager version if available"
     }
@@ -189,11 +189,11 @@ fi
 
 # Install special tools on Linux using unified installer
 echo "=== Installing Linux tools (gh, mise, ghq, delta, lazygit) ==="
-if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install-linux-tools.sh" ]]; then
+if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install_linux_tools.sh" ]]; then
     echo "Running unified Linux tools installation script..."
-    bash "{{ .chezmoi.sourceDir }}/scripts/install-linux-tools.sh" gh mise ghq || {
+    bash "{{ .chezmoi.sourceDir }}/scripts/install_linux_tools.sh" gh mise ghq || {
         echo "Warning: Some tools may have failed to install"
-        echo "You can run the script manually later: {{ .chezmoi.sourceDir }}/scripts/install-linux-tools.sh"
+        echo "You can run the script manually later: {{ .chezmoi.sourceDir }}/scripts/install_linux_tools.sh"
     }
 else
     echo "Warning: Linux tools installation script not found"
@@ -203,11 +203,11 @@ fi
 
 # Install Rust tools via cargo (cross-platform)
 echo "=== Installing Rust-based tools ==="
-if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install-rust-tools.sh" ]]; then
+if [[ -f "{{ .chezmoi.sourceDir }}/scripts/install_rust_tools.sh" ]]; then
     echo "Running Rust tools installation script (with pre-built binaries + parallel install)..."
-    bash "{{ .chezmoi.sourceDir }}/scripts/install-rust-tools.sh" || {
+    bash "{{ .chezmoi.sourceDir }}/scripts/install_rust_tools.sh" || {
         echo "Warning: Some Rust tools may have failed to install"
-        echo "You can run the script manually later: ~/.local/share/chezmoi/scripts/install-rust-tools.sh"
+        echo "You can run the script manually later: ~/.local/share/chezmoi/scripts/install_rust_tools.sh"
     }
 else
     echo "Warning: Rust tools installation script not found"

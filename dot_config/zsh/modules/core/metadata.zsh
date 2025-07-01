@@ -232,8 +232,8 @@ list_modules() {
         continue
       fi
 
-      local status=$(is_module_loaded "$module" && echo "✓" || echo "○")
-      categories[$category]+="  $status $module\n"
+      local module_status=$(is_module_loaded "$module" && echo "✓" || echo "○")
+      categories[$category]+="  $module_status $module\n"
     fi
   done
 
