@@ -13,12 +13,11 @@
 # ============================================================================
 
 # Module metadata declaration
-# Note: declare_module will be called automatically by the loader
-# declare_module "lazy-loading" \
-#   "depends:platform,core" \
-#   "category:tools" \
-#   "description:Context-aware lazy loading for development tools" \
-#   "provides:project_context,lazy_docker,lazy_kubectl,lazy_cloud_tools"
+declare_module "lazy-loading" \
+  "depends:platform,core" \
+  "category:tools" \
+  "description:Context-aware lazy loading for development tools" \
+  "provides:project_context,lazy_docker,lazy_kubectl,lazy_cloud_tools,lazy_stats,lazy_toggle,lazy_warm"
 
 # Global variables for lazy loading state
 typeset -gA LAZY_LOADING_STATE
@@ -27,6 +26,37 @@ LAZY_LOADING_STATE[debug]="${LAZY_LOADING_DEBUG:-0}"
 
 # Performance tracking
 typeset -gA LAZY_LOADING_TIMINGS
+
+# Cross-platform timestamp function
+_get_timestamp() {
+    # Try different timestamp methods for cross-platform compatibility
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS: Use gdate if available (from coreutils), fallback to date
+        if command -v gdate >/dev/null 2>&1; then
+            gdate +%s.%3N
+        else
+            # macOS date doesn't support %3N, use %N and truncate
+            date +%s.%N | cut -c1-13
+        fi
+    else
+        # Linux and others: standard date
+        date +%s.%3N
+    fi
+}
+
+# Performance calculation function
+_calc_duration() {
+    local start_time="$1"
+    local end_time="$2"
+    
+    # Try bc first, fallback to basic calculation
+    if command -v bc >/dev/null 2>&1; then
+        echo "$end_time - $start_time" | bc 2>/dev/null || echo "0.000"
+    else
+        # Basic floating point with awk
+        awk "BEGIN { printf \"%.3f\", $end_time - $start_time }" 2>/dev/null || echo "0.000"
+    fi
+}
 
 # ============================================================================
 # Project Context Detection
@@ -80,8 +110,13 @@ detect_project_context() {
 # Check if current context includes specific project type
 is_project_context() {
     local project_type="$1"
+    
+    # Initialize context if not already done
+    if [[ -z "$PROJECT_CONTEXT" ]] && (( $+functions[_init_project_context] )); then
+        _init_project_context
+    fi
+    
     local current_context="${PROJECT_CONTEXT:-$(detect_project_context)}"
-
     [[ "$current_context" == *"$project_type"* ]]
 }
 
@@ -94,11 +129,23 @@ _update_project_context() {
     fi
 }
 
-# Hook into directory changes
+# Hook into directory changes (defer to avoid startup overhead)
 if [[ "${LAZY_LOADING_STATE[enabled]}" == "1" ]]; then
+    # Only add the hook - don't run _update_project_context on startup
     chpwd_functions+=(\_update_project_context)
-    # Initialize context for current directory
-    _update_project_context
+    # Initialize context lazily on first use
+    PROJECT_CONTEXT=""
+    
+    # Initialize project context detection for the current directory
+    # This will be called the first time any project context function is used
+    _init_project_context() {
+        if [[ -z "$PROJECT_CONTEXT" ]]; then
+            PROJECT_CONTEXT="$(detect_project_context)"
+            if [[ "${LAZY_LOADING_STATE[debug]}" == "1" ]]; then
+                echo "[LAZY] Initial project context: $PROJECT_CONTEXT"
+            fi
+        fi
+    }
 fi
 
 # ============================================================================
@@ -108,7 +155,7 @@ fi
 # Docker lazy loading with context awareness
 _lazy_docker() {
     local args=("$@")
-    local start_time="$(date +%s.%3N)"
+    local start_time="$(_get_timestamp)"
 
     # Only proceed if Docker is available
     if ! is_exist_command docker; then
@@ -126,8 +173,8 @@ _lazy_docker() {
         fi
     fi
 
-    local end_time="$(date +%s.%3N)"
-    LAZY_LOADING_TIMINGS[docker]="$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")"
+    local end_time="$(_get_timestamp)"
+    LAZY_LOADING_TIMINGS[docker]="$(_calc_duration "$start_time" "$end_time")"
 
     if [[ "${LAZY_LOADING_STATE[debug]}" == "1" ]]; then
         echo "[LAZY] Docker initialized in ${LAZY_LOADING_TIMINGS[docker]}s"
@@ -140,7 +187,7 @@ _lazy_docker() {
 # Docker Compose lazy loading
 _lazy_docker_compose() {
     local args=("$@")
-    local start_time="$(date +%s.%3N)"
+    local start_time="$(_get_timestamp)"
 
     if ! is_exist_command docker-compose; then
         echo "docker-compose: command not found" >&2
@@ -154,8 +201,8 @@ _lazy_docker_compose() {
         eval "$(docker-compose completion zsh 2>/dev/null)" || true
     fi
 
-    local end_time="$(date +%s.%3N)"
-    LAZY_LOADING_TIMINGS[docker-compose]="$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")"
+    local end_time="$(_get_timestamp)"
+    LAZY_LOADING_TIMINGS[docker-compose]="$(_calc_duration "$start_time" "$end_time")"
 
     command docker-compose "${args[@]}"
 }
@@ -167,7 +214,7 @@ _lazy_docker_compose() {
 # kubectl lazy loading with context awareness
 _lazy_kubectl() {
     local args=("$@")
-    local start_time="$(date +%s.%3N)"
+    local start_time="$(_get_timestamp)"
 
     if ! is_exist_command kubectl; then
         echo "kubectl: command not found" >&2
@@ -190,8 +237,8 @@ _lazy_kubectl() {
         alias klog='kubectl logs'
     fi
 
-    local end_time="$(date +%s.%3N)"
-    LAZY_LOADING_TIMINGS[kubectl]="$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")"
+    local end_time="$(_get_timestamp)"
+    LAZY_LOADING_TIMINGS[kubectl]="$(_calc_duration "$start_time" "$end_time")"
 
     if [[ "${LAZY_LOADING_STATE[debug]}" == "1" ]]; then
         echo "[LAZY] kubectl initialized in ${LAZY_LOADING_TIMINGS[kubectl]}s"
@@ -225,7 +272,7 @@ _lazy_helm() {
 # AWS CLI lazy loading
 _lazy_aws() {
     local args=("$@")
-    local start_time="$(date +%s.%3N)"
+    local start_time="$(_get_timestamp)"
 
     if ! is_exist_command aws; then
         echo "aws: command not found" >&2
@@ -245,8 +292,8 @@ _lazy_aws() {
         fi
     fi
 
-    local end_time="$(date +%s.%3N)"
-    LAZY_LOADING_TIMINGS[aws]="$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")"
+    local end_time="$(_get_timestamp)"
+    LAZY_LOADING_TIMINGS[aws]="$(_calc_duration "$start_time" "$end_time")"
 
     command aws "${args[@]}"
 }
@@ -254,7 +301,7 @@ _lazy_aws() {
 # Google Cloud CLI lazy loading
 _lazy_gcloud() {
     local args=("$@")
-    local start_time="$(date +%s.%3N)"
+    local start_time="$(_get_timestamp)"
 
     if ! is_exist_command gcloud; then
         echo "gcloud: command not found" >&2
@@ -273,8 +320,8 @@ _lazy_gcloud() {
         fi
     fi
 
-    local end_time="$(date +%s.%3N)"
-    LAZY_LOADING_TIMINGS[gcloud]="$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")"
+    local end_time="$(_get_timestamp)"
+    LAZY_LOADING_TIMINGS[gcloud]="$(_calc_duration "$start_time" "$end_time")"
 
     command gcloud "${args[@]}"
 }
@@ -479,17 +526,38 @@ lazy_loading_stats() {
     echo "Lazy Loading Statistics:"
     echo "========================"
     echo "Status: ${LAZY_LOADING_STATE[enabled]:+enabled|disabled}"
+    echo "Debug mode: ${LAZY_LOADING_STATE[debug]:+enabled|disabled}"
     echo "Current project context: ${PROJECT_CONTEXT:-$(detect_project_context)}"
+    echo
+
+    # Show available lazy-wrapped tools
+    local lazy_tools=()
+    for tool in docker docker-compose kubectl helm aws gcloud npm yarn pnpm poetry; do
+        if (( $+functions[$tool] )) && [[ "$(type -t "$tool")" == "function" ]]; then
+            lazy_tools+="$tool"
+        fi
+    done
+    
+    if (( ${#lazy_tools[@]} > 0 )); then
+        echo "Available lazy-wrapped tools: ${lazy_tools[*]}"
+    else
+        echo "No lazy-wrapped tools available."
+    fi
     echo
 
     if (( ${#LAZY_LOADING_TIMINGS[@]} > 0 )); then
         echo "Tool initialization times:"
+        local total_time=0
         for tool in "${(@k)LAZY_LOADING_TIMINGS}"; do
             local time="${LAZY_LOADING_TIMINGS[$tool]}"
             printf "  %-15s %6.3fs\n" "$tool:" "$time"
+            total_time=$(awk "BEGIN { printf \"%.3f\", $total_time + $time }" 2>/dev/null || echo "$total_time")
         done
+        echo "  ================"
+        printf "  %-15s %6.3fs\n" "Total:" "$total_time"
     else
         echo "No tools have been lazy-loaded yet."
+        echo "Run a lazy-wrapped command to see initialization times."
     fi
 }
 

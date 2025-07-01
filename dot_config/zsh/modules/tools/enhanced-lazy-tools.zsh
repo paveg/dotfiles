@@ -7,12 +7,40 @@
 # ============================================================================
 
 # Module metadata declaration
-# Note: declare_module will be called automatically by the loader
-# declare_module "enhanced-lazy-tools" \
-#   "depends:platform,core" \
-#   "category:tools" \
-#   "description:Enhanced lazy loading for mise, atuin, and other existing tools" \
-#   "provides:enhanced_mise_loading,enhanced_atuin_loading,enhanced_starship_loading"
+declare_module "enhanced-lazy-tools" \
+  "depends:platform,core,lazy-loading" \
+  "category:tools" \
+  "description:Enhanced lazy loading for mise, atuin, and other existing tools" \
+  "provides:enhanced_mise_loading,enhanced_atuin_loading,enhanced_starship_loading,tool_stats"
+
+# Ensure we have access to timing functions from lazy-loading module
+# If they're not available, define fallback versions
+if ! (( $+functions[_get_timestamp] )); then
+    _get_timestamp() {
+        if [[ "$(uname)" == "Darwin" ]]; then
+            if command -v gdate >/dev/null 2>&1; then
+                gdate +%s.%3N
+            else
+                date +%s.%N | cut -c1-13
+            fi
+        else
+            date +%s.%3N
+        fi
+    }
+fi
+
+if ! (( $+functions[_calc_duration] )); then
+    _calc_duration() {
+        local start_time="$1"
+        local end_time="$2"
+        
+        if command -v bc >/dev/null 2>&1; then
+            echo "$end_time - $start_time" | bc 2>/dev/null || echo "0.000"
+        else
+            awk "BEGIN { printf \"%.3f\", $end_time - $start_time }" 2>/dev/null || echo "0.000"
+        fi
+    }
+fi
 
 # ============================================================================
 # Enhanced Mise Lazy Loading
@@ -39,26 +67,26 @@ _enhanced_mise_init() {
 
     if [[ "$in_session" == "true" ]] || [[ "$needs_immediate_mise" == "true" ]]; then
         # Immediate initialization with performance tracking
-        local start_time="$(date +%s.%3N)"
+        local start_time="$(_get_timestamp)"
         eval "$(mise activate zsh)"
-        local end_time="$(date +%s.%3N)"
+        local end_time="$(_get_timestamp)"
 
         if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-            local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+            local duration="$(_calc_duration "$start_time" "$end_time")"
             echo "[PERF] mise activated in ${duration}s (immediate: session=$in_session, project=$needs_immediate_mise)"
         fi
     else
         # Enhanced lazy loading with first-use performance tracking
         _lazy_mise() {
             local args=("$@")
-            local start_time="$(date +%s.%3N)"
+            local start_time="$(_get_timestamp)"
 
             unfunction _lazy_mise mise
             eval "$(mise activate zsh)"
 
-            local end_time="$(date +%s.%3N)"
+            local end_time="$(_get_timestamp)"
             if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-                local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+                local duration="$(_calc_duration "$start_time" "$end_time")"
                 echo "[PERF] mise lazy-loaded in ${duration}s"
             fi
 
@@ -93,19 +121,19 @@ _enhanced_atuin_init() {
     fi
 
     if [[ "$should_load_immediately" == "true" ]]; then
-        local start_time="$(date +%s.%3N)"
+        local start_time="$(_get_timestamp)"
         eval "$(atuin init zsh)"
-        local end_time="$(date +%s.%3N)"
+        local end_time="$(_get_timestamp)"
 
         if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-            local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+            local duration="$(_calc_duration "$start_time" "$end_time")"
             echo "[PERF] atuin activated immediately in ${duration}s"
         fi
     else
         # Enhanced lazy loading with Ctrl+R binding
         _lazy_atuin() {
             local args=("$@")
-            local start_time="$(date +%s.%3N)"
+            local start_time="$(_get_timestamp)"
 
             unfunction _lazy_atuin atuin
 
@@ -115,9 +143,9 @@ _enhanced_atuin_init() {
             # Initialize atuin
             eval "$(atuin init zsh)"
 
-            local end_time="$(date +%s.%3N)"
+            local end_time="$(_get_timestamp)"
             if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-                local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+                local duration="$(_calc_duration "$start_time" "$end_time")"
                 echo "[PERF] atuin lazy-loaded in ${duration}s"
             fi
 
@@ -134,7 +162,7 @@ _enhanced_atuin_init() {
 
         # Create a ZLE widget for lazy loading
         _lazy_atuin_widget() {
-            local start_time="$(date +%s.%3N)"
+            local start_time="$(_get_timestamp)"
 
             # Remove the temporary widget and binding
             bindkey -r '^r' 2>/dev/null
@@ -143,9 +171,9 @@ _enhanced_atuin_init() {
             # Initialize atuin
             eval "$(atuin init zsh)"
 
-            local end_time="$(date +%s.%3N)"
+            local end_time="$(_get_timestamp)"
             if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-                local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+                local duration="$(_calc_duration "$start_time" "$end_time")"
                 echo "[PERF] atuin lazy-loaded via Ctrl+R in ${duration}s"
             fi
 
@@ -172,7 +200,7 @@ _enhanced_starship_init() {
     fi
 
     # Starship needs to be loaded early for prompt, but we can optimize it
-    local start_time="$(date +%s.%3N)"
+    local start_time="$(_get_timestamp)"
 
     # Use cached initialization if available
     local starship_cache="$XDG_CACHE_HOME/zsh/starship.zsh"
@@ -180,8 +208,8 @@ _enhanced_starship_init() {
         # Use cached version if it's newer than the starship binary
         source "$starship_cache"
         if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-            local end_time="$(date +%s.%3N)"
-            local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+            local end_time="$(_get_timestamp)"
+            local duration="$(_calc_duration "$start_time" "$end_time")"
             echo "[PERF] starship loaded from cache in ${duration}s"
         fi
     else
@@ -195,8 +223,8 @@ _enhanced_starship_init() {
         fi
 
         if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-            local end_time="$(date +%s.%3N)"
-            local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+            local end_time="$(_get_timestamp)"
+            local duration="$(_calc_duration "$start_time" "$end_time")"
             echo "[PERF] starship initialized and cached in ${duration}s"
         fi
     fi
@@ -213,15 +241,15 @@ _enhanced_command_not_found_init() {
 
     if [[ -f "$homebrew_handler" ]]; then
         _lazy_command_not_found_handler() {
-            local start_time="$(date +%s.%3N)"
+            local start_time="$(_get_timestamp)"
 
             # Replace this function with the real handler
             unfunction command_not_found_handler
             source "$homebrew_handler"
 
             if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-                local end_time="$(date +%s.%3N)"
-                local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "unknown")
+                local end_time="$(_get_timestamp)"
+                local duration="$(_calc_duration "$start_time" "$end_time")"
                 echo "[PERF] command-not-found handler loaded in ${duration}s"
             fi
 
