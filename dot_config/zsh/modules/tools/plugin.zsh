@@ -163,9 +163,8 @@ zinit light zdharma-continuum/null
 zinit ice wait"6" lucid atload"command -v gh >/dev/null && eval \"\$(gh completion -s zsh)\""
 zinit light zdharma-continuum/null
 
-# atuin - initialize immediately to prevent Ctrl+R crashes
+# atuin - shell history management
 if is_exist_command atuin; then
-  # Initialize atuin synchronously to avoid binding conflicts
   eval "$(atuin init zsh)"
 fi
 
