@@ -79,9 +79,9 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - `mise run test-lazy` - Run specialized lazy loading tests (12 tests with performance validation)
 - `mise run benchmark` - Benchmark zsh startup time (5 iterations with detailed timing)
 - `./tests/test_runner.sh` - Run legacy dotfiles test suite (validates zsh syntax, directory structure, essential files)
-- `./scripts/format-zsh.sh -d dot_config/zsh -r` - Format zsh configuration files for consistency
-- `./scripts/install-rust-tools.sh` - Install/update Rust-based development tools via cargo
-- `./scripts/install-neovim-latest.sh` - Install latest NeoVim on Linux (AppImage, binary, or package manager)
+- `./scripts/format_zsh.sh -d dot_config/zsh -r` - Format zsh configuration files for consistency
+- `./scripts/install_rust_tools.sh` - Install/update Rust-based development tools via cargo
+- `./scripts/install_neovim_latest.sh` - Install latest NeoVim on Linux (AppImage, binary, or package manager)
 - `chezmoi add <file>` - Add a file to chezmoi management after editing
 
 ### Local Development Environment
@@ -92,7 +92,7 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 
 ### Rust Tools Management
 
-- **Installation**: `./scripts/install-rust-tools.sh` - Uses pre-built binaries + parallel cargo install for optimal speed
+- **Installation**: `./scripts/install_rust_tools.sh` - Uses pre-built binaries + parallel cargo install for optimal speed
 - **Configuration**: Edit `packages/rust-tools.txt` to add/remove tools (categorized by ESSENTIAL/CORE/DEVELOPMENT/OPTIONAL)
 - **Selective Install**: Interactive selection during installation
 - **Update**: Run the install script again to update all tools to latest versions
@@ -106,7 +106,7 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 
 ### NeoVim Installation
 
-- **Latest Version**: `./scripts/install-neovim-latest.sh` - Installs latest NeoVim on Linux systems
+- **Latest Version**: `./scripts/install_neovim_latest.sh` - Installs latest NeoVim on Linux systems
 - **Multi-method approach**: AppImage (preferred) → Pre-built binary → Package manager fallback
 - **Cross-platform**: Handles x86_64 and ARM64 architectures
 - **Verification**: Tests installation and basic functionality
@@ -235,7 +235,7 @@ Uses Go templates for environment-specific configuration:
 **Tool coordination**:
 
 - prettier handles markdown formatting with consistent rules
-- Custom script (`scripts/format-zsh.sh`) handles zsh files with syntax validation
+- Custom script (`scripts/format_zsh.sh`) handles zsh files with syntax validation
 - Both tools accessible via mise tasks and pnpm scripts for flexibility
 
 ### 6. Automated Setup

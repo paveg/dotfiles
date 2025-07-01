@@ -45,8 +45,8 @@ jobs:
       run: |
         echo "=== Applying formatting if needed ==="
         pnpm run format:md
-        chmod +x scripts/format-zsh.sh
-        ./scripts/format-zsh.sh -d dot_config/zsh -r
+        chmod +x scripts/format_zsh.sh
+        ./scripts/format_zsh.sh -d dot_config/zsh -r
         echo "✓ Formatting completed"
     
     - name: Clean up backup files
@@ -124,7 +124,7 @@ jobs:
         # Skip package installation in CI for faster tests
         export CI_SKIP_PACKAGES=1
         
-        # Note: Rust tools are now managed via cargo (see scripts/install-rust-tools.sh)
+        # Note: Rust tools are now managed via cargo (see scripts/install_rust_tools.sh)
         # CI relies on fallback handling for missing tools
         
         # Set business environment if needed

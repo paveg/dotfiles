@@ -70,8 +70,8 @@ done
 echo -e "\n=== Test Suite 5: Installation Components ==="
 
 run_test "install.sh is executable" "test -x install.sh"
-run_test "format-zsh.sh exists" "test -f scripts/format-zsh.sh"
-run_test "format-zsh.sh is executable" "test -x scripts/format-zsh.sh"
+run_test "format_zsh.sh exists" "test -f scripts/format_zsh.sh"
+run_test "format_zsh.sh is executable" "test -x scripts/format_zsh.sh"
 
 # Summary
 echo -e "\n=== Test Summary ==="

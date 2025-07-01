@@ -7,7 +7,7 @@
     "format": "npm run format:md && npm run format:zsh",
     "format:check": "prettier --check \"**/*.{md,markdown}\"",
     "format:md": "prettier --write \"**/*.{md,markdown}\"",
-    "format:zsh": "./scripts/format-zsh.sh -d dot_config/zsh -r",
+    "format:zsh": "./scripts/format_zsh.sh -d dot_config/zsh -r",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

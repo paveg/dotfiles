@@ -107,7 +107,7 @@ zshtime
 
 # Install/update Rust tools (fast: pre-built binaries + parallel compilation)
 
-~/.local/share/chezmoi/scripts/install-rust-tools.sh
+~/.local/share/chezmoi/scripts/install_rust_tools.sh
 
 # Edit tools list (categorized by ESSENTIAL/CORE/DEVELOPMENT/OPTIONAL)
 

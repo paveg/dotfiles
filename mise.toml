@@ -41,7 +41,7 @@ done | awk '{sum+=$1} END {printf "Average: %.3fs\\n", sum/NR}'
 description = "Format all files (MD with prettier, zsh with custom)"
 run = """
 pnpm run format:md
-./scripts/format-zsh.sh -d dot_config/zsh -r
+./scripts/format_zsh.sh -d dot_config/zsh -r
 """
 
 [tasks.format-check]
@@ -54,4 +54,4 @@ run = "pnpm run format:md"
 
 [tasks.format-zsh]
 description = "Format shell files using custom formatter"
-run = "./scripts/format-zsh.sh -d dot_config/zsh -r"
+run = "./scripts/format_zsh.sh -d dot_config/zsh -r"

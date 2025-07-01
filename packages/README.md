@@ -31,9 +31,9 @@ The installation script will:
 
 Some tools require special installation methods on Linux:
 
-- **neovim**: Latest version via AppImage/binary (script: `install-neovim-latest.sh`)
-- **Linux tools**: gh, mise, ghq, delta, lazygit (script: `install-linux-tools.sh`)
-  - Can install all at once: `./scripts/install-linux-tools.sh`
-  - Or specific tools: `./scripts/install-linux-tools.sh gh mise ghq`
+- **neovim**: Latest version via AppImage/binary (script: `install_neovim_latest.sh`)
+- **Linux tools**: gh, mise, ghq, delta, lazygit (script: `install_linux_tools.sh`)
+  - Can install all at once: `./scripts/install_linux_tools.sh`
+  - Or specific tools: `./scripts/install_linux_tools.sh gh mise ghq`
 - **atuin**: Shell history sync tool (installed via setup script)
-- **Rust tools**: Various CLI tools via cargo (script: `install-rust-tools.sh`)
+- **Rust tools**: Various CLI tools via cargo (script: `install_rust_tools.sh`)
