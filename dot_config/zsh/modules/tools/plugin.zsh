@@ -165,6 +165,7 @@ zinit light zdharma-continuum/null
 
 # atuin - shell history management
 if is_exist_command atuin; then
+  # Initialize atuin synchronously to avoid binding conflicts
   eval "$(atuin init zsh)"
 fi
 
