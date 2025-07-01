@@ -33,7 +33,7 @@ if ! (( $+functions[_calc_duration] )); then
     _calc_duration() {
         local start_time="$1"
         local end_time="$2"
-        
+
         if command -v bc >/dev/null 2>&1; then
             echo "$end_time - $start_time" | bc 2>/dev/null || echo "0.000"
         else
@@ -100,92 +100,29 @@ _enhanced_mise_init() {
 # Enhanced Atuin Lazy Loading
 # ============================================================================
 
-# Improve atuin loading with better session awareness
+# Improve atuin loading - always load immediately to prevent Ctrl+R crashes
 _enhanced_atuin_init() {
     if ! is_exist_command atuin; then
         return 0
     fi
 
-    # More intelligent session detection for atuin
-    local should_load_immediately=false
+    # Always load atuin immediately to prevent binding conflicts and crashes
+    # The performance impact is minimal compared to the stability benefit
+    local start_time="$(_get_timestamp)"
 
-    # Load immediately in tmux/zellij for consistent history
-    if [[ -n "$TMUX" ]] || [[ -n "$ZELLIJ" && "$ZELLIJ" != "0" ]]; then
-        should_load_immediately=true
-    fi
-
-    # Load immediately if history search binding is likely to be used soon
-    # (e.g., in nested shells where user might want immediate access)
-    if [[ "${SHLVL:-1}" -gt 2 ]]; then
-        should_load_immediately=true
-    fi
-
-    if [[ "$should_load_immediately" == "true" ]]; then
-        local start_time="$(_get_timestamp)"
-        eval "$(atuin init zsh)"
+    # Initialize atuin with comprehensive error handling
+    if eval "$(atuin init zsh)" 2>/dev/null; then
         local end_time="$(_get_timestamp)"
-
         if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
             local duration="$(_calc_duration "$start_time" "$end_time")"
-            echo "[PERF] atuin activated immediately in ${duration}s"
+            echo "[PERF] atuin initialized immediately in ${duration}s"
         fi
     else
-        # Enhanced lazy loading with Ctrl+R binding
-        _lazy_atuin() {
-            local args=("$@")
-            local start_time="$(_get_timestamp)"
-
-            unfunction _lazy_atuin atuin
-
-            # Remove the temporary binding
-            bindkey -r '^r' 2>/dev/null
-
-            # Initialize atuin
-            eval "$(atuin init zsh)"
-
-            local end_time="$(_get_timestamp)"
-            if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-                local duration="$(_calc_duration "$start_time" "$end_time")"
-                echo "[PERF] atuin lazy-loaded in ${duration}s"
-            fi
-
-            # Execute the original command if provided
-            if (( $# > 0 )); then
-                atuin "${args[@]}"
-            else
-                # If called from Ctrl+R, trigger the history search
-                atuin search --interactive
-            fi
-        }
-
-        function atuin() { _lazy_atuin "$@"; }
-
-        # Create a ZLE widget for lazy loading
-        _lazy_atuin_widget() {
-            local start_time="$(_get_timestamp)"
-
-            # Remove the temporary widget and binding
-            bindkey -r '^r' 2>/dev/null
-            zle -D _lazy_atuin_widget 2>/dev/null
-
-            # Initialize atuin
-            eval "$(atuin init zsh)"
-
-            local end_time="$(_get_timestamp)"
-            if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
-                local duration="$(_calc_duration "$start_time" "$end_time")"
-                echo "[PERF] atuin lazy-loaded via Ctrl+R in ${duration}s"
-            fi
-
-            # Trigger the actual atuin search
-            zle _atuin_search
-        }
-
-        # Register as a ZLE widget
-        zle -N _lazy_atuin_widget
-
-        # Set up temporary Ctrl+R binding for lazy loading
-        bindkey '^r' '_lazy_atuin_widget'
+        # If atuin fails to initialize, ensure we have a working Ctrl+R
+        if [[ -n "$DOTS_DEBUG" ]] && [[ "$DOTS_DEBUG" != "0" ]]; then
+            echo "[WARN] atuin initialization failed, using default history search"
+        fi
+        bindkey '^r' history-incremental-search-backward
     fi
 }
 
@@ -336,7 +273,7 @@ get_tool_usage_stats() {
 
 # Initialize enhanced lazy loading for existing tools
 _enhanced_mise_init
-_enhanced_atuin_init
+# _enhanced_atuin_init  # Disabled: atuin is now initialized directly in plugin.zsh
 _enhanced_starship_init
 _enhanced_command_not_found_init
 

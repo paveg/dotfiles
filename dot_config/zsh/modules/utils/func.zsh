@@ -225,7 +225,7 @@ local_config_init() {
     fi
 
     # Call the function from local.zsh module
-    if (($ + functions[create_local_template])); then
+    if (( $+functions[create_local_template] )); then
         create_local_template
     else
         echo "Error: local.zsh module not loaded" >&2

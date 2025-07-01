@@ -303,7 +303,7 @@ validate_modules() {
     if [[ "$key" == *.loaded ]]; then
       local module="${key%.loaded}"
       local module_file=""
-      
+
       # Check organized structure first
       for category in core config utils ui tools experimental local; do
         if [[ -f "$module_dir/$category/$module.zsh" ]]; then
@@ -311,7 +311,7 @@ validate_modules() {
           break
         fi
       done
-      
+
       # Fall back to flat structure
       if [[ -z "$module_file" ]] && [[ -f "$module_dir/$module.zsh" ]]; then
         module_file="$module_dir/$module.zsh"

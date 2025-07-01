@@ -63,125 +63,134 @@ fi
 
 # ============================================================================
 # Core Plugins (Essential for Shell Experience)
+# Tier 1: 0-20ms Critical (wait"2-3")
 # ============================================================================
 
-# 1. Fast syntax highlighting (wait"0" for immediate feedback)
-zinit ice wait"0" lucid atinit"ZINIT[COMPINIT_OPTS]=-C; zpcompinit; zpcdreplay"
+# 1. Fast syntax highlighting (wait"2" for immediate feedback while not blocking startup)
+zinit ice wait"2" lucid atinit"ZINIT[COMPINIT_OPTS]=-C; zpcompinit; zpcdreplay"
 zinit light zdharma/fast-syntax-highlighting
 
-# 2. Additional completions (wait"0" for tab completion)
-zinit ice wait"0" lucid blockf atpull"zinit creinstall -q ."
+# 2. Additional completions (wait"2" for tab completion)
+zinit ice wait"2" lucid blockf atpull"zinit creinstall -q ."
 zinit light zsh-users/zsh-completions
 
-# 3. Auto-suggestions (wait"1" for performance)
-zinit ice wait"1" lucid atload"_zsh_autosuggest_start"
+# 3. Auto-suggestions (wait"3" for performance)
+zinit ice wait"3" lucid atload"_zsh_autosuggest_start"
 zinit light zsh-users/zsh-autosuggestions
 
-# 4. Directory jumping with frecency (wait"1")
-zinit ice wait"1" lucid
+# 4. Directory jumping with frecency (wait"3")
+zinit ice wait"3" lucid
 zinit light agkozak/zsh-z
 
-# 5. History substring search (wait"1")
-zinit ice wait"1" lucid
+# 5. History substring search (wait"3")
+zinit ice wait"3" lucid
 zinit light zsh-users/zsh-history-substring-search
 
 # ============================================================================
-# Productivity Enhancements (New Additions)
+# Productivity Enhancements
+# Tier 2: 20-50ms User Functionality (wait"4-6")
 # ============================================================================
 
 # Remind about aliases you've defined
 # NOTE: Temporarily disabled due to tput errors with alacritty
-# zinit ice wait"2" lucid
+# zinit ice wait"5" lucid
 # zinit light MichaelAquilina/zsh-you-should-use
 
 # Auto-close brackets and quotes
-zinit ice wait"1" lucid
+zinit ice wait"4" lucid
 zinit light hlissner/zsh-autopair
 
 # Enhanced tab completion with fzf
-zinit ice wait"1" lucid
+zinit ice wait"4" lucid
 zinit light Aloxaf/fzf-tab
 
 # Interactive git operations with fzf
-zinit ice wait"2" lucid
+zinit ice wait"5" lucid
 zinit light wfxr/forgit
 
 # Fish-like abbreviations (expand shortcuts)
-zinit ice wait"3" lucid
+zinit ice wait"6" lucid
 zinit light olets/zsh-abbr
 
 # Per-directory history
-zinit ice wait"3" lucid
+zinit ice wait"6" lucid
 zinit light jimhester/per-directory-history
 
 # ============================================================================
 # Completion snippets (external)
+# Tier 3: 50-80ms Enhanced Features (wait"8-12")
 # ============================================================================
 
-# Docker completion
-zinit ice wait"4" lucid as"completion"
+# Docker completion (heavy, context-aware via lazy loading)
+zinit ice wait"10" lucid as"completion"
 zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker
 
 # Docker Compose completion
-zinit ice wait"4" lucid as"completion"
+zinit ice wait"10" lucid as"completion"
 zinit snippet "https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/docker-compose/_docker-compose"
 
-# ghq completion
-zinit ice wait"3" lucid as"completion"
+# ghq completion (lightweight utility)
+zinit ice wait"8" lucid as"completion"
 zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
 
-# fd completion
-zinit ice wait"3" lucid as"completion"
+# fd completion (commonly used)
+zinit ice wait"8" lucid as"completion"
 zinit snippet https://github.com/sharkdp/fd/blob/master/contrib/completion/_fd
 
-# eza completion
-zinit ice wait"3" lucid as"completion"
+# eza completion (commonly used)
+zinit ice wait"8" lucid as"completion"
 zinit snippet https://github.com/eza-community/eza/blob/main/completions/zsh/_eza
 
 # ============================================================================
 # Tool Completions (Dynamic)
+# Performance-optimized based on usage patterns
 # ============================================================================
 
-# mise - completion loaded after tool initialization in .zshrc
-# Delay longer to ensure mise is initialized first
-zinit ice wait"3" lucid atload"command -v mise >/dev/null && eval \"\$(mise completion zsh)\""
+# mise - enhanced lazy loading handles this more efficiently
+# Delayed to allow enhanced-lazy-tools to initialize first
+zinit ice wait"12" lucid atload"command -v mise >/dev/null && eval \"\$(mise completion zsh)\""
 zinit light zdharma-continuum/null
 
-# chezmoi - always available
-zinit ice wait"4" lucid atload"command -v chezmoi >/dev/null && eval \"\$(chezmoi completion zsh)\""
+# chezmoi - commonly used, medium priority
+zinit ice wait"8" lucid atload"command -v chezmoi >/dev/null && eval \"\$(chezmoi completion zsh)\""
 zinit light zdharma-continuum/null
 
-# pnpm - always available
-zinit ice wait"4" lucid atload"command -v pnpm >/dev/null && eval \"\$(pnpm completion zsh)\""
+# pnpm - project-specific, handled by lazy loading when in Node.js projects
+zinit ice wait"10" lucid atload"command -v pnpm >/dev/null && eval \"\$(pnpm completion zsh)\""
 zinit light zdharma-continuum/null
 
-# gh - always available (without 1Password integration for now)
-zinit ice wait"2" lucid atload"command -v gh >/dev/null && eval \"\$(gh completion -s zsh)\""
+# gh - frequently used, higher priority
+zinit ice wait"6" lucid atload"command -v gh >/dev/null && eval \"\$(gh completion -s zsh)\""
 zinit light zdharma-continuum/null
 
-# atuin - completion loaded after tool initialization in .zshrc
-# Delay longer to ensure atuin is initialized first
-zinit ice wait"3" lucid atload"command -v atuin >/dev/null && eval \"\$(atuin gen-completions --shell zsh)\""
-zinit light zdharma-continuum/null
+# atuin - initialize immediately to prevent Ctrl+R crashes
+if is_exist_command atuin; then
+  # Initialize atuin synchronously to avoid binding conflicts
+  eval "$(atuin init zsh)" 2>/dev/null || {
+    warn "Failed to initialize atuin, using default history search"
+    bindkey '^r' history-incremental-search-backward
+  }
+fi
 
 # ============================================================================
-# Safe Additional Completions (Only Working Ones)
+# Heavy Completions (Context-aware and expensive)
+# Tier 3: 50-80ms+ Enhanced Features (wait"10-12")
 # ============================================================================
 
-# Kubernetes
-zinit ice wait"2" lucid atload"command -v kubectl >/dev/null && eval \"\$(kubectl completion zsh)\""
+# Kubernetes - very expensive completion, context-aware via lazy loading
+zinit ice wait"12" lucid atload"command -v kubectl >/dev/null && eval \"\$(kubectl completion zsh)\""
 zinit light zdharma-continuum/null
 
-# Rust toolchain
-zinit ice wait"2" lucid atload"command -v rustup >/dev/null && eval \"\$(rustup completions zsh)\""
+# Rust toolchain - project-specific, lower frequency
+zinit ice wait"10" lucid atload"command -v rustup >/dev/null && eval \"\$(rustup completions zsh)\""
 zinit light zdharma-continuum/null
 
-# just (Rust-based task runner)
-zinit ice wait"2" lucid atload"command -v just >/dev/null && eval \"\$(just --completions zsh)\""
+# just (Rust-based task runner) - project-specific
+zinit ice wait"10" lucid atload"command -v just >/dev/null && eval \"\$(just --completions zsh)\""
 zinit light zdharma-continuum/null
 
-# Deno
-zinit ice wait"2" lucid atload"command -v deno >/dev/null && eval \"\$(deno completions zsh)\""
+# Deno - less commonly used
+zinit ice wait"11" lucid atload"command -v deno >/dev/null && eval \"\$(deno completions zsh)\""
 zinit light zdharma-continuum/null
 
 # ============================================================================

@@ -48,7 +48,7 @@ _get_timestamp() {
 _calc_duration() {
     local start_time="$1"
     local end_time="$2"
-    
+
     # Try bc first, fallback to basic calculation
     if command -v bc >/dev/null 2>&1; then
         echo "$end_time - $start_time" | bc 2>/dev/null || echo "0.000"
@@ -110,12 +110,12 @@ detect_project_context() {
 # Check if current context includes specific project type
 is_project_context() {
     local project_type="$1"
-    
+
     # Initialize context if not already done
     if [[ -z "$PROJECT_CONTEXT" ]] && (( $+functions[_init_project_context] )); then
         _init_project_context
     fi
-    
+
     local current_context="${PROJECT_CONTEXT:-$(detect_project_context)}"
     [[ "$current_context" == *"$project_type"* ]]
 }
@@ -135,7 +135,7 @@ if [[ "${LAZY_LOADING_STATE[enabled]}" == "1" ]]; then
     chpwd_functions+=(\_update_project_context)
     # Initialize context lazily on first use
     PROJECT_CONTEXT=""
-    
+
     # Initialize project context detection for the current directory
     # This will be called the first time any project context function is used
     _init_project_context() {
@@ -533,11 +533,11 @@ lazy_loading_stats() {
     # Show available lazy-wrapped tools
     local lazy_tools=()
     for tool in docker docker-compose kubectl helm aws gcloud npm yarn pnpm poetry; do
-        if (( $+functions[$tool] )) && [[ "$(type -t "$tool")" == "function" ]]; then
+        if (( $+functions[$tool] )); then
             lazy_tools+="$tool"
         fi
     done
-    
+
     if (( ${#lazy_tools[@]} > 0 )); then
         echo "Available lazy-wrapped tools: ${lazy_tools[*]}"
     else
@@ -578,7 +578,7 @@ lazy_loading_warm_cache() {
     local tools=(docker kubectl helm aws gcloud npm yarn pnpm poetry)
 
     for tool in "${tools[@]}"; do
-        if (( $+functions[$tool] )) && [[ "$(type -t "$tool")" == "function" ]]; then
+        if (( $+functions[$tool] )); then
             echo "Initializing $tool..."
             "$tool" --help >/dev/null 2>&1 || true
         fi
