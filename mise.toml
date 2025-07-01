@@ -6,11 +6,11 @@ shfmt = "latest"
 
 [tasks.test]
 description = "Run comprehensive dotfiles test suite"
-run = "./scripts/test-comprehensive.sh"
+run = "./scripts/test_comprehensive.sh"
 
 [tasks.test-lazy]
 description = "Test lazy loading system specifically"
-run = "./tests/test-lazy-loading.sh"
+run = "./tests/test_lazy_loading.sh"
 
 [tasks.test-quick]
 description = "Quick module loading test"

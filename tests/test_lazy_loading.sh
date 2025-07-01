@@ -9,7 +9,7 @@
 # - Integration testing
 #
 # Usage:
-#   ./tests/test-lazy-loading.sh [--verbose] [--integration]
+#   ./tests/test-lazy_loading.sh [--verbose] [--integration]
 # ============================================================================
 
 set -euo pipefail
@@ -115,7 +115,7 @@ test_project_context_detection() {
     echo '{"name":"test","version":"1.0.0"}' > package.json
     
     local context=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
         detect_project_context
     " 2>/dev/null)
     
@@ -136,7 +136,7 @@ version = "0.1.0"
 EOF
     
     context=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
         detect_project_context
     " 2>/dev/null)
     
@@ -153,7 +153,7 @@ EOF
     echo 'FROM ubuntu:20.04' > Dockerfile
     
     context=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
         detect_project_context
     " 2>/dev/null)
     
@@ -175,7 +175,7 @@ metadata:
 EOF
     
     context=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
         detect_project_context
     " 2>/dev/null)
     
@@ -193,7 +193,7 @@ EOF
     echo 'FROM node:16' > Dockerfile
     
     context=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
         detect_project_context
     " 2>/dev/null)
     
@@ -225,12 +225,12 @@ test_lazy_loading_wrappers() {
             esac
         }
         
-        # Create simplified core functions that lazy-loading needs
+        # Create simplified core functions that lazy_loading needs
         debug() { [[ -n \"\$DOTS_DEBUG\" ]] && echo \"[DEBUG] \$@\" >&2; }
         warn() { echo \"[WARN] \$@\" >&2; }
         
         # Source the lazy loading module
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
         
         # Check if docker function is created (it should be auto-created)
         if (( \$+functions[docker] )); then
@@ -248,7 +248,7 @@ test_lazy_loading_wrappers() {
     
     # Test is_project_context function
     local context_test=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
         PROJECT_CONTEXT='nodejs,docker'
         
         if is_project_context 'nodejs'; then
@@ -279,11 +279,11 @@ test_performance_characteristics() {
     local with_lazy=$(bash -c "
         if command -v gdate >/dev/null 2>&1; then
             start=\$(gdate +%s%3N)
-            LAZY_LOADING_ENABLED=1 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh\"; exit 0' >/dev/null 2>&1
+            LAZY_LOADING_ENABLED=1 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh\"; exit 0' >/dev/null 2>&1
             end=\$(gdate +%s%3N)
         else
             start=\$(date +%s000)
-            LAZY_LOADING_ENABLED=1 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh\"; exit 0' >/dev/null 2>&1
+            LAZY_LOADING_ENABLED=1 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh\"; exit 0' >/dev/null 2>&1
             end=\$(date +%s000)
         fi
         echo \$((end - start))
@@ -292,11 +292,11 @@ test_performance_characteristics() {
     local without_lazy=$(bash -c "
         if command -v gdate >/dev/null 2>&1; then
             start=\$(gdate +%s%3N)
-            LAZY_LOADING_ENABLED=0 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh\"; exit 0' >/dev/null 2>&1
+            LAZY_LOADING_ENABLED=0 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh\"; exit 0' >/dev/null 2>&1
             end=\$(gdate +%s%3N)
         else
             start=\$(date +%s000)
-            LAZY_LOADING_ENABLED=0 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh\"; exit 0' >/dev/null 2>&1
+            LAZY_LOADING_ENABLED=0 zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh\"; exit 0' >/dev/null 2>&1
             end=\$(date +%s000)
         fi
         echo \$((end - start))
@@ -321,13 +321,13 @@ test_performance_characteristics() {
         if command -v gdate >/dev/null 2>&1; then
             start=\$(gdate +%s%3N)
             for i in {1..10}; do
-                zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh\"; detect_project_context' >/dev/null 2>&1
+                zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh\"; detect_project_context' >/dev/null 2>&1
             done
             end=\$(gdate +%s%3N)
         else
             start=\$(date +%s000)
             for i in {1..10}; do
-                zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh\"; detect_project_context' >/dev/null 2>&1
+                zsh -c 'source \"$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh\"; detect_project_context' >/dev/null 2>&1
             done
             end=\$(date +%s000)
         fi
@@ -352,7 +352,7 @@ test_enhanced_lazy_tools() {
     
     # Test enhanced mise detection
     local mise_test=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/enhanced-lazy-tools.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/enhanced_lazy_tools.zsh'
         
         # Test function existence
         if (( \$+functions[_enhanced_mise_init] )); then
@@ -378,7 +378,7 @@ test_enhanced_lazy_tools() {
     
     # Test tool usage tracking (if enabled)
     local tracking_test=$(zsh -c "
-        source '$ZSH_CONFIG_DIR/modules/tools/enhanced-lazy-tools.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/enhanced_lazy_tools.zsh'
         
         if (( \$+functions[_track_tool_usage] )); then
             echo 'TRACKING_AVAILABLE'
@@ -411,8 +411,8 @@ test_module_integration() {
         is_exist_command() { return 1; }  # Mock no tools available
         
         # Load lazy loading modules
-        source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
-        source '$ZSH_CONFIG_DIR/modules/tools/enhanced-lazy-tools.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
+        source '$ZSH_CONFIG_DIR/modules/tools/enhanced_lazy_tools.zsh'
         
         # Test basic functionality
         local functions_available=0
@@ -458,7 +458,7 @@ test_real_tool_integration() {
             verbose "Testing real $tool integration..."
             
             local tool_test=$(timeout 30s zsh -c "
-                source '$ZSH_CONFIG_DIR/modules/tools/lazy-loading.zsh'
+                source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
                 
                 # Test lazy loading wrapper
                 if (( \$+functions[$tool] )); then

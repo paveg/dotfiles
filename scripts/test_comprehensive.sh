@@ -146,11 +146,11 @@ run_test "Platform detection defines is_exist_command" "grep -q 'is_exist_comman
 
 # Test Suite 6: Lazy Loading System
 print_section "Lazy Loading System"
-run_test "Lazy loading module loads" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/lazy-loading.zsh && exit 0'"
-run_test "Enhanced lazy tools loads" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/enhanced-lazy-tools.zsh && exit 0'"
-run_test "Project context detection exists" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/lazy-loading.zsh && type detect_project_context >/dev/null'"
-run_test "Lazy stats function exists" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/lazy-loading.zsh && type lazy_loading_stats >/dev/null'"
-run_test "Context detection works" "zsh -c 'ORIG=$PWD && cd /tmp && mkdir -p test-$$-node && cd test-$$-node && echo {} > package.json && source \$ORIG/dot_config/zsh/modules/core/platform.zsh && source \$ORIG/dot_config/zsh/modules/tools/lazy-loading.zsh && context=\$(detect_project_context) && cd - && rm -rf test-$$-node && [[ \"\$context\" == *nodejs* ]]'"
+run_test "Lazy loading module loads" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/lazy_loading.zsh && exit 0'"
+run_test "Enhanced lazy tools loads" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/enhanced_lazy_tools.zsh && exit 0'"
+run_test "Project context detection exists" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/lazy_loading.zsh && type detect_project_context >/dev/null'"
+run_test "Lazy stats function exists" "zsh -c 'cd $PWD && source dot_config/zsh/modules/core/platform.zsh && source dot_config/zsh/modules/tools/lazy_loading.zsh && type lazy_loading_stats >/dev/null'"
+run_test "Context detection works" "zsh -c 'ORIG=$PWD && cd /tmp && mkdir -p test-$$-node && cd test-$$-node && echo {} > package.json && source \$ORIG/dot_config/zsh/modules/core/platform.zsh && source \$ORIG/dot_config/zsh/modules/tools/lazy_loading.zsh && context=\$(detect_project_context) && cd - && rm -rf test-$$-node && [[ \"\$context\" == *nodejs* ]]'"
 
 # Test Suite 7: Key Functions
 print_section "Key Functions Availability"
@@ -171,35 +171,35 @@ run_test "Plugin wait times optimized" "grep -q 'wait\"[0-9]' dot_config/zsh/mod
 run_test "Core plugins load early (wait 2-3)" "grep -B1 'fast-syntax-highlighting' dot_config/zsh/modules/tools/plugin.zsh | grep -q 'wait\"2\"'"
 run_test "Heavy completions delayed (wait 10-12)" "grep -E 'wait\"1[0-2]\".*kubectl' dot_config/zsh/modules/tools/plugin.zsh"
 run_test "Mise completion delayed" "grep -E 'wait\"1[0-2]\".*mise completion' dot_config/zsh/modules/tools/plugin.zsh"
-run_test "Project context caching exists" "grep -q 'PROJECT_CONTEXT' dot_config/zsh/modules/tools/lazy-loading.zsh"
-run_test "Performance timing functions exist" "grep -q '_get_timestamp' dot_config/zsh/modules/tools/lazy-loading.zsh"
+run_test "Project context caching exists" "grep -q 'PROJECT_CONTEXT' dot_config/zsh/modules/tools/lazy_loading.zsh"
+run_test "Performance timing functions exist" "grep -q '_get_timestamp' dot_config/zsh/modules/tools/lazy_loading.zsh"
 
 # Test Suite 9: Aliases and Commands
 print_section "Aliases and Commands"
 if [[ -f dot_config/zsh/modules/utils/alias.zsh ]]; then
     run_test "Common aliases defined (ll, la, etc)" "grep -E '(alias ll=|alias la=)' dot_config/zsh/modules/utils/alias.zsh"
     run_test "Git aliases defined" "grep -q 'alias ga=' dot_config/zsh/modules/utils/alias.zsh"
-    run_test "Lazy command aliases defined" "grep -q 'alias lazy-stats=' dot_config/zsh/modules/tools/lazy-loading.zsh"
+    run_test "Lazy command aliases defined" "grep -q 'alias lazy-stats=' dot_config/zsh/modules/tools/lazy_loading.zsh"
 fi
 
 # Test Suite 10: Scripts
 print_section "Helper Scripts"
-run_test "Format zsh script exists" "test -f scripts/format-zsh.sh"
-run_test "Format zsh script executable" "test -x scripts/format-zsh.sh"
-run_test "Format zsh script syntax valid" "bash -n scripts/format-zsh.sh"
-run_test "Test lazy loading script exists" "test -f tests/test-lazy-loading.sh"
-run_test "Test lazy loading script executable" "test -x tests/test-lazy-loading.sh"
-run_test "Rust tools install script exists" "test -f scripts/install-rust-tools.sh"
-run_test "Benchmark script exists" "test -f scripts/benchmark-startup.sh"
+run_test "Format zsh script exists" "test -f scripts/format_zsh.sh"
+run_test "Format zsh script executable" "test -x scripts/format_zsh.sh"
+run_test "Format zsh script syntax valid" "bash -n scripts/format_zsh.sh"
+run_test "Test lazy loading script exists" "test -f tests/test_lazy_loading.sh"
+run_test "Test lazy loading script executable" "test -x tests/test_lazy_loading.sh"
+run_test "Rust tools install script exists" "test -f scripts/install_rust_tools.sh"
+run_test "Benchmark script exists" "test -f scripts/benchmark_startup.sh"
 
 # Test Suite 11: Documentation
 print_section "Documentation"
 run_test "README.md exists" "test -f README.md"
 run_test "CLAUDE.md exists" "test -f CLAUDE.md"
-run_test "Performance strategy doc exists" "test -f docs/performance-optimization-strategy.md"
-run_test "Performance tasks doc exists" "test -f docs/performance-fix-tasks.md"
-run_test "Performance results doc exists" "test -f docs/performance-fix-results.md"
-run_test "Test organization doc exists" "test -f docs/test-organization.md"
+run_test "Performance strategy doc exists" "test -f docs/PERFORMANCE_OPTIMIZATION_STRATEGY.md"
+run_test "Performance tasks doc exists" "test -f docs/PERFORMANCE_FIX_TASKS.md"
+run_test "Performance results doc exists" "test -f docs/PERFORMANCE_FIX_RESULTS.md"
+run_test "Test organization doc exists" "test -f docs/TEST_ORGANIZATION.md"
 
 # Test Suite 12: Integration Tests
 print_section "Integration Tests"
@@ -226,7 +226,7 @@ if [[ $FAILED -eq 0 ]]; then
     echo -e "\n${GREEN}✅ All tests passed!${NC}"
     echo -e "\n${CYAN}Next steps:${NC}"
     echo "  1. Run 'mise run benchmark' to test performance"
-    echo "  2. Run './scripts/test-lazy-loading.sh' for detailed lazy loading tests"
+    echo "  2. Run './scripts/test_lazy_loading.sh' for detailed lazy loading tests"
     echo "  3. Use 'zprofiler' in a shell to profile startup"
     exit 0
 else
