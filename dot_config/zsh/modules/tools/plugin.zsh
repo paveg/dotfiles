@@ -166,10 +166,7 @@ zinit light zdharma-continuum/null
 # atuin - initialize immediately to prevent Ctrl+R crashes
 if is_exist_command atuin; then
   # Initialize atuin synchronously to avoid binding conflicts
-  eval "$(atuin init zsh)" 2>/dev/null || {
-    warn "Failed to initialize atuin, using default history search"
-    bindkey '^r' history-incremental-search-backward
-  }
+  eval "$(atuin init zsh)"
 fi
 
 # ============================================================================
