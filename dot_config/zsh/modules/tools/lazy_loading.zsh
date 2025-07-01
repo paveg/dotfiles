@@ -13,7 +13,7 @@
 # ============================================================================
 
 # Module metadata declaration
-declare_module "lazy-loading" \
+declare_module "lazy_loading" \
   "depends:platform,core" \
   "category:tools" \
   "description:Context-aware lazy loading for development tools" \

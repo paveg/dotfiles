@@ -147,7 +147,7 @@ zinit snippet https://github.com/eza-community/eza/blob/main/completions/zsh/_ez
 # ============================================================================
 
 # mise - enhanced lazy loading handles this more efficiently
-# Delayed to allow enhanced-lazy-tools to initialize first
+# Delayed to allow enhanced_lazy_tools to initialize first
 zinit ice wait"12" lucid atload"command -v mise >/dev/null && eval \"\$(mise completion zsh)\""
 zinit light zdharma-continuum/null
 

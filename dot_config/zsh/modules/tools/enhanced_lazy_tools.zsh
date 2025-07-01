@@ -7,13 +7,13 @@
 # ============================================================================
 
 # Module metadata declaration
-declare_module "enhanced-lazy-tools" \
-  "depends:platform,core,lazy-loading" \
+declare_module "enhanced_lazy_tools" \
+  "depends:platform,core,lazy_loading" \
   "category:tools" \
   "description:Enhanced lazy loading for mise, atuin, and other existing tools" \
   "provides:enhanced_mise_loading,enhanced_atuin_loading,enhanced_starship_loading,tool_stats"
 
-# Ensure we have access to timing functions from lazy-loading module
+# Ensure we have access to timing functions from lazy_loading module
 # If they're not available, define fallback versions
 if ! (( $+functions[_get_timestamp] )); then
     _get_timestamp() {
