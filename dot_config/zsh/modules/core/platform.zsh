@@ -9,12 +9,14 @@
 # - ostype, os_detect, is_osx, is_linux
 # - is_exist_command (command existence checking)
 
-# Module metadata declaration
-declare_module "platform" \
-    "category:core" \
-    "description:OS detection and command existence checking" \
-    "provides:ostype,os_detect,is_osx,is_linux,is_exist_command,auto_tmux_linux,is_debug" \
-    "external:uname,tmux"
+# Module metadata declaration (will be called later when metadata system is loaded)
+if (( $+functions[declare_module] )); then
+    declare_module "platform" \
+        "category:core" \
+        "description:OS detection and command existence checking" \
+        "provides:ostype,os_detect,is_osx,is_linux,is_exist_command,auto_tmux_linux,is_debug" \
+        "external:uname,tmux"
+fi
 # ============================================================================
 
 # ostype returns the lowercase OS name
