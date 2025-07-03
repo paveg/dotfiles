@@ -42,7 +42,7 @@ _fzf_cd_ghq() {
     }
 
     local repo
-    repo="$(ghq list 2>/dev/null | fzf --reverse --height=60% \
+    repo="$(ghq list 2>/dev/null | fzf --reverse --height=80% \
         --preview="
       repo_path=$root/{}
 
@@ -289,7 +289,7 @@ _fzf_rg_search() {
         cd "$search_dir" && rg --color=always --line-number --no-heading --smart-case "${2:-}" . 2>/dev/null |
         fzf --ansi \
             --reverse \
-            --height=60% \
+            --height=80% \
             --delimiter : \
             --preview "bat --color=always --style=numbers --highlight-line {2} $search_dir/{1}" \
             --preview-window 'right:50%:+{2}+3/2' \
