@@ -103,33 +103,35 @@ zinit ice wait"4" lucid
 zinit light hlissner/zsh-autopair
 
 # Enhanced tab completion with fzf
-zinit ice wait"4" lucid
+zinit ice wait"6" lucid
 zinit light Aloxaf/fzf-tab
 
 # Interactive git operations with fzf
-zinit ice wait"5" lucid
+zinit ice wait"8" lucid
 zinit light wfxr/forgit
 
-# Fish-like abbreviations (expand shortcuts)
-zinit ice wait"6" lucid
-zinit light olets/zsh-abbr
+# Fish-like abbreviations (expand shortcuts) - disabled for performance
+# zinit ice wait"6" lucid
+# zinit light olets/zsh-abbr
 
-# Per-directory history
-zinit ice wait"6" lucid
-zinit light jimhester/per-directory-history
+# Per-directory history - disabled for performance and key binding conflicts
+# zinit ice wait"6" lucid
+# zinit light jimhester/per-directory-history
 
 # ============================================================================
 # Completion snippets (external)
 # Tier 3: 50-80ms Enhanced Features (wait"8-12")
 # ============================================================================
 
-# Docker completion (heavy, context-aware via lazy loading)
-zinit ice wait"10" lucid as"completion"
-zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker
+# Docker completion (heavy, context-aware via lazy loading) - BUSINESS_USE only
+if [[ -n "$BUSINESS_USE" ]]; then
+  zinit ice wait"10" lucid as"completion"
+  zinit snippet https://github.com/docker/cli/blob/master/contrib/completion/zsh/_docker
 
-# Docker Compose completion
-zinit ice wait"10" lucid as"completion"
-zinit snippet "https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/docker-compose/_docker-compose"
+  # Docker Compose completion
+  zinit ice wait"10" lucid as"completion"
+  zinit snippet "https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/docker-compose/_docker-compose"
+fi
 
 # ghq completion (lightweight utility)
 zinit ice wait"8" lucid as"completion"
@@ -169,13 +171,13 @@ zinit light zdharma-continuum/null
 if is_exist_command atuin; then
   # Debug output
   [[ "$DOTS_DEBUG" == "1" ]] && echo "Initializing atuin history management"
-  
+
   # Load required zsh hook functionality
   autoload -U add-zsh-hook
-  
+
   # Initialize atuin synchronously to avoid binding conflicts
   eval "$(atuin init zsh)"
-  
+
   # Verify hooks are registered
   if [[ " ${preexec_functions[@]} " != *" _atuin_preexec "* ]]; then
     [[ "$DOTS_DEBUG" == "1" ]] && echo "Warning: atuin preexec hook not registered"
@@ -194,9 +196,11 @@ fi
 # Tier 3: 50-80ms+ Enhanced Features (wait"10-12")
 # ============================================================================
 
-# Kubernetes - very expensive completion, context-aware via lazy loading
-zinit ice wait"12" lucid atload"command -v kubectl >/dev/null && eval \"\$(kubectl completion zsh)\""
-zinit light zdharma-continuum/null
+# Kubernetes - very expensive completion, context-aware via lazy loading - BUSINESS_USE only
+if [[ -n "$BUSINESS_USE" ]]; then
+  zinit ice wait"12" lucid atload"command -v kubectl >/dev/null && eval \"\$(kubectl completion zsh)\""
+  zinit light zdharma-continuum/null
+fi
 
 # Rust toolchain - project-specific, lower frequency
 zinit ice wait"10" lucid atload"command -v rustup >/dev/null && eval \"\$(rustup completions zsh)\""
@@ -206,9 +210,9 @@ zinit light zdharma-continuum/null
 zinit ice wait"10" lucid atload"command -v just >/dev/null && eval \"\$(just --completions zsh)\""
 zinit light zdharma-continuum/null
 
-# Deno - less commonly used
-zinit ice wait"11" lucid atload"command -v deno >/dev/null && eval \"\$(deno completions zsh)\""
-zinit light zdharma-continuum/null
+# Deno - disabled for performance (uncomment if needed)
+# zinit ice wait"11" lucid atload"command -v deno >/dev/null && eval \"\$(deno completions zsh)\""
+# zinit light zdharma-continuum/null
 
 # ============================================================================
 # Completion Styling and Configuration

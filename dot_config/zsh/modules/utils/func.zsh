@@ -16,8 +16,8 @@ declare_module "func" \
     "depends:platform,core" \
     "category:utils" \
     "description:Utility functions for improved workflow" \
-    "provides:_fzf_cd_ghq,opr,zprofiler,zshtime,brewbundle,brewbundle_work,brewbundle_personal,brewbundle_diff,_remove_unnecessary_branches,local_config_init,local_config_edit,local_config_show" \
-    "external:ghq,fzf,bat,op,brew,git" \
+    "provides:_fzf_cd_ghq,opr,zprofiler,zshtime,brewbundle,brewbundle_work,brewbundle_personal,brewbundle_diff,_remove_unnecessary_branches,local_config_init,local_config_edit,local_config_show,_fzf_rg_search" \
+    "external:ghq,fzf,bat,op,brew,git,rg" \
     "optional:ghq,fzf,bat,op"
 
 _fzf_cd_ghq() {
@@ -263,5 +263,64 @@ local_config_show() {
     if [[ -d "${ZDOTDIR:-$HOME/.config/zsh}/local" ]]; then
         echo "=== Local Config Directory: ${ZDOTDIR:-$HOME/.config/zsh}/local/ ==="
         ls -la "${ZDOTDIR:-$HOME/.config/zsh}/local/"
+    fi
+}
+
+# Interactive full-text search with ripgrep and fzf
+_fzf_rg_search() {
+    # Check required commands
+    if ! command -v rg >/dev/null 2>&1; then
+        echo "Error: ripgrep (rg) is required for search" >&2
+        zle reset-prompt
+        return 1
+    fi
+
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo "Error: fzf is required for interactive selection" >&2
+        zle reset-prompt
+        return 1
+    fi
+
+    local search_dir="${1:-$(pwd)}"
+
+    # Use fzf with rg for live search (relative paths from current directory)
+    local selected_file
+    selected_file=$(
+        cd "$search_dir" && rg --color=always --line-number --no-heading --smart-case "${2:-}" . 2>/dev/null |
+        fzf --ansi \
+            --reverse \
+            --height=60% \
+            --delimiter : \
+            --preview "bat --color=always --style=numbers --highlight-line {2} $search_dir/{1}" \
+            --preview-window 'right:50%:+{2}+3/2' \
+            --bind 'enter:become(echo {1}:{2})' \
+            --header "Search in: $search_dir - Enter: open file at line, Esc: cancel"
+    )
+
+    # Check if user selected something
+    if [[ -z "$selected_file" ]]; then
+        zle reset-prompt
+        return 0
+    fi
+
+    # Parse file:line format
+    local file_path="${selected_file%%:*}"
+    local line_number="${selected_file#*:}"
+
+    # Convert relative path to absolute path for opening
+    local full_path="$search_dir/$file_path"
+
+    if [[ -f "$full_path" ]]; then
+        # Open file in editor at specific line
+        if [[ -n "$line_number" && "$line_number" =~ ^[0-9]+$ ]]; then
+            BUFFER="${EDITOR:-vim} +${line_number} \"$full_path\""
+        else
+            BUFFER="${EDITOR:-vim} \"$full_path\""
+        fi
+        zle accept-line
+    else
+        echo "Error: File not found: $full_path" >&2
+        zle reset-prompt
+        return 1
     fi
 }
