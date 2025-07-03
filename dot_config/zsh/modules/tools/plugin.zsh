@@ -18,14 +18,16 @@
 # - `zinit times` : Show plugin loading times
 # ============================================================================
 
-# Module metadata declaration
-declare_module "plugin" \
-  "depends:platform,core" \
-  "category:tools" \
-  "description:Zsh plugin management with performance optimization" \
-  "provides:ZINIT_HOME" \
-  "external:git" \
-  "optional:"
+# Module metadata declaration (only if function exists)
+if (( $+functions[declare_module] )); then
+  declare_module "plugin" \
+    "depends:platform,core" \
+    "category:tools" \
+    "description:Zsh plugin management with performance optimization" \
+    "provides:ZINIT_HOME" \
+    "external:git" \
+    "optional:"
+fi
 
 # Initialize zinit (optimized)
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
@@ -165,8 +167,26 @@ zinit light zdharma-continuum/null
 
 # atuin - shell history management
 if is_exist_command atuin; then
+  # Debug output
+  [[ "$DOTS_DEBUG" == "1" ]] && echo "Initializing atuin history management"
+  
+  # Load required zsh hook functionality
+  autoload -U add-zsh-hook
+  
   # Initialize atuin synchronously to avoid binding conflicts
   eval "$(atuin init zsh)"
+  
+  # Verify hooks are registered
+  if [[ " ${preexec_functions[@]} " != *" _atuin_preexec "* ]]; then
+    [[ "$DOTS_DEBUG" == "1" ]] && echo "Warning: atuin preexec hook not registered"
+  else
+    [[ "$DOTS_DEBUG" == "1" ]] && echo "✓ atuin hooks registered successfully"
+  fi
+  if [[ " ${precmd_functions[@]} " != *" _atuin_precmd "* ]]; then
+    [[ "$DOTS_DEBUG" == "1" ]] && echo "Warning: atuin precmd hook not registered"
+  fi
+else
+  [[ "$DOTS_DEBUG" == "1" ]] && echo "atuin not found, skipping initialization"
 fi
 
 # ============================================================================
