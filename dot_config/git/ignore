@@ -36,3 +36,6 @@
 *.local
 *.local.*
 local.*
+
+.paveg/
+

@@ -15,11 +15,15 @@ rust = "stable"
 
 # Other runtime versions can be defined here
 ruby = "latest"
-node = "latest"
+node = "lts"
 go   = "latest"
-ghq  = "latest"
 # python = "3.12"
+
+ghq  = "latest"
+lazydocker = "latest"
+usage = "latest"
 
 # relatively npm packages in global
 "npm:@anthropic-ai/claude-code" = "latest"
 "npm:@google/gemini-cli" = "latest"
+
