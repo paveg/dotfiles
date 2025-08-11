@@ -13,13 +13,12 @@ function load() {
 
 # Load essential modules
 load "$ZMODDIR/platform.zsh"
-load "$ZMODDIR/logging.zsh"
 
 {{- if eq .chezmoi.os "darwin" }}
 # macOS: 1Password CLI integration (conditional)
 if [[ ! -d "$XDG_CONFIG_HOME/op/plugins" ]]; then
-  log_warn "1password plugins is not installed"
-  log_info "Run 'op plugin init gh' to install 1password plugins"
+  echo "Warning: 1password plugins is not installed" >&2
+  echo "Info: Run 'op plugin init gh' to install 1password plugins" >&2
 fi
 
 # Load 1Password plugins if available
