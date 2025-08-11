@@ -2,28 +2,69 @@
 # https://mise.jdx.dev/configuration.html
 
 [settings]
-# Use XDG directories
+# Use XDG directories and enable experimental features
 experimental = true
 asdf_compat = false
-# Automatically load .env files in directories
+legacy_version_file = false
+always_keep_download = false
+always_keep_install = false
+plugin_autoupdate_last_check_duration = "7 days"
 env_file = ".env"
+disable_default_shorthands = false
+disable_tools = []
+raw = false
+verbose = false
+quiet = false
 
 [tools]
-# Define default tool versions
+# === Core Language Runtimes ===
 # Use mise to manage Rust instead of rustup
-rust = "stable"
+rust   = "stable"
+go     = "latest"
+node   = "lts"        # LTS for stability
+python = "latest"
+ruby   = "latest"
 
-# Other runtime versions can be defined here
-ruby = "latest"
-node = "lts"
-go   = "latest"
-# python = "3.12"
-
-ghq  = "latest"
-lazydocker = "latest"
-usage = "latest"
-
-# relatively npm packages in global
+# === AI/ML CLI Tools ===
+# Claude and Gemini - always latest for best features
 "npm:@anthropic-ai/claude-code" = "latest"
 "npm:@google/gemini-cli" = "latest"
 
+# === Development Tools ===
+ghq        = "latest"   # Repository management
+lazydocker = "latest"   # Docker TUI
+usage      = "latest"   # CLI usage analytics
+just       = "latest"   # Command runner
+fd         = "latest"   # Find alternative
+bat        = "latest"   # Cat alternative
+ripgrep    = "latest"   # Grep alternative
+eza        = "latest"   # Ls alternative
+delta      = "latest"   # Git diff viewer
+starship   = "latest"   # Prompt
+
+# === Infrastructure & Cloud Tools ===
+kubectl    = "latest"
+helm       = "latest"
+terraform  = "latest"
+awscli     = "latest"
+
+# === Package Managers & Build Tools ===
+pnpm       = "latest"
+bun        = "latest"
+deno       = "latest"
+
+# === Utilities ===
+jq         = "latest"   # JSON processor
+yq         = "latest"   # YAML processor
+fzf        = "latest"   # Fuzzy finder
+"npm:ccusage" = "latest"
+
+[env]
+# AI CLI configurations
+CLAUDE_API_KEY = { file = "~/.config/claude/api_key", optional = true }
+GEMINI_API_KEY = { file = "~/.config/gemini/api_key", optional = true }
+
+# Development environment
+EDITOR = "nvim"
+PAGER = "less"
+MANPAGER = "less"
