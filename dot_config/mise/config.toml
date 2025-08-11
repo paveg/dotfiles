@@ -60,9 +60,6 @@ fzf        = "latest"   # Fuzzy finder
 "npm:ccusage" = "latest"
 
 [env]
-# AI CLI configurations
-CLAUDE_API_KEY = { file = "~/.config/claude/api_key", optional = true }
-GEMINI_API_KEY = { file = "~/.config/gemini/api_key", optional = true }
 
 # Development environment
 EDITOR = "nvim"
