@@ -79,3 +79,9 @@ package.json
 pnpm-lock.yaml
 node_modules/
 .prettierignore
+
+# Claude Code and MCP related files (not managed by chezmoi)
+.serena/
+.mcp.json
+claude-*.json
+*claude*.log
