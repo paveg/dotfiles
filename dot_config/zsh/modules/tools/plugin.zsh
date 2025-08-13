@@ -32,17 +32,23 @@ fi
 # Initialize zinit (optimized)
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 
+# Check if zinit installation is intact
+if [[ ! -f "$ZINIT_HOME/zinit.zsh" ]] || [[ ! -d "$ZINIT_HOME/.git" ]]; then
+  [[ "$DOTS_DEBUG" == "1" ]] && echo "Zinit corrupted or missing, forcing reinstallation..."
+  rm -rf "$ZINIT_HOME" 2>/dev/null
+fi
+
 # Fast zinit installation check with error handling
 if [[ ! -d $ZINIT_HOME/.git ]]; then
-  debug "Installing zinit plugin manager..."
+  [[ "$DOTS_DEBUG" == "1" ]] && echo "Installing zinit plugin manager..."
   [[ ! -d $ZINIT_HOME ]] && mkdir -p "$(dirname $ZINIT_HOME)"
 
   git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" || {
-    error "Failed to install zinit"
-    warn "Please install zinit manually or check your internet connection"
+    echo "Failed to install zinit" >&2
+    echo "Please install zinit manually or check your internet connection" >&2
     return 1
   }
-  debug "✓ Zinit installed successfully"
+  [[ "$DOTS_DEBUG" == "1" ]] && echo "✓ Zinit installed successfully"
 fi
 
 # Configure zinit for better terminal compatibility
@@ -168,7 +174,7 @@ zinit ice wait"6" lucid atload"command -v gh >/dev/null && eval \"\$(gh completi
 zinit light zdharma-continuum/null
 
 # atuin - shell history management
-if is_exist_command atuin; then
+if command -v atuin >/dev/null 2>&1; then
   # Debug output
   [[ "$DOTS_DEBUG" == "1" ]] && echo "Initializing atuin history management"
 

@@ -15,7 +15,7 @@ COLORTERM = "truecolor"
 
 # Terminal shell configuration
 [terminal.shell]
-args = ["-l", "-c", "zellij attach --index 0 --create"]
+args = ["-l"]
 program = "/bin/zsh"
 
 # Window configuration
@@ -29,8 +29,6 @@ option_as_alt = "Both"
 decorations = "full"
 startup_mode = "Windowed"
 dynamic_title = true
-# Enable live config reload
-live_config_reload = true
 # Improve rendering performance
 blur = false
 
@@ -118,8 +116,14 @@ action = "ToggleSimpleFullscreen"
 key = "F11"
 
 [[keyboard.bindings]]
-action = "ToggleSimpleFullscreen"
+action = "ToggleFullscreen"
 key = "Return"
+mods = "Command"
+
+# Legacy fullscreen key binding from original config  
+[[keyboard.bindings]]
+action = "ToggleFullscreen"
+key = 36
 mods = "Command"
 
 # Vi mode bindings

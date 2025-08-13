@@ -56,5 +56,38 @@ safe_tput() {
     fi
 }
 
-# Note: Function is available in current shell context
-# Export removed to prevent startup output
+# Auto-start zellij for interactive shells
+# Only in terminal environments, not in IDEs or CI
+auto_start_zellij() {
+    # Skip if already in zellij
+    [[ -n "$ZELLIJ" ]] && return 0
+
+    # Skip for non-interactive shells
+    [[ ! -o interactive ]] && return 0
+
+    # Skip in CI/automated environments
+    [[ -n "$CI" || -n "$GITHUB_ACTIONS" || -n "$GITLAB_CI" ]] && return 0
+
+    # Skip if explicitly disabled
+    [[ "$DISABLE_AUTO_ZELLIJ" == "1" ]] && return 0
+    [[ "$DISABLE_MULTIPLEXER" == "1" ]] && return 0
+
+    # Only for alacritty or if explicitly enabled
+    if [[ "$TERM_PROGRAM" == "Alacritty" ]] || [[ -n "$ALACRITTY_SOCKET" ]] || [[ "$AUTO_ZELLIJ" == "1" ]]; then
+        if command -v zellij >/dev/null 2>&1; then
+            exec zellij attach --index 0 --create
+        fi
+    fi
+}
+
+# Defer zellij auto-start until after all modules are loaded
+# This ensures local.zsh settings are available
+if [[ -o interactive ]]; then
+    # Use precmd to start zellij after all initialization is complete
+    _zellij_auto_start() {
+        auto_start_zellij
+        # Remove this hook after first execution
+        precmd_functions=(${precmd_functions[@]:#_zellij_auto_start})
+    }
+    precmd_functions+=(_zellij_auto_start)
+fi
