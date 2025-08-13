@@ -41,13 +41,20 @@ This is a personal dotfiles repository managed with [chezmoi](https://www.chezmo
 - `zprofiler` - Profile zsh startup time
 - `zshtime` - Measure zsh startup performance
 
-### Tmux Auto-start (Linux)
+### Terminal Multiplexer Auto-start
 
-- **Automatic tmux on SSH**: Automatically starts or attaches to tmux sessions on Linux when connecting via SSH
+- **Automatic tmux on Linux SSH**: Automatically starts or attaches to tmux sessions on Linux when connecting via SSH
+- **Automatic zellij on Alacritty**: Automatically starts zellij sessions when opening Alacritty terminals
+- **Configuration locations**:
+  - Global defaults: `~/.zshenv` (managed by chezmoi)
+  - Local overrides: `~/.config/zsh/local.zsh` (machine-specific, not tracked)
 - **Control variables**:
-  - `DISABLE_AUTO_TMUX=1` - Disable automatic tmux startup
+  - `DISABLE_MULTIPLEXER=1` - Disable both tmux and zellij auto-start (unified control)
+  - `DISABLE_AUTO_TMUX=1` - Disable automatic tmux startup only
+  - `DISABLE_AUTO_ZELLIJ=1` - Disable automatic zellij startup only
   - `AUTO_TMUX=1` - Force automatic tmux startup (even in non-SSH sessions)
-- **Smart detection**: Only activates for SSH sessions, skips CI/Docker environments
+  - `AUTO_ZELLIJ=1` - Force automatic zellij startup
+- **Smart detection**: Only activates for appropriate contexts (SSH for tmux, Alacritty for zellij)
 - **Session management**: Attaches to existing sessions or creates new ones
 
 ### Neovim/AstroNvim

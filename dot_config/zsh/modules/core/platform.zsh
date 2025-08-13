@@ -79,7 +79,7 @@ auto_tmux_linux() {
     fi
 
     # Skip if explicitly disabled
-    if [[ "${DISABLE_AUTO_TMUX:-0}" = "1" ]]; then
+    if [[ "${DISABLE_AUTO_TMUX:-0}" = "1" ]] || [[ "${DISABLE_MULTIPLEXER:-0}" = "1" ]]; then
         return 0
     fi
 
