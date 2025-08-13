@@ -1,0 +1,202 @@
+# Alacritty Configuration
+# See: https://alacritty.org/config-alacritty.html
+# 
+# This configuration is managed by chezmoi and supports environment-specific
+# settings via the BUSINESS_USE environment variable.
+#
+# Location: ~/.config/alacritty/alacritty.toml (XDG compliant)
+# Template: {{ .chezmoi.sourceDir }}/dot_config/alacritty/alacritty.toml.tmpl
+
+# Environment variables
+[env]
+TERM = "alacritty"
+# Enable color support
+COLORTERM = "truecolor"
+
+# Terminal shell configuration
+[terminal.shell]
+args = ["-l", "-c", "zellij attach --index 0 --create"]
+program = "/bin/zsh"
+
+# Window configuration
+[window]
+{{- if .business_use }}
+opacity = 0.95  # Slightly transparent for business use
+{{- else }}
+opacity = 1.0   # Fully opaque for personal use
+{{- end }}
+option_as_alt = "Both"
+decorations = "full"
+startup_mode = "Windowed"
+dynamic_title = true
+# Enable live config reload
+live_config_reload = true
+# Improve rendering performance
+blur = false
+
+[window.dimensions]
+{{- if .business_use }}
+columns = 160   # Smaller for business presentations
+lines = 50
+{{- else }}
+columns = 200   # Larger for personal development
+lines = 80
+{{- end }}
+
+[window.padding]
+x = 4
+y = 4
+
+[window.position]
+x = 100
+y = 200
+
+# Font configuration
+[font]
+{{- if .business_use }}
+size = 14  # Smaller font for business/presentation mode
+{{- else }}
+size = 16  # Comfortable font for development
+{{- end }}
+
+[font.normal]
+family = "UDEV Gothic 35NFLG"
+style = "Regular"
+
+[font.bold]
+family = "UDEV Gothic 35NFLG"
+style = "Bold"
+
+[font.italic]
+family = "UDEV Gothic 35NFLG"
+style = "Regular"  # Fallback to Regular since Italic not available
+
+[font.bold_italic]
+family = "UDEV Gothic 35NFLG"
+style = "Bold"     # Fallback to Bold since Bold Italic not available
+
+[font.offset]
+x = 0
+y = 1
+
+# Scrolling configuration
+[scrolling]
+history = 10000
+multiplier = 3
+
+# Mouse configuration
+[mouse]
+hide_when_typing = true
+
+# Selection configuration
+[selection]
+semantic_escape_chars = ",│`|:\"' ()[]{}<>"
+save_to_clipboard = true
+
+# Hints for URL detection and opening
+[[hints.enabled]]
+regex = "(ipfs:|ipns:|magnet:|mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)[^\u0000-\u001f\u007f-\u009f<>\"\\s{-}\\^⟨⟩`]+"
+command = "open"
+post_processing = true
+mouse = { enabled = true, mods = "Control" }
+binding = { key = "U", mods = "Control|Shift" }
+
+# Bell configuration
+[bell]
+duration = 0
+color = "0xffffff"
+
+# Cursor configuration
+[cursor]
+style = "Block"
+unfocused_hollow = true
+thickness = 0.15
+
+# Keyboard bindings
+[[keyboard.bindings]]
+action = "ToggleSimpleFullscreen"
+key = "F11"
+
+[[keyboard.bindings]]
+action = "ToggleSimpleFullscreen"
+key = "Return"
+mods = "Command"
+
+# Vi mode bindings
+[[keyboard.bindings]]
+action = "ToggleViMode"
+key = "Space"
+mods = "Control|Shift"
+
+# Copy/Paste bindings
+[[keyboard.bindings]]
+action = "Copy"
+key = "C"
+mods = "Command"
+
+[[keyboard.bindings]]
+action = "Paste"
+key = "V"
+mods = "Command"
+
+# New window/tab bindings
+[[keyboard.bindings]]
+action = "CreateNewWindow"
+key = "N"
+mods = "Command"
+
+# Search bindings
+[[keyboard.bindings]]
+action = "SearchForward"
+key = "F"
+mods = "Command"
+
+# Zoom bindings
+[[keyboard.bindings]]
+action = "IncreaseFontSize"
+key = "Plus"
+mods = "Command"
+
+[[keyboard.bindings]]
+action = "DecreaseFontSize"
+key = "Minus"
+mods = "Command"
+
+[[keyboard.bindings]]
+action = "ResetFontSize"
+key = "Key0"
+mods = "Command"
+
+# Colors configuration - Modern catppuccin mocha theme
+[colors.primary]
+background = "#1e1e2e"
+foreground = "#cdd6f4"
+
+[colors.cursor]
+text = "#1e1e2e"
+cursor = "#f5e0dc"
+
+[colors.selection]
+text = "#1e1e2e"
+background = "#f5e0dc"
+
+[colors.normal]
+black = "#45475a"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#bac2de"
+
+[colors.bright]
+black = "#585b70"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#a6adc8"
+
