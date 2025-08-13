@@ -81,7 +81,7 @@ node_modules/
 .prettierignore
 
 # Claude Code and MCP related files (not managed by chezmoi)
-.serena/
+.serena/cache/
 .mcp.json
 claude-*.json
 *claude*.log
