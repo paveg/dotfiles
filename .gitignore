@@ -6,4 +6,4 @@
 node_modules
 # Backup files from experimental integration
 dot_config/zsh/modules/experimental/*.backup
-.serena/cache
+.serena/cache/
