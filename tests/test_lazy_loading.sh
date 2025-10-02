@@ -457,9 +457,12 @@ test_real_tool_integration() {
         if command -v "$tool" >/dev/null 2>&1; then
             verbose "Testing real $tool integration..."
             
-            local tool_test=$(timeout 30s zsh -c "
+            local tool_test=$(zsh -c "
+                # Set up a signal handler for timeout
+                TMOUT=30
+
                 source '$ZSH_CONFIG_DIR/modules/tools/lazy_loading.zsh'
-                
+
                 # Test lazy loading wrapper
                 if (( \$+functions[$tool] )); then
                     # Try to execute help (should initialize)
