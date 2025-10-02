@@ -345,26 +345,76 @@ jobs:
         
         # Test full zsh interactive session simulation
         echo "Testing complete zsh configuration loading..."
-        timeout 30 zsh -i -c '
-          echo "Zsh session started"
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 30 zsh -i -c '
+              echo "Zsh session started"
 
-          # Test alias availability
-          if alias ll >/dev/null 2>&1; then
-            echo "✓ Aliases loaded"
-          fi
+              # Test alias availability
+              if alias ll >/dev/null 2>&1; then
+                echo "✓ Aliases loaded"
+              fi
 
-          # Test function availability
-          if declare -f opr >/dev/null 2>&1; then
-            echo "✓ Custom functions loaded"
-          fi
+              # Test function availability
+              if declare -f opr >/dev/null 2>&1; then
+                echo "✓ Custom functions loaded"
+              fi
 
-          # Test module system
-          if [[ -n "$ZMODDIR" ]]; then
-            echo "✓ Module system initialized"
-          fi
+              # Test module system
+              if [[ -n "$ZMODDIR" ]]; then
+                echo "✓ Module system initialized"
+              fi
 
-          echo "✓ Integration test passed"
-        ' || (echo "FAIL: Integration test failed" && exit 1)
+              echo "✓ Integration test passed"
+            ' || (echo "FAIL: Integration test failed" && exit 1)
+        else
+            # Fallback method for systems without timeout command
+            (
+                zsh -i -c '
+                  echo "Zsh session started"
+
+                  # Test alias availability
+                  if alias ll >/dev/null 2>&1; then
+                    echo "✓ Aliases loaded"
+                  fi
+
+                  # Test function availability
+                  if declare -f opr >/dev/null 2>&1; then
+                    echo "✓ Custom functions loaded"
+                  fi
+
+                  # Test module system
+                  if [[ -n "$ZMODDIR" ]]; then
+                    echo "✓ Module system initialized"
+                  fi
+
+                  echo "✓ Integration test passed"
+                '
+                echo $? > /tmp/integration_exit_code
+            ) &
+            ZSH_PID=$!
+
+            # Wait up to 30 seconds for the process to complete
+            for i in {1..30}; do
+                if ! kill -0 $ZSH_PID 2>/dev/null; then
+                    # Process has finished
+                    if [ -f /tmp/integration_exit_code ] && [ "$(cat /tmp/integration_exit_code)" = "0" ]; then
+                        rm -f /tmp/integration_exit_code
+                        break
+                    else
+                        echo "FAIL: Integration test failed"
+                        exit 1
+                    fi
+                fi
+                sleep 1
+            done
+
+            # If we get here and process is still running, it timed out
+            if kill -0 $ZSH_PID 2>/dev/null; then
+                kill -9 $ZSH_PID 2>/dev/null
+                echo "FAIL: Integration test timed out after 30 seconds"
+                exit 1
+            fi
+        fi
 
   # Status check job that branch protection can depend on
   ci-success:
