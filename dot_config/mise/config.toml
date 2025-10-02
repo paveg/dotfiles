@@ -26,8 +26,7 @@ python = "latest"
 ruby   = "latest"
 
 # === AI/ML CLI Tools ===
-# Claude and Gemini - always latest for best features
-"npm:@anthropic-ai/claude-code" = "latest"
+# Gemini - always latest for best features
 "npm:@google/gemini-cli" = "latest"
 
 # === Development Tools ===
