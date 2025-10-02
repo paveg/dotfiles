@@ -182,8 +182,40 @@ jobs:
         export ZDOTDIR="$TEST_HOME/.config/zsh"
         
         # Test that zsh can load without errors (non-interactive)
-        # Use timeout command (available on both macOS 10.10+ and Linux)
-        timeout 30 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
+        # Use timeout if available, otherwise use background process with kill
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 30 zsh -c 'echo "Zsh loaded successfully"' || (echo "FAIL: Zsh loading failed" && exit 1)
+        else
+            # Fallback method for systems without timeout command
+            # Run zsh test with a simple timeout using background processes
+            (
+                zsh -c 'echo "Zsh loaded successfully"'
+                echo $? > /tmp/zsh_exit_code
+            ) &
+            ZSH_PID=$!
+
+            # Wait up to 30 seconds for the process to complete
+            for i in {1..30}; do
+                if ! kill -0 $ZSH_PID 2>/dev/null; then
+                    # Process has finished
+                    if [ -f /tmp/zsh_exit_code ] && [ "$(cat /tmp/zsh_exit_code)" = "0" ]; then
+                        rm -f /tmp/zsh_exit_code
+                        break
+                    else
+                        echo "FAIL: Zsh loading failed"
+                        exit 1
+                    fi
+                fi
+                sleep 1
+            done
+
+            # If we get here and process is still running, it timed out
+            if kill -0 $ZSH_PID 2>/dev/null; then
+                kill -9 $ZSH_PID 2>/dev/null
+                echo "FAIL: Zsh loading timed out after 30 seconds"
+                exit 1
+            fi
+        fi
         
         echo "✓ Zsh loading test passed"
     
