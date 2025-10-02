@@ -2,6 +2,7 @@
 # This file is NOT managed by chezmoi to allow local customization
 
 [tools]
+rust = "stable"
 shfmt = "latest"
 
 [tasks.test]
