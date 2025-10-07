@@ -1,5 +1,3 @@
-tap "homebrew/bundle"
-tap "homebrew/services"
 brew "openssl@3"
 brew "xz"
 brew "awscli"
@@ -21,6 +19,7 @@ brew "mas"
 brew "mise"
 brew "mysql-client@8.0", link: true
 brew "neovim"
+brew "peco"
 brew "redis"
 brew "ruby-build"
 brew "saml2aws"
@@ -40,7 +39,11 @@ cask "postman"
 cask "raycast"
 cask "session-manager-plugin"
 cask "slack"
-cask "spotify"
 cask "visual-studio-code"
+mas "GarageBand", id: 682658836
+mas "iMovie", id: 408981434
+mas "Keynote", id: 409183694
 mas "MenuBar Stats", id: 714196447
+mas "Numbers", id: 409203825
+mas "Pages", id: 409201541
 mas "Xcode", id: 497799835
