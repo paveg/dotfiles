@@ -2,39 +2,34 @@
   "permissions": {
     "allow": [],
     "deny": [
-      "Bash(rm -rf:*)",
-      "Bash(rm -r:*)",
-      "Bash(sudo rm:*)",
-      "Bash(rmdir:*)",
-      "Bash(rm --recursive:*)",
-      "Bash(rm --force:*)",
-      "Bash(rm -f:*)",
-      "Bash(rm -R:*)",
-      "Bash(find * -delete:*)",
-      "Bash(find * -exec rm:*)",
-      "Bash(xargs rm:*)",
       "Bash(sudo:*)",
-      "Bash(git config *)",
+      "Bash(rm:*)",
+      "Bash(rm -rf:*)",
       "Bash(git push:*)",
       "Bash(git commit:*)",
       "Bash(git reset:*)",
       "Bash(git rebase:*)",
-      "Bash(brew install *)",
-      "Bash(chmod 777 *)",
-      "Read(.env*)",
-      "Read(id_rsa*)",
-      "Read(*.key)",
-      "Read(*.pem)",
+      "Read(.env.*)",
+      "Read(id_rsa)",
+      "Read(id_ed25519)",
+      "Read(**/*token*)",
+      "Read(**/*key*)",
       "Write(.env*)",
-      "Write(id_rsa*)",
-      "Write(*.key)",
-      "Write(*.pem)"
+      "Write(**/secrets/**)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(nc:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm remove:*)",
+      "Bash(psql:*)",
+      "Bash(mysql:*)",
+      "Bash(mongod:*)",
+      "mcp__supabase__execute_sql"
     ]
   },
   "statusLine": {
     "type": "command",
     "command": "npx -y ccusage statusline",
     "padding": 0
-  },
-  "preferredNotifChannel": "auto"
+  }
 }

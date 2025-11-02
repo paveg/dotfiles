@@ -2,6 +2,7 @@
 # This file is NOT managed by chezmoi to allow local customization
 
 [tools]
+"npm:@anthropic-ai/claude-code" = "latest"
 rust = "stable"
 shfmt = "latest"
 
