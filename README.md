@@ -11,4 +11,10 @@ Personal dotfiles, built for AI-native development.
 
 ## Status
 
-Work in progress. The layout and bootstrap procedure will be documented here as they land.
+Design only: nothing is implemented yet. The layout and bootstrap procedure will be documented here as they land.
+
+## Layout
+
+- [`docs/design.md`](docs/design.md): the design — goals, principles, architecture, acceptance criteria, open questions.
+- [`docs/adr/`](docs/adr/): architecture decision records for choices with lasting consequences.
+- [`docs/verification.md`](docs/verification.md): evidence behind the design's factual statements.
