@@ -1,6 +1,6 @@
 # Verification log
 
-Evidence behind the factual statements in [`design.md`](design.md), collected on 2026-11-25. "Measured" means a command was run on a real machine; "Source" means an official document or source file was read. Statements marked **Unverified** in the design are not listed here.
+Evidence behind the factual statements in [`design.md`](design.md), collected on 2026-11-25. "Measured" means a command was run on a real machine; "Source" means an official document or source file was read. "(by a review agent)" means a review agent read the source or ran the command and the author of this log did not re-open it; treat such a row as one step weaker than its label. Statements marked **Unverified** in the design are not listed here.
 
 ## Shell and PATH
 
@@ -8,8 +8,11 @@ Evidence behind the factual statements in [`design.md`](design.md), collected on
 |---|---|---|
 | Tools activated by a `.zshrc` hook are invisible to `zsh -c` | Holds | Measured in a project whose `mise.toml` declares a tool: `env -i HOME=$HOME PATH=/usr/bin:/bin zsh -c 'command -v <tool>'` did not find it; the same command after `eval "$(mise hook-env -s zsh)"` resolved it under mise's install directory (positive control) |
 | mise shims resolve project tools without a hook | Holds | Measured: `env -i HOME=$HOME PATH=$HOME/.local/share/mise/shims:/usr/bin:/bin zsh -c '<tool> --version'` in that project printed the version |
+| mise's data directory is `MISE_DATA_DIR`, else `$XDG_DATA_HOME/mise`; shims live in its `shims/` | Holds | Source: mise.jdx.dev/directories. Measured: `mise doctor` reports `shims: ~/.local/share/mise/shims` |
 | Claude Code's Bash tool replays the interactive shell, aliases included | Holds | Measured: in a Claude Code Bash tool shell, `ls` ran the `eza --icons` alias, and `mise` was a shell function sourced from `~/.claude/shell-snapshots/` |
-| Global tools whose PATH is set in `.zshenv` resolve from `zsh -c` started with launchd's default PATH | Holds | Measured: `env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -c 'command -v gh ghq fzf rg'` resolved all four, exit 0 |
+| Global tools whose PATH is set in `.zshenv` resolve from `zsh -c` started with launchd's default PATH | Holds for the current setup only | Measured: `env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -c 'command -v gh ghq fzf rg'` resolved all four, exit 0. Re-run 2026-11-25: all four resolved under devbox global's profile, so this says nothing yet about nix-darwin's per-user profile |
+| Under `env -i`, zsh leaves `USER` empty but sets `USERNAME` and `LOGNAME` | Holds | Measured: `env -i HOME=$HOME PATH=/usr/bin:/bin zsh -f -c 'echo "[$USER] [$USERNAME] [$LOGNAME]"'` printed `[] [ryota] [ryota]` |
+| nix-darwin adds `/etc/profiles/per-user/$USER/bin` with `$USER` expanded at run time | Holds | Source: nix-darwin `modules/users/default.nix:346` (`mkOrder 900 [ "/etc/profiles/per-user/$USER" ]`); `modules/environment/default.nix:140` (`makeBinPath cfg.profiles`) |
 | An app launched from the Dock starts with launchd's default PATH | Holds | Measured: `launchctl print gui/<uid>/application.<terminal app>` showed `PATH => /usr/bin:/bin:/usr/sbin:/sbin` |
 | `useUserPackages = true` installs into `/etc/profiles/per-user/$USER/bin` | Holds | Source: home-manager `nixos/common.nix`; nix-darwin `modules/users/default.nix`; home-manager manual, nix-darwin installation |
 | Only shell initialization puts that directory on PATH | Holds | Source: nix-darwin `modules/environment/default.nix` (`set-environment`, sourced from `/etc/zshenv`, `/etc/bashrc`, fish) |
@@ -19,18 +22,25 @@ Evidence behind the factual statements in [`design.md`](design.md), collected on
 
 | Statement | Result | Evidence |
 |---|---|---|
-| `includeIf "gitdir:..."` applies to linked worktrees of a matching repository, wherever the worktree lives | Holds | Measured (git 2.56.0, isolated `HOME`): main checkout, `.worktrees/b1`, and `~/worktrees/b2` all resolved the work email; a repository under another owner resolved the personal one |
-| git silently ignores an `[include]` whose file does not exist | Holds | Measured: a global config including a missing path returned its own `user.email`, exit 0 |
+| `includeIf "gitdir:..."` applies to linked worktrees of a matching repository, wherever the worktree lives | Holds | Measured (git 2.56.0, isolated `HOME`): main checkout, `.worktrees/b1`, and `~/worktrees/b2` all resolved the work email; a repository under another owner resolved the personal one. Re-run with git 2.50.1 (Apple): the main checkout, `.claude/worktrees/b1`, and a worktree outside the repository resolved the work email, exit 0 |
+| git silently ignores an `[include]` whose file does not exist | Holds | Measured: a global config including a missing path returned its own `user.email`, exit 0. Re-run with git 2.50.1: same |
 
 ## Nix, nix-darwin, home-manager
 
 | Statement | Result | Evidence |
 |---|---|---|
-| `mkOutOfStoreSymlink` with a flake-relative path points into the store | Holds | Measured: inside a flake, `toString ./home/zshrc` evaluated to `/nix/store/...-source/home/zshrc`. Source: home-manager `modules/files.nix`; issues #2085, #2660, #9052 |
-| `nix flake check` neither evaluates nor builds `darwinConfigurations` / `homeConfigurations` | Holds | Measured: outputs set to `throw` passed with `all checks passed!` and exit 0; a `nixosConfigurations` control failed with exit 1. Source: NixOS/nix `src/nix/flake.cc` ("Known but unchecked community attribute") |
-| A GitHub-hosted macOS runner can build a darwin system | Holds | Source: nix-darwin's own CI on `macos-15` builds `system.build.toplevel` |
-| nix-darwin's homebrew module does not install Homebrew; without it, casks are skipped | Holds | Source: nix-darwin `modules/homebrew.nix` ("enabling this option does not install Homebrew", "Homebrew is not installed, skipping...") |
-| Pure evaluation cannot read absolute paths outside the flake, such as `~/.config` | Holds | Measured: `nix eval --pure-eval --expr 'builtins.readDir "<home>/.config"'` failed with "access to absolute path ... is forbidden in pure evaluation mode" |
+| `mkOutOfStoreSymlink` with a flake-relative path points into the store | Holds | Measured: inside a flake, `toString ./home/zshrc` evaluated to `/nix/store/...-source/home/zshrc` (re-run on Nix 2.33.0: same). Source: home-manager `modules/files.nix:170-176` (`ln -s` to `toString path`); issues #2085, #2660, #9052 |
+| home-manager does not check that a link target exists and prints no warning for a dangling one | Holds | Source: home-manager `modules/files.nix:580,674` (plain `ln -s "$source" "$target"`); its only `warnEcho` (`:395`) is about deleting a link outside a generation |
+| `nix flake check` neither evaluates nor builds `darwinConfigurations` / `homeConfigurations` | Holds | Measured: outputs set to `throw` passed with `all checks passed!` and exit 0; a `nixosConfigurations` control failed with exit 1 (re-run on Nix 2.33.0: same). Source: NixOS/nix `src/nix/flake.cc` ("Known but unchecked community attribute") |
+| A GitHub-hosted macOS runner can build and switch a darwin system | Holds | Source: nix-darwin `.github/workflows/test.yml` (`runs-on: macos-15`, `sudo nix run .#darwin-rebuild -- switch`, with upstream Nix) |
+| nix-darwin's homebrew module does not install Homebrew; without it, activation aborts | Holds | Source: nix-darwin `modules/homebrew.nix:671` ("does not install Homebrew"); `modules/system/checks.nix:247-257` ("requires homebrew installed, aborting activation", `exit 2`). The "skipping" branch runs only while nix-homebrew is installing Homebrew |
+| nix-homebrew refuses an existing Homebrew unless `autoMigrate = true`, which replaces the installation and keeps packages | Holds | Source: zhaofengli/nix-homebrew `modules/default.nix:220-226` and its option description |
+| Pure evaluation cannot read absolute paths outside the flake, such as `~/.config` | Holds | Measured: `nix eval --pure-eval --expr 'builtins.readDir "<home>/.config"'` failed with "access to absolute path ... is forbidden in pure evaluation mode" (re-run on Nix 2.33.0: same) |
+| `writeShellApplication` appends the caller's PATH unless `inheritPath = false`, and runs shellcheck by default | Holds | Source: nixpkgs `pkgs/build-support/trivial-builders/default.nix:286-292` (`bashOptions`, `inheritPath ? true`), `:318-321` (`optionals inheritPath [ "$PATH" ]`) |
+| `launchd.user.envVariables` runs `launchctl setenv` as `system.primaryUser` at activation, single-quoted (not expanded) | Holds | Source (by a review agent): nix-darwin `modules/system/launchd.nix:14-15,138-143` |
+| `GHQ_ROOT` overrides ghq's root | Holds | Measured: `GHQ_ROOT=/tmp/ghq-root-probe ghq root` printed `/tmp/ghq-root-probe` |
+| Claude Code's worktree isolation places worktrees under `.claude/worktrees/` | Holds | Measured: `git worktree list` over every local `paveg` clone found 10 linked worktrees, all under `<repo>/.claude/worktrees/` |
+| This Mac runs upstream Nix, not Determinate | Holds | Measured: `nix --version` printed `nix (Nix) 2.33.0`; `/usr/local/bin/determinate-nixd` does not exist |
 | nix-darwin refuses to activate with `nix.enable` on under Determinate | Holds | Source: nix-darwin `modules/system/checks.nix` ("Determinate detected, aborting activation") |
 | Upstream Nix through the Determinate installer is unsupported | Holds | Source: DeterminateSystems/nix-installer README ("isn't a supported configuration", "we may remove it in a future release") |
 | Determinate Nix supports WSL2 with systemd | Holds | Source: nix-installer README platform table; `Wsl2SystemdNotActive` planner error |
@@ -45,7 +55,7 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | Nix's own downloads use `ssl-cert-file` | Holds | Source: nix `src/libstore/filetransfer.cc` (`CURLOPT_CAINFO` from `settings.caFile`) |
 | The configured `ssl-cert-file` wins over `NIX_SSL_CERT_FILE` | Holds (contrary to the manual) | Measured: with both set (setting through `NIX_CONFIG`), the setting's value was used. Source: nix `globals.cc` (the environment only sets the default) |
 | `builtin:fetchurl` uses the daemon's `ssl-cert-file` | Holds | Source: nix `derivation-builder.cc`, `builtins/fetchurl.cc` |
-| nixpkgs `fetchurl` with a known hash skips TLS verification | Holds | Source: nixpkgs `pkgs/build-support/fetchurl/default.nix`, `builder.sh` |
+| nixpkgs `fetchurl` with a real hash skips TLS verification; with an empty or fake hash or a netrc it uses nixpkgs' cacert | Holds | Source: nixpkgs `pkgs/build-support/fetchurl/default.nix:338-350` (`SSL_CERT_FILE` is cacert's bundle only for `""` / fake hashes / `netrcPhase`, else `/no-cert-file.crt`), `builder.sh` (`--insecure` when that file is missing). `pkgs/build-support/node/prefetch-npm-deps/default.nix:319-328` uses the same rule |
 | `fetchgit` and Go / cargo / npm fetchers take `NIX_SSL_CERT_FILE` from the daemon environment | Holds | Source: nixpkgs `lib/fetchers.nix` (`proxyImpureEnvVars`), `fetchgit/nix-prefetch-git` |
 | The Linux sandbox exposes `ssl-cert-file` only at `/etc/ssl/certs/ca-certificates.crt` | Holds | Source: nix `linux-derivation-builder.cc` |
 | Some fixed-output derivations hard-code nixpkgs' cacert | Holds | Source: nixpkgs `fetch-yarn-deps`, `build-bazel-package`, `docker`, `fetchrepoproject` |
@@ -57,8 +67,8 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 
 | Statement | Result | Evidence |
 |---|---|---|
-| SSH key approvals are per key and application, per tab in terminals, and last until 1Password locks or quits | Holds | Source: 1password.dev, SSH agent security |
-| Approvals survive a lock; only unlocking is asked again | Holds | Source: same page ("your approval will still be in the agent's memory and you'll only be prompted to unlock 1Password") |
+| SSH key approvals are by default per key and per application, and last until 1Password locks or quits or for a set time | Holds | Source: 1password.dev, SSH agent security ("Per key, per application (default)"; "until 1Password locks or quits, or until a set amount of time has passed"). Per-terminal-session is a separate, non-default option |
+| Only an approval given for a set time survives a lock; then only unlocking is asked again | Holds | Source: same page ("If you've already authorized the client to use your key for a set amount of time (for example, four hours) instead of when 1Password locks, your approval will still be in the agent's memory and you'll only be prompted to unlock 1Password") |
 | `agent.toml` selects and orders offered keys; the default offers every key in Personal, Private, or Employee vaults | Holds | Source: 1password.dev, SSH agent config file |
 | WSL2 forwards SSH to Windows `ssh.exe`, and commit signing works from WSL2 | Holds | Source: 1password.dev, WSL integration |
 | The Linux-side `op` in WSL2 cannot use the desktop app integration | Holds | Source: 1password.dev, CLI app integration |
@@ -70,18 +80,80 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | `ksm exec` replaces `keeper://` environment values for a command | Holds | Source: docs.keeper.io, Secrets Manager CLI, exec command |
 | `ksm interpolate` renders templates and writes output with mode 0600 | Holds | Source: docs.keeper.io, interpolate command |
 | `ksm secret download` / `upload` handle record attachments | Holds | Source: docs.keeper.io, secret command |
-| With keyring support, the KSM CLI stores its config in the macOS Keychain | Holds | Source: docs.keeper.io, Secrets Manager CLI |
+| With keyring support, the KSM CLI stores its config in the macOS Keychain | Holds | Source: docs.keeper.io, Secrets Manager CLI ("requires the optional `keyring` extra"; "Without it, profiles fall back to `keeper.ini`") |
+| The KSM CLI is not in nixpkgs | Holds | Measured (by a review agent, 2026-11-25): no nixpkgs attribute at nixos-unstable `2786a2a`, top-level or in `python3Packages`, is the Keeper Secrets Manager CLI |
+
+## GitHub tokens (ghtkn, aqua)
+
+| Statement | Result | Evidence |
+|---|---|---|
+| `ghtkn exec -e <env>[:<app>]` sets a token variable; ghtkn exits 111 without running the command when no token is available; `ghtkn agent unlock --enable-refresh` exists | Holds | Source: suzuki-shunsuke/ghtkn `USAGE.md` at v0.4.3 |
+| ghtkn reads `${XDG_CONFIG_HOME:-$HOME/.config}/ghtkn/ghtkn.yaml`; its default backend is the OS keyring; `exec` never starts the device flow | Holds | Source: ghtkn README and `USAGE.md` (main) |
+| `git-credential` picks the app from `git_owners`, then `GHTKN_GIT_APP`, then `GHTKN_APP`, then the first app | Holds | Source: ghtkn `USAGE.md` (git credential helper) |
+| `ghtkn` 0.4.3 and `_1password-cli` (unfree) are in nixpkgs | Holds | Measured (by a review agent): `nix eval` at nixos-unstable `2786a2a` |
+| aqua uses ghtkn with `AQUA_GHTKN_ENABLED=true` (aqua v2.54.0 or later); an environment token, or the keyring when `AQUA_KEYRING_ENABLED=true`, takes precedence | Holds | Source: aquaproj.github.io, security / ghtkn; aqua `pkg/github/github.go` (v2.66.1) |
+
+## Commit signing on GitHub
+
+| Statement | Result | Evidence |
+|---|---|---|
+| With "require signed commits", unsigned commits on a pull request's head branch can block a squash merge, even though GitHub would sign the final squash commit | Holds | Source: github/docs `data/reusables/repositories/required-signed-commits.md` ("unsigned commits on the head branch can block a squash merge, even though GitHub would sign the final squash commit") |
+
+## Orca
+
+| Statement | Result | Evidence |
+|---|---|---|
+| Orca merges 16 hook entries into `~/.claude/settings.json`, keeping other keys, at app start and when its hook setting changes; it backs up the old file to `settings.json.bak` | Holds | Measured: 16 entries whose command matches `agent-hooks/claude-hook` (`jq` over the file); `settings.json.bak` written at the last Orca launch. Source (by a review agent): Orca 1.4.273 `app.asar`, `out/main/index.js` (startup reconcile) and `hook-service` chunk (strip own entries, append, keep other keys) |
+| Orca's Claude hook lets Orca decide `PreToolUse` and `PermissionRequest` | Holds | Source: `~/.orca/agent-hooks/claude-hook.sh:18-19` (`orca_hook_decides=claude-pre-tool-use-v1`, `claude-permission-request-v1`, up to 126 s) |
+| A remote Orca server (`orca serve`) can be a headless Linux host, must stay awake and on the same tailnet or LAN, and pairs with the mobile app; closing the desktop app drops a direct/LAN session | Holds | Source (by a review agent): orca.dev/docs/remote-servers ("a headless Linux server or a service-managed VM"; "the server must stay awake and connected to the tailnet"); orca.dev/docs/mobile ("Closing the desktop app drops a direct/LAN session until you reopen it") |
+| 1Password for Mac has "Lock when device locks or sleeps"; a locked 1Password prompts on the Mac when a key is used; Apple Watch unlock needs the watch close to the Mac | Holds (default not documented) | Source (by a review agent): support.1password.com/unlock-auto-lock; 1password.dev/ssh/agent/security; support.apple.com/102442 |
+| 1Password service accounts work headless through `OP_SERVICE_ACCOUNT_TOKEN` and cannot access Personal, Private, Employee, or the default Shared vault | Holds | Source (by a review agent): 1password.dev/service-accounts/use-with-1password-cli, /service-accounts/get-started |
+| Commits made through GitHub's API as a GitHub App, with no custom author, committer, or signature, are signed by GitHub; `createCommitOnBranch` commits are signed "if supported" | Holds | Source (by a review agent): docs.github.com, about commit signature verification; GraphQL reference, commits |
+| Secretive can create a Secure Enclave key whose use needs no authentication, and such keys cannot be exported | Holds | Source (by a review agent): maxgoedjen/secretive v4.0.0 `CreationOptions.swift` (`case notRequired`, "Authentication is not required for usage."); README ("it's impossible to export them, by design") |
+| A 1Password CLI desktop-integration authorization is per TTY and expires after 10 minutes of inactivity, 12 hours at most | Holds | Source (by a review agent): 1password.dev/cli/app-integration-security ("Authorization expires after 10 minutes of inactivity"; "hard limit of 12 hours"; "based on the current `tty`") |
+| The Orca iOS app is a thin client; terminals and agents run on the paired desktop or a remote Orca server | Holds | Source: App Store listing "Orca IDE" ("Nothing runs on your phone except the viewer"); orca.dev/docs/mobile ("The paired desktop owns the agent sessions") |
 
 ## Claude Code guardrails
 
 | Statement | Result | Evidence |
 |---|---|---|
 | Bash permission patterns are not a security boundary; `bash -c` is not unwrapped | Holds | Source: code.claude.com/docs/en/permissions ("isn't a security boundary around the program") |
-| A PreToolUse hook that exits with another code, cannot start, times out, or prints invalid JSON lets the call proceed, unless `onFailure: "block"` is set | Holds | Source: code.claude.com/docs/en/hooks |
-| The previous credential and database guards fail open when `jq` is not on PATH | Holds | Measured: with `env -i PATH=<empty dir>`, the credential guard exited 0 with no output and the database guard exited 127; with a normal PATH both returned `permissionDecision: "deny"` |
+| A PreToolUse hook that exits with another code, cannot start, times out, or prints invalid output lets the call proceed, unless `onFailure: "block"` is set | Holds | Source: code.claude.com/docs/en/hooks, "Block the action when a hook fails" (`"continue"` / `"block"`, v2.1.295 or later, no effect on `async` hooks). Installed Claude Code is 2.1.331 |
+| Plain stdout with exit 0 is not a hook failure, so `onFailure` does not block it | Holds | Source: code.claude.com/docs/en/hooks ("Plain-text stdout from a command hook isn't a failure") |
+| On macOS an unset `sandbox.network.allowUnixSockets` blocks every Unix socket; Linux and WSL2 ignore the list and use `allowAllUnixSockets` | Holds | Source: code.claude.com/docs/en/settings, `sandbox.network.allowUnixSockets` ("Default: unset, so the macOS sandbox blocks every Unix socket") |
+| By default Claude Code runs commands unsandboxed when the sandbox cannot start, unless `sandbox.failIfUnavailable: true` | Holds | Source: code.claude.com/docs/en/sandboxing |
+| Installing a plugin at user scope writes `enabledPlugins` in `~/.claude/settings.json`; if the file is generated or read-only, the change lasts only for the session | Holds | Source: code.claude.com/docs/en/plugins (install scope); /settings ("A change you made in Claude Code is lost in new sessions") |
+| Codex reads global instructions from `~/.codex/AGENTS.override.md` or `~/.codex/AGENTS.md`, not `~/.claude/CLAUDE.md` | Holds | Source: Codex docs, AGENTS.md ("In your Codex home directory ... Codex reads `AGENTS.override.md` if it exists. Otherwise, Codex reads `AGENTS.md`"). Measured: `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md` are separate regular files, and `config.toml` sets no fallback |
+| Codex writes `config.toml` at run time (project trust levels), resolving symlinks and writing atomically | Holds | Source: openai/codex `codex-rs/core/src/config/edit.rs` (`resolve_symlink_write_paths`, `write_atomically`) |
+| Codex has hooks (`hooks.json` or `[hooks]` in `config.toml`, including `PreToolUse`) | Holds | Source: Codex docs, hooks. Measured: `~/.codex/config.toml` sets `hooks = true` |
+| `errexit` is suspended inside conditions: a failing command in a function called from `if` falls through | Holds | Measured: `bash -c 'set -o errexit -o nounset -o pipefail; guard(){ false; echo reached-after-false; }; if guard; then echo exit0-path; fi; echo rc=$?'` printed `reached-after-false`, `exit0-path`, `rc=0` |
+| `errexit` is also suspended inside `$(…)` unless `shopt -s inherit_errexit` is set | Holds | Measured on bash 3.2.57 (`/bin/bash`) and 5.3.20 (nixpkgs): with `classify(){ false; echo safe; }; v=$(classify)`, the script continued with `v=safe`; on 5.3 with `shopt -s inherit_errexit` it exited 1 before printing. bash 3.2 has no `inherit_errexit` |
+| With `inherit_errexit`, a guard whose classification runs in `$(…)` aborts (rc 1, so `onFailure` blocks) when a command fails midway; without it, the classification carries on | Holds | Measured on bash 5.3.20 with a prototype guard: match printed `deny` (rc 0), no match printed nothing (rc 0), a failure midway gave rc 1. With the `inherit_errexit` line removed, a failure midway gave rc 0 with no output on a non-matching input |
+| A matcher that errors inside `if` reads as "no match" | Holds | Measured on bash 5.3.20: a prototype variant using `if … \| grep -q` with the pattern `DANGER(`, which grep rejects, gave rc 0 and no output on a matching input; with a valid pattern it printed `deny` |
+| A hook's `allow` decision skips the permission prompt; exit 0 with no output goes through the normal permission flow | Holds | Source (by a review agent): code.claude.com/docs/en/hooks ("`"allow"` skips the permission prompt"; "staying silent doesn't approve it"; precedence `deny > defer > ask > allow`) |
+| The previous credential and database guards fail open when `jq` is not on PATH | Holds | Measured: with `env -i PATH=<empty dir>`, the credential guard exited 0 with no output and the database guard exited 127; with a normal PATH both returned `permissionDecision: "deny"` (re-run 2026-11-25: same) |
+| The previous setup registered eight hooks of its own (six `jq`-based bash scripts, one Python script, one `type: "agent"` Stop hook), plus one herdr-managed hook | Holds | Measured: `jq` over `~/.claude/settings.json` lists `block-credential-read`, `block-destructive-db`, `block-unsigned-commits`, `gh-pr-inject`, `browser-inject`, `japanese-writing-inject` (`.sh`, each uses `jq`), `block-rot-comments.py`, an agent-type Stop hook ("Checking for unaddressed requests"), and `herdr-agent-state.sh`, whose header reads "installed by herdr; managed by herdr" and which does not use `jq` |
 | The sandbox covers shell commands only; file tools, MCP servers, and hooks run outside it | Holds | Source: code.claude.com/docs/en/sandboxing |
 | The sandbox can deny reads (`filesystem.denyRead`), restrict network by domain, and refuse unsandboxed retries (`allowUnsandboxedCommands: false`), on macOS and WSL2 | Holds | Source: code.claude.com/docs/en/sandboxing |
 | `Read(...)` deny rules cover file tools and recognized Bash file commands (`cat`, `head`, `tail`, `sed`, `tee`, redirections) | Holds | Source: code.claude.com/docs/en/permissions |
+
+## Hook need across repositories
+
+Collected 2026-11-25. Repositories: `gh repo list paveg` returned 131, of which 70 are neither archived nor forks; each of the 70 file trees was read through the GitHub API (no errors). Past sessions: 693 transcripts under `~/.claude/projects`, excluding the session that wrote this table. Deny counts are transcript lines carrying the hook's deny text, so they are a rough order of magnitude, not exact firings.
+
+| Hook | Repository signal | Past sessions | Verdict |
+|---|---|---|---|
+| Destructive-database guard | 14 repositories with a drizzle config or SQL migrations (names omitted: most are private) | 5 deny lines in 3 projects | Needed |
+| Credential-read guard | Every repository (any can hold a secret) | 59 deny lines in 10 projects | Needed until the sandbox's `denyRead` replaces it |
+| Unsigned-commit guard | — | 2 deny lines in 1 project | Replaced by deny rules and GitHub's rule |
+| Comment-rot check | Every code repository | 13 deny lines in 6 projects | Needed |
+| PR-body context | Every repository with pull requests | 148 injections | Needed |
+| Japanese-writing context | Repositories with Japanese Markdown | 450 injections (Edit and Write) | Needed |
+| Browser context | Not repository-bound (Chrome MCP) | about 1,300 injections of a 43-word rule | Needed; cheap per call |
+| Unaddressed-request check | Every repository | 52 "condition was not met" lines in 11 projects | Needed |
+| Repository-level hooks | 5 repositories have `.claude/settings.json`; only one defines a hook (`UserPromptSubmit`, project-specific) | — | Stay in their repositories |
+
+Injection counts are `hook_additional_context` attachments grouped by hook event and the opening text of the injected context.
 
 ## Other tools
 
