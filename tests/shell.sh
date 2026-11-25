@@ -125,7 +125,7 @@ is no-history-file "" "$(cd "$home" && find . -name '*zsh_history*' | LC_ALL=C s
 stray=
 for entry in $(cd "$home" && ls -A); do
   case $entry in
-  .zshenv | .config | .cache | .nix-profile) ;;
+  .zshenv | .config | .cache | .claude | .nix-profile) ;;
   *) stray="$stray $entry" ;;
   esac
 done
