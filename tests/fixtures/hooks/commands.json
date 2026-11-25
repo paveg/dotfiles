@@ -18,6 +18,7 @@
       "spaced-line-comment": "psql -d app_dev -c 'DROP -- wipe it all\n  DATABASE app_dev'",
       "assembled-command": "psql -d app_dev -c \"$SQL\"",
       "unlisted-client-comment": "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
+      "unlisted-client-brace": "pgcli -c \"DROP${IFS}DATABASE app_dev\"",
       "read-only-query": "psql -d app_dev -c 'select count(*) from users'",
       "star-in-query": "psql -d app_dev -c 'select * from users'"
     },

@@ -134,7 +134,7 @@ expect_caught sensitive-deny-variable-stem \
   $'  "${fragment}${guard_expansion}"\n'
 
 # The whole-command rule.
-expect_caught 'db-deny-brace-list-piped db-deny-brace-split' \
+expect_caught db-deny-unlisted-client-brace \
   'one verb is missing from the shared stem list' \
   "$db" $'  drop\n' ''
 
