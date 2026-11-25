@@ -174,3 +174,7 @@ Injection counts are `hook_additional_context` attachments grouped by hook event
 | `orca pair --mobile --address <host>` makes the phone dial that address, for example a Tailscale one | Holds | Measured: `orca pair --help` |
 | Homebrew's `orca` cask is plotly's Orca, disabled; Orca the IDE has no cask under that name | Holds | Measured: `brew info --cask orca`, `brew search --cask orca` |
 | This Mac's `/usr/local/bin/tailscale` wraps the Tailscale GUI app | Holds | Measured: the wrapper runs `/Applications/Tailscale.app/Contents/MacOS/Tailscale` |
+| Karabiner-Elements reads `~/.config/karabiner/karabiner.json`; link the directory, not the file, or Karabiner fails to detect changes and reload | Holds | Source (by a fetch agent): karabiner-elements.pqrs.org/docs/manual/misc/configuration-file-path/ |
+| Karabiner-Elements needs background services, Accessibility, Input Monitoring, and driver extension approvals after install | Holds | Source (by a fetch agent): karabiner-elements.pqrs.org/docs/getting-started/installation/ |
+| Raycast exports settings only as an encrypted `.rayconfig` (passphrase of at least 8 characters); Cloud Sync needs Pro; Script Commands are indexed from directories the user adds | Holds | Source (by a fetch agent): manual.raycast.com/import-export, /cloud-sync, /script-commands |
+| Karabiner writes `automatic_backups/` into its config directory, and Raycast's data is SQLite under `~/Library/Application Support/com.raycast.macos/` | Holds | Measured: directory listings on this Mac |
