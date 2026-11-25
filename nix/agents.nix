@@ -19,7 +19,7 @@ let
         pkgs.gnugrep
       ];
       inheritPath = false;
-      text = builtins.readFile "${hookDir}/lib/guard.sh" + builtins.readFile "${hookDir}/${name}.sh";
+      text = builtins.readFile "${hookDir}/lib/guard.sh" + builtins.readFile "${hookDir}/${name}.sh" + "\nguard_main\n";
       meta.description = "PreToolUse guard hook for Claude Code: ${name}";
     };
 in

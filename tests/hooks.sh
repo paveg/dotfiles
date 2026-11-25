@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 # Check that the guard hooks built from <repo-dir> keep the contract in
-# docs/design.md "Guardrails": each denies what it is there for with a PreToolUse
-# deny decision, passes everything else in silence, never prints `allow`, denies
-# an input it cannot read, and denies when its own matcher fails. Every hook runs
-# under `env -i PATH=<an empty directory>`, so a guard that resolved jq from the
+# docs/design.md "Guardrails": each denies its exact rules with a PreToolUse
+# deny decision, asks about its shape rules with an ask decision, passes
+# everything else in silence, never prints `allow`, denies an input it cannot
+# read, and denies when its own matcher fails. Every hook runs under
+# `env -i PATH=<an empty directory>`, so a guard that resolved jq from the
 # caller's PATH would be caught here rather than fail open on a real machine.
+#
+# Every rule in a guard's table has to prove itself alone: its fixtures get the
+# rule's decision from the built guard (naming the rule in the reason), and
+# with the rule removed and every other rule kept, the decision changes. The
+# second half is what exposes a rule that another rule masks. It runs the
+# unbuilt engine and table under the interpreter and PATH of the built guard,
+# so the production build carries no switch for it.
 # Usage: tests/hooks.sh [repo-dir]   (default: this checkout)
 set -euo pipefail
 
@@ -92,22 +100,33 @@ field_of() { # <jq-path> <output>
   if ((rc != 0)); then printf 'unreadable'; else printf '%s' "$value"; fi
 }
 
-expect_deny() { # <check> <hook> <input-file> [reason-substring]
+expect_decision() { # <check> <hook> <input-file> <deny|ask> [reason-substring]
   run_hook "$2" "$3"
-  local decision reason
+  local decision event reason
   decision=$(field_of .hookSpecificOutput.permissionDecision "$hook_out")
+  event=$(field_of .hookSpecificOutput.hookEventName "$hook_out")
   reason=$(field_of .hookSpecificOutput.permissionDecisionReason "$hook_out")
   if ((hook_rc != 0)); then
     fail "$1" "exit $hook_rc, which Claude Code lets through unless onFailure blocks it"
-  elif [[ $decision != deny ]]; then
-    fail "$1" "decision '$decision', want 'deny' (output: $(head -c 120 <<<"$hook_out"))"
+  elif [[ $decision != "$4" ]]; then
+    fail "$1" "decision '$decision', want '$4' (output: $(head -c 120 <<<"$hook_out"))"
+  elif [[ $event != PreToolUse ]]; then
+    fail "$1" "hookEventName '$event', want 'PreToolUse', so Claude Code would ignore the decision"
   elif [[ -z $reason ]]; then
-    fail "$1" "denied with no reason the agent can act on"
-  elif [[ -n ${4:-} && $reason != *"$4"* ]]; then
-    fail "$1" "reason does not mention '$4': $(head -c 160 <<<"$reason")"
+    fail "$1" "$4 with no reason the agent or the human can act on"
+  elif [[ -n ${5:-} && $reason != *"$5"* ]]; then
+    fail "$1" "reason does not mention '$5': $(head -c 160 <<<"$reason")"
   else
     ok "$1"
   fi
+}
+
+expect_deny() { # <check> <hook> <input-file> [reason-substring]
+  expect_decision "$1" "$2" "$3" deny "${4:-}"
+}
+
+expect_ask() { # <check> <hook> <input-file> [reason-substring]
+  expect_decision "$1" "$2" "$3" ask "${4:-}"
 }
 
 expect_silent() { # <check> <hook> <input-file>
@@ -133,25 +152,39 @@ command -v jq >/dev/null || die "this test needs jq to read the fixtures and the
 committed=$(new_tree committed)
 
 # No stdin can make the pinned grep exit 2, and no stdin can make a command
-# inside the classification fail, so those two paths are reached by building a
-# guard with the fault injected. Both live in the shared engine, so injecting
+# inside the classification fail, so those paths are reached by building a
+# guard with the fault injected. All live in the shared engine, so injecting
 # into one guard exercises them for both.
-matcher_error=$(new_tree matcher-error)
-mutate "$matcher_error/home/.claude/hooks/block-destructive-db.sh" \
-  $'guard_patterns=(\n' $'guard_patterns=(\n  \'a[\'\n'
+matcher_error_deny=$(new_tree matcher-error-deny)
+mutate "$matcher_error_deny/home/.claude/hooks/block-destructive-db.sh" \
+  $'guard_rule truncate deny "truncate${name_end}"\n' \
+  $'guard_rule truncate deny "truncate${name_end}"\nguard_rule broken deny \'a[\'\n'
+matcher_error_ask=$(new_tree matcher-error-ask)
+mutate "$matcher_error_ask/home/.claude/hooks/block-destructive-db.sh" \
+  $'guard_rule drop-expansion ask' \
+  $'guard_rule broken ask \'a[\'\nguard_rule drop-expansion ask'
 internal_error=$(new_tree internal-error)
 mutate "$internal_error/home/.claude/hooks/lib/guard.sh" \
-  $'  local scan=$1 pattern rc\n' $'  local scan=$1 pattern rc\n  false\n'
+  $'  local scan=$1 tier index rc\n' $'  local scan=$1 tier index rc\n  false\n'
 
 hook_db=$(build_hook "$committed" block-destructive-db)
 hook_sensitive=$(build_hook "$committed" block-sensitive-read)
-hook_db_matcher_error=$(build_hook "$matcher_error" block-destructive-db)
+hook_db_matcher_error_deny=$(build_hook "$matcher_error_deny" block-destructive-db)
+hook_db_matcher_error_ask=$(build_hook "$matcher_error_ask" block-destructive-db)
 hook_db_internal_error=$(build_hook "$internal_error" block-destructive-db)
 
 hook_for() { # <guard key>
   case $1 in
   db) echo "$hook_db" ;;
   sensitive) echo "$hook_sensitive" ;;
+  *) die "unknown guard key '$1' in $manifest" ;;
+  esac
+}
+
+guard_file_for() { # <guard key>; prints the unbuilt guard's table
+  case $1 in
+  db) echo "$committed/home/.claude/hooks/block-destructive-db.sh" ;;
+  sensitive) echo "$committed/home/.claude/hooks/block-sensitive-read.sh" ;;
   *) die "unknown guard key '$1' in $manifest" ;;
   esac
 }
@@ -174,10 +207,12 @@ while IFS=$'\t' read -r guard expect name; do
     '.[$g][$e][$n]' "$manifest")")
   case $expect in
   deny) expect_deny "$guard-deny-$name" "$(hook_for "$guard")" "$input" ;;
+  ask) expect_ask "$guard-ask-$name" "$(hook_for "$guard")" "$input" ;;
   pass) expect_silent "$guard-pass-$name" "$(hook_for "$guard")" "$input" ;;
   *) die "unknown expectation '$expect' in $manifest" ;;
   esac
-done < <(jq -r 'to_entries[] | .key as $g | .value | to_entries[] | .key as $e
+done < <(jq -r 'del(.ordinary) | to_entries[] | .key as $g | .value | to_entries[]
+  | select(.key != "rules") | .key as $e
   | .value | keys_unsorted[] | "\($g)\t\($e)\t\(.)"' "$manifest")
 
 for fixture in "$malformed_dir"/*.json; do
@@ -186,8 +221,146 @@ for fixture in "$malformed_dir"/*.json; do
   expect_deny "sensitive-malformed-$name" "$hook_sensitive" "$fixture"
 done
 
+# The rule tables. The harness is the unbuilt engine and table, run by the
+# built guard's own bash with its own pinned PATH, so grep and jq are the ones
+# the guard ships with.
+harness_bash=$(head -1 "$hook_db")
+harness_bash=${harness_bash#'#!'}
+harness_path=$(sed -n 's/^export PATH="\(.*\)"$/\1/p' "$hook_db")
+if [[ ! -x $harness_bash || -z $harness_path ]]; then
+  die "cannot read the interpreter and PATH out of $hook_db"
+fi
+
+cat >"$work_dir/harness.sh" <<'HARNESS'
+set -o errexit -o nounset -o pipefail
+engine=$1
+guard_file=$2
+mode=$3
+# shellcheck source=/dev/null
+source "$engine"
+# shellcheck source=/dev/null
+source "$guard_file"
+guard_finished=1
+
+without_rule() { # <id>
+  local ids=() tiers=() regexes=() index
+  for index in "${!guard_rule_ids[@]}"; do
+    if [[ ${guard_rule_ids[index]} != "$1" ]]; then
+      ids+=("${guard_rule_ids[index]}")
+      tiers+=("${guard_rule_tiers[index]}")
+      regexes+=("${guard_rule_regexes[index]}")
+    fi
+  done
+  guard_rule_ids=("${ids[@]}")
+  guard_rule_tiers=("${tiers[@]}")
+  guard_rule_regexes=("${regexes[@]}")
+}
+
+case $mode in
+list)
+  for index in "${!guard_rule_ids[@]}"; do
+    printf '%s\t%s\n' "${guard_rule_ids[index]}" "${guard_rule_tiers[index]}"
+  done
+  ;;
+without) # <manifest> <guard key>
+  manifest=$4
+  key=$5
+  for id in "${guard_rule_ids[@]}"; do
+    count=$(jq -r --arg g "$key" --arg id "$id" '(.[$g].rules[$id] // []) | length' "$manifest")
+    for ((n = 0; n < count; n++)); do
+      fixture=$(jq -j --arg g "$key" --arg id "$id" --argjson n "$n" '.[$g].rules[$id][$n]' "$manifest")
+      verdict=$(
+        without_rule "$id"
+        guard_decide "$fixture"
+      )
+      printf '%s\t%s\t%s\n' "$id" "$n" "${verdict:-none}"
+    done
+  done
+  ;;
+esac
+HARNESS
+
+run_harness() { # <guard key> <mode> [args...]
+  local key=$1
+  shift
+  env -i PATH="$harness_path" "$harness_bash" "$work_dir/harness.sh" \
+    "$committed/home/.claude/hooks/lib/guard.sh" "$(guard_file_for "$key")" "$@"
+}
+
+for guard in db sensitive; do
+  hook=$(hook_for "$guard")
+  rules=$work_dir/$guard-rules.tsv
+  verdicts=$work_dir/$guard-verdicts.tsv
+  run_harness "$guard" list >"$rules" || die "listing the $guard rules failed"
+  run_harness "$guard" without "$manifest" "$guard" >"$verdicts" ||
+    die "deciding the $guard fixtures without their rules failed"
+
+  duplicates=$(cut -f1 "$rules" | sort | uniq -d | tr '\n' ' ')
+  if [[ -z $duplicates ]]; then
+    ok "$guard-rule-ids-unique"
+  else
+    fail "$guard-rule-ids-unique" "duplicated: $duplicates"
+  fi
+
+  unknown=$(jq -r --arg g "$guard" '.[$g].rules | keys[]' "$manifest" |
+    grep -vxFf <(cut -f1 "$rules") | tr '\n' ' ' || true)
+  if [[ -z $unknown ]]; then
+    ok "$guard-fixtures-name-known-rules"
+  else
+    fail "$guard-fixtures-name-known-rules" "no such rule: $unknown"
+  fi
+
+  while IFS=$'\t' read -r id tier; do
+    count=$(jq -r --arg g "$guard" --arg id "$id" '(.[$g].rules[$id] // []) | length' "$manifest")
+    if ((count == 0)); then
+      fail "$guard-rule-$id-has-fixture" "no fixture in $manifest; a rule nothing proves can be broken unseen"
+      continue
+    fi
+    for ((n = 0; n < count; n++)); do
+      input=$(hook_input "$(jq -j --arg g "$guard" --arg id "$id" --argjson n "$n" \
+        '.[$g].rules[$id][$n]' "$manifest")")
+      expect_decision "$guard-rule-$id-fires-$n" "$hook" "$input" "$tier" "Rule: $id"$'\n'
+      without=$(awk -F'\t' -v id="$id" -v n="$n" '$1 == id && $2 == n { print $3 }' "$verdicts")
+      if [[ ${without%% *} != "$tier" ]]; then
+        ok "$guard-rule-$id-alone-$n"
+      else
+        fail "$guard-rule-$id-alone-$n" "still a $tier without the rule ($without), so another rule masks it"
+      fi
+    done
+  done <"$rules"
+done
+
+# Commands a person types every day, to show what the shape rules cost. Not a
+# check: the counts are read off this line.
+for guard in db sensitive; do
+  denied=0 asked=0 silent=0 total=0
+  while IFS= read -r command; do
+    run_hook "$(hook_for "$guard")" "$(hook_input "$command")"
+    total=$((total + 1))
+    case $(field_of .hookSpecificOutput.permissionDecision "$hook_out") in
+    deny)
+      denied=$((denied + 1))
+      echo "measured: $guard denied: $command"
+      ;;
+    ask)
+      asked=$((asked + 1))
+      echo "measured: $guard asked: $command"
+      ;;
+    *) silent=$((silent + 1)) ;;
+    esac
+  done < <(jq -r '.ordinary[]' "$manifest")
+  echo "measured: $guard guard on $total ordinary commands: $denied denied, $asked asked, $silent silent"
+done
+
+# A command that matches a shape rule and an exact rule is denied, not asked.
+expect_deny db-deny-beats-ask "$hook_db" \
+  "$(hook_input "psql -d app_dev -c 'DROP TABLE users' --echo-all")" "Rule: drop-table"
+expect_deny sensitive-deny-beats-ask "$hook_sensitive" \
+  "$(hook_input 'cat ~/.s* ~/.ssh/id_ed25519')" "Rule: name-ssh"
+
 harmless=$(hook_input 'ls -la')
-expect_deny db-matcher-error-denies "$hook_db_matcher_error" "$harmless" grep-exit-2
+expect_deny db-matcher-error-denies "$hook_db_matcher_error_deny" "$harmless" grep-exit-2
+expect_deny db-matcher-error-in-ask-rule-denies "$hook_db_matcher_error_ask" "$harmless" grep-exit-2
 expect_deny db-internal-error-denies "$hook_db_internal_error" "$harmless" "internal error"
 
 if grep -qE '"permissionDecision": ?"allow"' <<<"$all_output"; then

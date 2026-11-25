@@ -1,13 +1,15 @@
 # The engine shared by the guards of docs/adr/0007-agent-guardrails.md.
 # nix/agents.nix concatenates this file in front of a guard, which sets
-# guard_subject, guard_patterns, guard_stems and guard_advice and then calls
-# guard_main. writeShellApplication supplies the shebang, errexit, nounset,
-# pipefail and the pinned PATH, so nothing here resolves a dependency from the
-# caller's PATH.
+# guard_subject, guard_ask_why and guard_advice and registers its rules with
+# guard_rule, and appends the call to guard_main. A guard file only defines, so
+# tests/hooks.sh can source it and decide with one rule removed.
+# writeShellApplication supplies the shebang, errexit, nounset, pipefail and the
+# pinned PATH, so nothing here resolves a dependency from the caller's PATH.
 #
-# The contract: a guard prints a PreToolUse deny decision when it matches, when
-# it cannot read its input, and when its matcher errors, and prints nothing at
-# all otherwise. It never prints `allow`, which would skip the permission
+# The contract: a guard prints a PreToolUse `deny` decision when an exact rule
+# matches, when it cannot read its input, and when its matcher errors; an `ask`
+# decision when only a shape rule matches; and nothing at all otherwise. `deny`
+# wins over `ask`. It never prints `allow`, which would skip the permission
 # prompt, and exit 0 with no output is not an approval.
 
 shopt -s inherit_errexit
@@ -34,12 +36,12 @@ guard_on_exit() {
 }
 trap 'guard_on_exit' EXIT
 
-guard_deny() { # <reason>
+guard_emit() { # <deny|ask> <reason>
   local json
-  json=$(jq -n --arg reason "$1" '{
+  json=$(jq -n --arg decision "$1" --arg reason "$2" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
-      permissionDecision: "deny",
+      permissionDecision: $decision,
       permissionDecisionReason: $reason
     }
   }')
@@ -61,6 +63,32 @@ guard_name_start='(^|[^[:alnum:]_-])'
 # newlines are gone by the time a pattern runs, but one of these can still hold
 # a protected name apart or build one at run time.
 guard_expansion='[$`*?[{]'
+
+# The rule table, in three parallel arrays. A `deny` rule is an exact pattern: a
+# literal command or name the guard exists for. An `ask` rule is a shape
+# heuristic: the command may or may not do the harm, and only a human can tell.
+# Each id is unique and has a fixture in tests/fixtures/hooks/commands.json that
+# the rule alone has to catch.
+guard_rule_ids=()
+guard_rule_tiers=()
+guard_rule_regexes=()
+
+guard_rule() { # <id> <deny|ask> <lowercase ERE>
+  case $2 in
+  deny | ask) ;;
+  *) return 1 ;;
+  esac
+  guard_rule_ids+=("$1")
+  guard_rule_tiers+=("$2")
+  guard_rule_regexes+=("$3")
+}
+
+# Two rules for "A and B in either order, anywhere in the command", because one
+# alternation would let a fixture for one order keep the other order alive.
+guard_rule_both_orders() { # <id> <deny|ask> <ERE A> <ERE B>
+  guard_rule "$1" "$2" "$3.*$4"
+  guard_rule "$1-reversed" "$2" "$4.*$3"
+}
 
 # An exempt token leaves the scan where it stands alone between characters that
 # cannot continue a name. Matching "every name but these" in one regex needs a
@@ -92,104 +120,77 @@ guard_normalize() { # <command>
   printf '%s' "$text" | tr '[:upper:]' '[:lower:]'
 }
 
-# Prints `match <pattern>` for the first pattern that matches, `error <pattern>
-# grep-exit-<rc>` when the matcher itself fails, and nothing when nothing
-# matches. grep returns 1 for no match and 2 or more for an error, and only 1
-# counts as no match. This runs inside $(…), where errexit is suspended without
-# inherit_errexit, so an unexpected failure aborts instead of reading as "no
-# match": it must not print a decision itself.
+# Prints `<tier> <id>` for the first matching rule, trying every `deny` rule
+# before any `ask` rule; `error <id> grep-exit-<rc>` when the matcher itself
+# fails; and nothing when no rule matches. grep returns 1 for no match and 2 or
+# more for an error, and only 1 counts as no match. This runs inside $(…), where
+# errexit is suspended without inherit_errexit, so an unexpected failure aborts
+# instead of reading as "no match": it must not print a decision itself.
 guard_classify() { # <normalized-command>
-  local scan=$1 pattern rc
-  for pattern in "${guard_patterns[@]}"; do
-    rc=0
-    grep -qE -e "$pattern" <<<"$scan" 2>/dev/null || rc=$?
-    case $rc in
-    0)
-      printf 'match %s' "$pattern"
-      return 0
-      ;;
-    1) ;;
-    *)
-      printf 'error %s grep-exit-%s' "$pattern" "$rc"
-      return 0
-      ;;
-    esac
+  local scan=$1 tier index rc
+  for tier in deny ask; do
+    for index in "${!guard_rule_ids[@]}"; do
+      if [[ ${guard_rule_tiers[index]} != "$tier" ]]; then
+        continue
+      fi
+      rc=0
+      grep -qE -e "${guard_rule_regexes[index]}" <<<"$scan" 2>/dev/null || rc=$?
+      case $rc in
+      0)
+        printf '%s %s' "$tier" "${guard_rule_ids[index]}"
+        return 0
+        ;;
+      1) ;;
+      *)
+        printf 'error %s grep-exit-%s' "${guard_rule_ids[index]}" "$rc"
+        return 0
+        ;;
+      esac
+    done
   done
   return 0
 }
 
-# The whole-command rule. The exact patterns above read a command as written;
-# this one answers whether it can be read at all. It prints `unresolved <stem>`
-# when the command both names something the guard protects and uses an
-# expansion, in either order and anywhere in the command, and nothing
-# otherwise. Same grep contract as guard_classify, and the same reason for not
-# deciding anything itself.
-guard_classify_unresolved() { # <normalized-command>
-  local scan=$1 stem rc=0
-  grep -qE -e "$guard_expansion" <<<"$scan" 2>/dev/null || rc=$?
-  case $rc in
-  0) ;;
-  1) return 0 ;;
-  *)
-    printf 'error %s grep-exit-%s' "$guard_expansion" "$rc"
-    return 0
-    ;;
-  esac
-  for stem in "${guard_stems[@]}"; do
-    rc=0
-    grep -qE -e "${guard_name_start}${stem}" <<<"$scan" 2>/dev/null || rc=$?
-    case $rc in
-    0)
-      printf 'unresolved %s' "$stem"
-      return 0
-      ;;
-    1) ;;
-    *)
-      printf 'error %s grep-exit-%s' "$stem" "$rc"
-      return 0
-      ;;
-    esac
-  done
-  return 0
+guard_decide() { # <command>
+  local scan
+  scan=$(guard_normalize "$1")
+  scan=$(guard_drop_exempt_tokens "$scan")
+  guard_classify "$scan"
 }
 
 guard_main() {
-  local rc=0 command scan verdict pattern
+  local rc=0 command verdict
 
   # The guard is registered on Bash alone, so an input without a command string
   # means the wiring is wrong, not that the call is safe.
   command=$(jq -er 'if (.tool_input.command | type) == "string" then .tool_input.command else error("no Bash command") end' 2>/dev/null) || rc=$?
   if ((rc != 0)); then
-    guard_deny "$guard_subject could not read its input as a Bash tool call (jq exit $rc), so the call is denied.
+    guard_emit deny "$guard_subject could not read its input as a Bash tool call (jq exit $rc), so the call is denied.
 
 $guard_override_advice"
   fi
 
-  scan=$(guard_normalize "$command")
-  scan=$(guard_drop_exempt_tokens "$scan")
-  verdict=$(guard_classify "$scan")
-  if [[ -z $verdict ]]; then
-    verdict=$(guard_classify_unresolved "$scan")
-  fi
+  verdict=$(guard_decide "$command")
 
   case $verdict in
   '')
     guard_pass
     ;;
-  'unresolved '*)
-    guard_deny "$guard_subject could not resolve the command statically; it mentions ${verdict#unresolved } and uses shell expansion, which only a shell could work out. A guard that cannot read a command denies it.
+  'ask '*)
+    guard_emit ask "$guard_subject cannot tell what this command reaches, so it is asking before the call runs.
 
+Rule: ${verdict#ask }
+What looked unresolvable: $guard_ask_why
 Command: $command
 
 $guard_advice
 
-$guard_override_advice"
+If you are an agent and this was denied, write the path or statement out literally so the guard can read it, or tell your user. If a human approves it, nothing more is needed."
     ;;
-  'match '*)
-    pattern=${verdict#match }
-    guard_deny "$guard_subject denied this command.
+  'deny '*)
+    guard_emit deny "$guard_subject denied this command.
 
-Matched pattern: $pattern
+Rule: ${verdict#deny }
 Command: $command
 
 $guard_advice
@@ -197,7 +198,7 @@ $guard_advice
 $guard_override_advice"
     ;;
   *)
-    guard_deny "$guard_subject could not decide this command, because its matcher failed ($verdict). A guard that cannot finish denies.
+    guard_emit deny "$guard_subject could not decide this command, because its matcher failed ($verdict). A guard that cannot finish denies.
 
 Command: $command
 

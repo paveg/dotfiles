@@ -1,8 +1,62 @@
 {
   "db": {
+    "rules": {
+      "prisma-migrate-reset": ["npx prisma migrate reset --force"],
+      "prisma-push-force-reset": ["npx prisma db push --force-reset"],
+      "drizzle-push-force": ["pnpm drizzle-kit push --force"],
+      "rails-db-setup": ["bin/rails db:setup", "bundle exec rake db:schema:load"],
+      "django-flush": [
+        "python manage.py flush",
+        "python manage.py reset_db",
+        "python manage.py sqlflush"
+      ],
+      "sequelize-undo-all": ["npx sequelize db:migrate:undo:all"],
+      "typeorm-schema-drop": ["npx typeorm schema:drop"],
+      "knex-rollback-all": ["npx knex migrate:rollback --all"],
+      "script-db-wipe": [
+        "pnpm run db:reset",
+        "npx sequelize db:drop",
+        "pnpm run db:nuke",
+        "pnpm run db:wipe",
+        "pnpm run db:clear"
+      ],
+      "dropdb": ["dropdb app_dev"],
+      "mysqladmin-drop": ["mysqladmin drop app", "mysqladmin -u root drop app"],
+      "drop-database": [
+        "psql -c \"DROP DATABASE app_dev\"",
+        "psql -d app_dev -c 'dro\"p data\"base app_dev'",
+        "psql -d app_dev -c \"DROP\nDATABASE app_dev\"",
+        "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
+        "pgcli -c 'DROP--wipe\n  DATABASE app_dev'"
+      ],
+      "drop-schema": ["psql -d app_dev -c 'DROP SCHEMA public'"],
+      "drop-table": ["psql -d app_dev -c 'DROP TABLE users'"],
+      "truncate": ["psql -d app_dev -c 'TRUNCATE TABLE users'", "truncate -s 0 app.log"],
+      "drop-expansion": ["pgcli -c \"DROP${IFS}DATABASE app_dev\""],
+      "drop-expansion-reversed": ["echo {DROP,DATABASE} app_dev"],
+      "client-construct": [
+        "psql -d app_dev -c \"$SQL\"",
+        "mysql -e `cat query.sql`",
+        "mariadb -e 'select * from users'",
+        "sqlite3 app.db .t?bles",
+        "prisma validate sch[1]ema.cfg",
+        "drizzle-kit studio {a,b}",
+        "pg_restore --list dump.tar",
+        "pnpm run db:migrate -- --verbose"
+      ],
+      "client-construct-reversed": [
+        "echo \"$SQL\" | psql -d app_dev",
+        "echo `cat query.sql` | mysql -D app",
+        "cat query* | mariadb app",
+        "echo ? | sqlite3 app.db",
+        "echo [x] | prisma validate",
+        "echo {a,b} | drizzle-kit studio",
+        "echo -- | pg_restore -d app",
+        "echo $x && pnpm run db:migrate"
+      ]
+    },
     "deny": {
       "prisma-reset": "npx prisma migrate reset --force",
-      "drizzle-force-push": "pnpm drizzle-kit push --force",
       "script-wrapper": "pnpm run db:reset",
       "rails-schema": "bin/rails db:schema:load",
       "postgres-cli": "dropdb app_dev",
@@ -10,17 +64,23 @@
       "sql-drop-db": "psql -c \"DROP DATABASE app_dev\"",
       "quote-split": "psql -d app_dev -c 'dro\"p data\"base app_dev'",
       "multiline": "psql -d app_dev -c \"DROP\n  DATABASE app_dev\"",
+      "multiline-no-indent": "psql -d app_dev -c \"DROP\nDATABASE app_dev\"",
       "single-table": "psql -d app_dev -c 'DROP TABLE users'",
       "comment-split": "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
       "dash-comment": "psql -d app_dev -c 'DROP--wipe\n  DATABASE app_dev'",
+      "unlisted-client-comment": "pgcli -c 'DROP--wipe\n  DATABASE app_dev'"
+    },
+    "ask": {
       "brace-split": "psql -d app_dev -c \"DROP${IFS}DATABASE app_dev\"",
       "brace-list-piped": "echo {DROP,DATABASE} app_dev | psql -d app_dev",
       "spaced-line-comment": "psql -d app_dev -c 'DROP -- wipe it all\n  DATABASE app_dev'",
       "assembled-command": "psql -d app_dev -c \"$SQL\"",
-      "unlisted-client-comment": "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
+      "construct-before-client": "echo \"$SQL\" | psql -d app_dev",
       "unlisted-client-brace": "pgcli -c \"DROP${IFS}DATABASE app_dev\"",
       "read-only-query": "psql -d app_dev -c 'select count(*) from users'",
-      "star-in-query": "psql -d app_dev -c 'select * from users'"
+      "star-in-query": "psql -c 'select * from users'",
+      "migrate-verbose-flag": "pnpm run db:migrate -- --verbose",
+      "drop-word-in-glob-search": "rg -n 'drop' src/*.ts"
     },
     "pass": {
       "search-word": "rg -n 'create table' src/",
@@ -31,6 +91,65 @@
     }
   },
   "sensitive": {
+    "rules": {
+      "name-ssh": ["cat ~/.ssh/id_ed25519"],
+      "name-aws": ["cat ~/.aws/credentials"],
+      "name-kube": ["sed -n '1,40p' ~/.kube/config"],
+      "name-kubeconfig": ["cat ~/work/kubeconfig"],
+      "name-gcloud": ["cat ~/.config/gcloud/credentials.db"],
+      "name-config-vault": [
+        "ls ~/.config/1password",
+        "ls ~/.config/op",
+        "ls ~/.config/keeper",
+        "ls ~/.config/ksm",
+        "tar -czf /tmp/state.tgz ~/.config/ghtkn"
+      ],
+      "name-dot-vault": ["cat ~/.1password/x", "cat ~/.keeper/x", "cat ~/.ghtkn/x"],
+      "name-share-vault": [
+        "sqlite3 ~/.local/share/atuin/history.db .dump",
+        "cat ~/.local/share/ghtkn/token"
+      ],
+      "name-atuin": ["cat ~/.atuin/config"],
+      "name-claude-credentials": ["cat ~/.claude/.credentials.json"],
+      "name-codex-auth": ["cat ~/.codex/auth.json"],
+      "name-dotenv": ["cat .env", "rg -n PASSWORD .env.production"],
+      "fragment-expansion": [
+        "x=.ss; cat ~/${x}h/id_ed25519",
+        "cat ~/.s`echo sh`/id_ed25519",
+        "cat ~/.ss*/id_ed25519",
+        "sed -n '1,5p' ~/.aw?/credentials",
+        "cat ~/.s[s]h/id_ed25519",
+        "cat ~/.s{s,x}h/id_ed25519"
+      ],
+      "fragment-expansion-reversed": [
+        "cat $(echo ~/.s)sh/id_ed25519",
+        "cat `echo x`.ss",
+        "ls * .ss",
+        "ls ? .ss",
+        "ls [a] .ss",
+        "ls {a,b} .ss"
+      ],
+      "slash-dot-expansion": [
+        "ls ~/.$x",
+        "ls ~/.`echo x`",
+        "ls ~/.*",
+        "ls ~/.?",
+        "ls ~/.[a]sh",
+        "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}"
+      ],
+      "kubeconfig-expansion": ["cat kubeconfig-p*"],
+      "kubeconfig-expansion-reversed": ["cat $DIR/kubeconfig-prod"],
+      "home-cd-expansion": [
+        "cd ~ && cat .{ssh,aws}/credentials",
+        "cd $HOME && cat .{ssh,aws}/credentials",
+        "cd ${HOME} && cat .{ssh,aws}/credentials"
+      ],
+      "home-cd-expansion-reversed": [
+        "echo {a,b}; cd ~",
+        "echo {a,b}; cd $HOME",
+        "echo {a,b}; cd ${HOME}"
+      ]
+    },
     "deny": {
       "remote-login-dir": "cat ~/.ssh/id_ed25519",
       "cloud-profile": "grep -n aws_access_key_id $HOME/.aws/credentials",
@@ -43,7 +162,6 @@
       "double-slash": "sed -n '1,5p' //Users/dev/.aws/credentials",
       "relative-parent": "cat ./../.ssh/id_ed25519",
       "command-substitution": "cat \"$(echo ~)/.ssh/id_ed25519\"",
-      "brace-expansion": "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}",
       "repo-copy": "cat home/.ssh/config",
       "repo-vault-config": "cat home/.config/ghtkn/gh-app.personal",
       "dotenv": "cat .env",
@@ -54,9 +172,15 @@
       "dotenv-single-char": "cat .env.s",
       "dotenv-template-lookalike": "cat .env.examplebak",
       "exempt-token-tail": "cat ~/.ssh/id_ed25519>/tmp/x.env.example",
+      "template-then-real": "cat ~/.env.example;cat ~/.env",
+      "backslash-split": "cat ~/.s\\sh/id_ed25519",
+      "single-quote-split": "cat ~/.s's'h/id_ed25519",
+      "double-quote-split": "cat ~/.s\"s\"h/id_ed25519"
+    },
+    "ask": {
+      "brace-expansion": "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}",
       "glob-fragment": "cat ~/.ss*/id_ed25519",
       "glob-fragment-bare": "cat ~/.ss*",
-      "template-then-real": "cat ~/.env.example;cat ~/.env",
       "brace-fragment": "cat ~/.s{s,x}h/id_ed25519",
       "question-fragment": "sed -n '1,5p' ~/.aw?/credentials",
       "variable-stem": "x=.ss; cat ~/${x}h/id_ed25519",
@@ -80,13 +204,42 @@
       "stem-with-glob": "grep -r ssh *.md",
       "direnv-file": "cat .envrc",
       "dotenv-template": "cat .env.example",
+      "dotenv-sample": "cat .env.sample",
       "dotenv-template-arg": "op run --env-file=.env.example -- just serve",
       "dotenv-template-word": "cat .env.template",
+      "dotenv-template-twice": "diff .env.example apps/web/.env.example",
       "vault-run": "op run --env-file=config/local.env -- just serve",
       "vault-exec": "ksm exec -- gh pr list",
       "ghtkn-exec": "ghtkn exec -- gh pr list",
       "remote-login": "ssh personal-mac uptime",
       "list-files": "ls -la"
     }
-  }
+  },
+  "ordinary": [
+    "ls -la",
+    "git status",
+    "git log --oneline -5",
+    "git diff --stat",
+    "cat README.md",
+    "cat package.json",
+    "rg -n TODO src/*.ts",
+    "find . -name '*.ts'",
+    "grep -r foo src/",
+    "pnpm vitest run",
+    "npm run build -- --watch",
+    "cargo test -- --nocapture",
+    "just test",
+    "nix build .#foo",
+    "docker compose up -d",
+    "kubectl get pods -n default",
+    "aws s3 ls",
+    "tar -czf out.tgz dist/",
+    "echo $HOME",
+    "ls .github/workflows/*.yml",
+    "ls ~/.config/*",
+    "ls ~/.ssh",
+    "psql -c 'select * from users'",
+    "pnpm run db:migrate -- --verbose",
+    "rg -n 'drop' src/*.ts"
+  ]
 }
