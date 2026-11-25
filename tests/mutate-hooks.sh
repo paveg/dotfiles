@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Break one condition of the guard hooks at a time and require the checks in
 # tests/hooks.sh that cover it to fail. A surviving mutant means those checks
-# prove nothing. Every check has a mutant here except the two that guard this
-# harness (empty-path-dir-is-empty, empty-path-resolves-nothing) and the
-# per-pattern checks whose pattern is not mutated: one removed pattern per
-# guard stands for the table.
+# prove nothing. A check name that ends mid-word stands for every check that
+# starts with it. Every rule in a guard's table is covered by the generic
+# checks of tests/hooks.sh (fires, alone, tier); the mutants here break a
+# sample of them one by one, which shows those checks go red, together with
+# the engine, the normalization, the tier boundary and the build. Mutants run
+# in batches of MUTATE_JOBS (default 6), each in its own tree.
 set -euo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
@@ -13,28 +15,29 @@ repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 work_dir=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$work_dir"' EXIT
 
-failures=0
+jobs_per_batch=${MUTATE_JOBS:-6}
+mutants=0
 
 expect_pass() {
   local out
   if out=$("$repo_dir/tests/hooks.sh" 2>&1); then
-    echo "pass: the guards as committed"
+    echo "pass: the guards as committed ($(grep '^summary:' <<<"$out" | cut -d'(' -f1))"
   else
     echo "FAIL: the guards as committed should pass"
     grep -E '^(ERROR|FAIL)' <<<"$out" | head -5
-    failures=$((failures + 1))
+    return 1
   fi
 }
 
-expect_caught() { # <check>... <description> <file> <old> <new>
-  local checks=$1 description=$2 file=$3 old=$4 new=$5 dir out check missing
+prepare_mutant() { # <n> <description> <file> <old> <new>; prints the mutated tree
+  local n=$1 description=$2 file=$3 old=$4 new=$5 dir
   dir=$(mktemp -d "$work_dir/mutant.XXXX")
   mkdir -p "$dir/nix" "$dir/home/.claude"
   command cp "$repo_dir/flake.nix" "$repo_dir/flake.lock" "$dir/"
   command cp "$repo_dir/nix/agents.nix" "$dir/nix/"
   command cp -R "$repo_dir/hosts" "$dir/hosts"
   command cp -R "$repo_dir/home/.claude/hooks" "$dir/home/.claude/hooks"
-  OLD=$old NEW=$new python3 - "$dir/$file" <<'PY'
+  if ! OLD=$old NEW=$new python3 - "$dir/$file" <<'PY' 2>"$work_dir/result.$n.err"; then
 import os, sys
 path = sys.argv[1]
 text = open(path).read()
@@ -43,17 +46,35 @@ if text.count(old) != 1:
     sys.exit(f"mutation target found {text.count(old)} times: {old!r}")
 open(path, "w").write(text.replace(old, new))
 PY
+    printf 'MISSED: %s (the mutation did not apply: %s)\n' "$description" "$(cat "$work_dir/result.$n.err")" >"$work_dir/result.$n"
+    return 1
+  fi
+  echo "$dir"
+}
+
+grade_mutant() { # <n> <checks> <description> <tree>
+  local n=$1 checks=$2 description=$3 dir=$4 out check missing=
   out=$("$repo_dir/tests/hooks.sh" "$dir" 2>&1) || true
-  missing=
   for check in $checks; do
-    grep -q "^FAIL: $check:" <<<"$out" || missing="$missing $check"
+    grep -q "^FAIL: $check" <<<"$out" || missing="$missing $check"
   done
   if [[ -z $missing ]]; then
-    echo "caught: $description"
+    echo "caught: $description" >"$work_dir/result.$n"
   else
-    echo "MISSED: $description (expected to fail:$missing)"
-    grep -E '^(ERROR|FAIL|summary)' <<<"$out" | head -5
-    failures=$((failures + 1))
+    {
+      echo "MISSED: $description (expected to fail:$missing)"
+      grep -E '^(ERROR|FAIL|summary)' <<<"$out" | head -5
+    } >"$work_dir/result.$n"
+  fi
+}
+
+expect_caught() { # <check>... <description> <file> <old> <new>
+  local checks=$1 description=$2 file=$3 old=$4 new=$5 tree
+  mutants=$((mutants + 1))
+  tree=$(prepare_mutant "$mutants" "$description" "$file" "$old" "$new") || return 0
+  grade_mutant "$mutants" "$checks" "$description" "$tree" &
+  if ((mutants % jobs_per_batch == 0)); then
+    wait
   fi
 }
 
@@ -63,93 +84,178 @@ sensitive=home/.claude/hooks/block-sensitive-read.sh
 
 expect_pass
 
-# The pattern tables.
-expect_caught db-deny-sql-wipe-uppercase 'the raw-SQL wipe pattern is gone' \
-  "$db" $'  \'truncate([[:space:]]+table)?([^[:alnum:]_]|$)\'\n' ''
+# The database table: a rule gone, a noun or an alternative gone, a comment no
+# longer a gap, a construct or a client gone.
+expect_caught db-fixtures-name-known-rules 'the TRUNCATE rule is gone' \
+  "$db" $'guard_rule truncate deny "truncate${name_end}"\n' ''
 
-# Emptying the nouns rather than dropping the line, which would leave the gap
-# unused and fail shellcheck in the build instead of the checks.
-expect_caught 'db-deny-sql-drop-db db-deny-quote-split db-deny-multiline db-deny-single-table db-deny-unlisted-client-comment' \
-  'the pattern for dropping a database, a schema or a table matches no noun' \
-  "$db" '(database|schema|table)' '(nosuchnoun)'
+expect_caught db-rule-drop-table-fires 'the table noun of the DROP rule matches nothing' \
+  "$db" 'guard_rule drop-table deny "drop${gap}table${name_end}"' \
+  'guard_rule drop-table deny "drop${gap}nosuchnoun${name_end}"'
 
-expect_caught db-deny-unlisted-client-comment \
+expect_caught 'db-rule-drop-database-fires-3 db-rule-drop-database-fires-4' \
   'only whitespace may stand between two SQL keywords, not a comment' \
   "$db" "gap='([[:space:]]|/\\*[^*]*\\*/|--[^[:space:]]*[[:space:]])+'" "gap='[[:space:]]+'"
 
-expect_caught 'sensitive-deny-remote-login-dir sensitive-deny-other-user-home sensitive-deny-relative-parent sensitive-deny-repo-copy' \
-  'the SSH directory is not a protected name' \
-  "$sensitive" $'  \'[.]ssh\'\n' ''
+expect_caught db-rule-script-db-wipe-fires-3 'one of the wipe scripts is not listed' \
+  "$db" 'db:(reset|drop|nuke|wipe|clear)' 'db:(reset|drop|nuke|clear)'
 
-expect_caught 'sensitive-deny-other-user-home sensitive-deny-relative-parent sensitive-deny-repo-copy' \
+expect_caught db-rule-django-flush-fires-1 'one of the django commands is not listed' \
+  "$db" '(flush|reset_db)' '(flush)'
+
+expect_caught db-rule-client-construct-fires-2 'one database client is not listed' \
+  "$db" "client='(psql|mysql|mariadb|" "client='(psql|mysql|"
+
+expect_caught db-rule-client-construct-fires-8 'a # comment is no longer a construct' \
+  "$db" "client_construct='([\$\`*?[{#]|--)'" "client_construct='([\$\`*?[{]|--)'"
+
+expect_caught db-rule-client-construct-fires-6 'a -- option is no longer a construct' \
+  "$db" "client_construct='([\$\`*?[{#]|--)'" "client_construct='([\$\`*?[{#])'"
+
+expect_caught 'db-fixtures-name-known-rules sensitive-fixtures-name-known-rules' \
+  'the reversed order of a pair of shape rules is not registered' \
+  "$guard" $'  guard_rule "$1-reversed" "$2" "$4.*$3"\n' ''
+
+expect_caught db-rule-drop-expansion-reversed-fires-0 'a verb straight after the expansion is no longer noticed' \
+  "$db" '(.*[^[:alnum:]_-])?drop' '.*[^[:alnum:]_-]drop'
+
+# The tier boundary, in the table and in the engine, in both directions.
+expect_caught 'db-rule-drop-expansion-tier db-rule-drop-expansion-fires-0' \
+  'a shape rule is registered as an exact rule, so it denies' \
+  "$db" 'guard_rule drop-expansion ask' 'guard_rule drop-expansion deny'
+
+expect_caught 'db-rule-dropdb-tier db-rule-dropdb-fires-0 db-deny-postgres-cli' \
+  'an exact rule is registered as a shape rule, so it only asks' \
+  "$db" 'guard_rule dropdb deny' 'guard_rule dropdb ask'
+
+expect_caught 'db-ask-brace-split sensitive-ask-glob-fragment' \
+  'every ask decision is printed as deny' \
+  "$guard" 'guard_emit ask "$guard_subject cannot tell' 'guard_emit deny "$guard_subject cannot tell'
+
+expect_caught 'db-deny-prisma-reset sensitive-deny-remote-login-dir' \
+  'every deny decision is printed as ask' \
+  "$guard" 'guard_emit deny "$guard_subject denied this command.' 'guard_emit ask "$guard_subject denied this command.'
+
+expect_caught 'db-ask-brace-split sensitive-ask-glob-fragment' \
+  'an ask carries no account of what looked unresolvable' \
+  "$guard" 'What looked unresolvable: $guard_ask_why' 'Looked at: $guard_ask_why'
+
+expect_caught db-rule-dropdb-reason-0 'a deny reason does not quote the command' \
+  "$guard" $'Rule: ${verdict#deny }\nCommand: $command\n' $'Rule: ${verdict#deny }\n'
+
+expect_caught db-rule-dropdb-reason-0 'a deny reason does not carry the override' \
+  "$guard" $'$guard_advice\n\n$guard_override_advice"\n    ;;\n  *)' $'$guard_advice"\n    ;;\n  *)'
+
+expect_caught db-rule-drop-expansion-reason-0 'an ask reason does not carry the advice' \
+  "$guard" $'$guard_advice\n\nIf you are an agent' $'If you are an agent'
+
+expect_caught db-matcher-error-quotes-command 'a matcher-failure reason does not quote the command' \
+  "$guard" $'($verdict). A guard that cannot finish denies.\n\nCommand: $command\n' \
+  $'($verdict). A guard that cannot finish denies.\n'
+
+expect_caught db-unknown-tier-denies 'a rule with a tier that is neither deny nor ask is accepted and never matches' \
+  "$guard" $'  *) return 1 ;;\n' ''
+
+expect_caught 'db-deny-beats-ask sensitive-deny-beats-ask' \
+  'an ask rule is tried before a deny rule, so ask wins over deny' \
+  "$guard" 'for tier in deny ask; do' 'for tier in ask deny; do'
+
+expect_caught 'db-rule-drop-expansion-alone-0 db-rule-shadow-has-fixture' \
+  'a broader ask rule masks the rule under test' \
+  "$db" $'guard_rule_both_orders client-construct ask' \
+  $'guard_rule shadow ask "drop"\nguard_rule_both_orders client-construct ask'
+
+expect_caught db-rule-unproven-has-fixture 'a rule with no fixture is added' \
+  "$db" $'guard_rule truncate deny "truncate${name_end}"\n' \
+  $'guard_rule truncate deny "truncate${name_end}"\nguard_rule unproven deny "unproven-thing"\n'
+
+expect_caught db-rule-ids-unique 'two rules share an id' \
+  "$db" $'guard_rule truncate deny "truncate${name_end}"\n' \
+  $'guard_rule truncate deny "truncate${name_end}"\nguard_rule truncate deny "truncate-again"\n'
+
+# The credential table.
+expect_caught 'sensitive-fixtures-name-known-rules sensitive-deny-remote-login-dir' 'the SSH directory is not a protected name' \
+  "$sensitive" $'guard_protect ssh \'[.]ssh\'\n' ''
+
+expect_caught 'sensitive-rule-name-ssh-fires-1 sensitive-rule-name-ssh-fires-2' \
   'the SSH directory counts only when the path is rooted at the home directory' \
-  "$sensitive" $'  \'[.]ssh\'\n' \
-  $'  \'(~/|/users/[^/[:space:]]+/|/home/[^/[:space:]]+/)[.]ssh\'\n'
+  "$sensitive" $'guard_protect ssh \'[.]ssh\'\n' \
+  $'guard_protect ssh \'(~/|/users/[^/[:space:]]+/|/home/[^/[:space:]]+/)[.]ssh\'\n'
 
-expect_caught 'sensitive-deny-dotenv sensitive-deny-dotenv-variant sensitive-deny-dotenv-strict-prefix' \
-  '.env is not a protected name' \
-  "$sensitive" $'  \'[.]env\'\n' ''
+expect_caught 'sensitive-fixtures-name-known-rules sensitive-deny-dotenv' '.env is not a protected name' \
+  "$sensitive" $'guard_protect dotenv \'[.]env\'\n' ''
 
-expect_caught 'sensitive-pass-dotenv-template sensitive-pass-dotenv-template-word' \
-  'no token is exempt, so the committed templates are denied too' \
+expect_caught sensitive-rule-name-config-vault-fires-3 'one vault directory under .config is not listed' \
+  "$sensitive" "(1password|op|keeper|ksm|ghtkn)'" "(1password|op|keeper|ghtkn)'"
+
+expect_caught sensitive-rule-name-dot-vault-fires-1 'one vault dot-directory is not listed' \
+  "$sensitive" "'[.](1password|keeper|ghtkn)'" "'[.](1password|ghtkn)'"
+
+expect_caught 'sensitive-fixtures-name-known-rules sensitive-deny-agent-login' 'the agent login file is not protected' \
+  "$sensitive" $'guard_protect claude-credentials \'[.]claude/[.]credentials[.]json\'\n' ''
+
+expect_caught 'sensitive-pass-regex-dot-star sensitive-pass-sed-expression sensitive-pass-brace-extensions sensitive-pass-parent-glob' \
+  'the dot segment needs no name character after the dot' \
+  "$sensitive" 'fragment="${guard_name_start}[.][[:alnum:]_-]"' \
+  'fragment="${guard_name_start}[.]"'
+
+expect_caught sensitive-rule-fragment-expansion-fires-1 'a backtick is not an expansion' \
+  "$guard" 'guard_expansion='"'"'[$`*?[{]'"'" 'guard_expansion='"'"'[$*?[{]'"'"
+
+expect_caught sensitive-rule-fragment-expansion-fires-4 'a bracket is not an expansion' \
+  "$guard" 'guard_expansion='"'"'[$`*?[{]'"'" 'guard_expansion='"'"'[$`*?{]'"'"
+
+expect_caught sensitive-fixtures-name-known-rules 'an expansion that replaces a name outright is no longer noticed' \
+  "$sensitive" $'guard_rule slash-dot-expansion ask "/[.]${guard_expansion}"\n' ''
+
+expect_caught 'sensitive-fixtures-name-known-rules sensitive-ask-variable-glued-before-ssh' 'a variable glued before a protected name is no longer noticed' \
+  "$sensitive" $'guard_rule glued-variable-name ask "[$][[:alnum:]_]+(${glued_names})"\n' ''
+
+expect_caught sensitive-rule-home-cd-expansion-fires-1 'the $HOME form of moving home is not noticed' \
+  "$sensitive" "(~|[\$][{]?home[}]?)" "(~)"
+
+expect_caught sensitive-rule-home-cd-expansion-fires-3 'a trailing slash after the home directory is not noticed' \
+  "$sensitive" "[}]?)/?(" "[}]?)("
+
+expect_caught sensitive-rule-bare-cd-expansion-fires-3 'a pushd with no argument is not noticed' \
+  "$sensitive" '(cd|pushd)' '(cd)'
+
+expect_caught sensitive-rule-kubeconfig-expansion-reversed-fires-1 \
+  'a name straight after the expansion is no longer noticed' \
+  "$sensitive" '(.*[^[:alnum:]_-])?kubeconfig' '.*[^[:alnum:]_-]kubeconfig'
+
+# The tier boundary on the credential side.
+expect_caught 'sensitive-rule-glued-variable-name-tier sensitive-rule-glued-variable-name-fires-0' \
+  'a shape rule is registered as an exact rule, so it denies' \
+  "$sensitive" 'guard_rule glued-variable-name ask' 'guard_rule glued-variable-name deny'
+
+expect_caught 'sensitive-rule-name-atuin-tier sensitive-rule-name-atuin-fires-0' \
+  'an exact rule is registered as a shape rule, so it only asks' \
+  "$sensitive" "guard_rule \"name-\$1\" deny" "guard_rule \"name-\$1\" ask"
+
+# The exemptions.
+expect_caught sensitive-pass-dotenv-template 'no token is exempt, so the committed templates are denied too' \
   "$sensitive" $'  \'.env.example\'\n  \'.env.sample\'\n  \'.env.template\'\n' ''
+
+expect_caught sensitive-pass-dotenv-sample 'the sample template is not exempt' \
+  "$sensitive" $'  \'.env.sample\'\n' ''
 
 expect_caught 'sensitive-deny-dotenv-unlisted-suffix sensitive-deny-dotenv-custom-suffix' \
   'two more .env suffixes are exempt' \
   "$sensitive" $'  \'.env.template\'\n' $'  \'.env.template\'\n  \'.env.ci\'\n  \'.env.docker\'\n'
 
-expect_caught 'sensitive-deny-glob-fragment sensitive-deny-glob-fragment-bare sensitive-deny-variable-stem' \
-  'no dot-prefixed fragment is watched' \
-  "$sensitive" 'fragment="${guard_name_start}[.][[:alnum:]_-]+"' 'fragment="nosuchfragment"'
-
-expect_caught sensitive-deny-brace-expansion \
-  'an expansion that replaces the name outright is no longer denied' \
-  "$sensitive" $'  "/[.]${guard_expansion}"\n' ''
-
-expect_caught 'sensitive-pass-regex-dot-star sensitive-pass-sed-expression sensitive-pass-brace-extensions sensitive-pass-parent-glob' \
-  'the dot segment needs no name character after the dot' \
-  "$sensitive" '[.][[:alnum:]_-]+"' '[.][[:alnum:]_-]*"'
-
-expect_caught db-deny-single-table 'dropping one table is no longer matched' \
-  "$db" '(database|schema|table)' '(database|schema)'
-
-# The client rule and the fragment rule.
-expect_caught 'db-deny-assembled-command db-deny-spaced-line-comment' \
-  'no command counts as invoking a database client' \
-  "$db" "client='(psql|mysql|mariadb|sqlite3|prisma|drizzle-kit|dropdb|pg_restore|db:)'" \
-  "client='(nosuchclient)'"
-
-expect_caught db-deny-spaced-line-comment \
-  'a SQL line comment beside a client is no longer a construct' \
-  "$db" "client_construct='([\$\`*?[{]|--)'" "client_construct='([\$\`*?[{])'"
-
-expect_caught sensitive-deny-cd-home-brace \
-  'moving into the home directory first is no longer noticed' \
-  "$sensitive" "home_cd='cd[[:space:]]+(~|[\$][{]?home[}]?)([^[:alnum:]_/-]|\$)'" \
-  "home_cd='nosuchcommand'"
-
-expect_caught sensitive-deny-variable-stem \
-  'the expansion has to stand next to the dot-prefixed name again' \
-  "$sensitive" $'  "${fragment}.*${guard_expansion}"\n  "${guard_expansion}.*${fragment}"\n' \
-  $'  "${fragment}${guard_expansion}"\n'
-
-# The whole-command rule.
-expect_caught db-deny-unlisted-client-brace \
-  'one verb is missing from the shared stem list' \
-  "$db" $'  drop\n' ''
-
-expect_caught sensitive-pass-direnv-file \
-  'a stem denies on its own, without an expansion anywhere in the command' \
-  "$guard" $'  1) return 0 ;;\n' $'  1) ;;\n'
-
 expect_caught 'sensitive-deny-dotenv-template-lookalike sensitive-pass-dotenv-template-arg' \
   'an exempt token may run into a longer name and still be removed' \
   "$guard" '([^[:alnum:]_.-]|$)"' '([^[:space:]]|$)"'
 
-# The shared engine.
-expect_caught db-matcher-error-denies 'a matcher that errors reads as "no match"' \
-  "$guard" $'    *)\n      printf \'error %s grep-exit-%s\' "$pattern" "$rc"\n      return 0\n      ;;\n' \
-  $'    *) ;;\n'
+expect_caught sensitive-pass-dotenv-template-twice 'only the first exempt token in a command is removed' \
+  "$guard" $'    while [[ $text =~ $pattern ]]; do\n      text=${text/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}${BASH_REMATCH[2]}"}\n    done\n' \
+  $'    if [[ $text =~ $pattern ]]; then\n      text=${text/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}${BASH_REMATCH[2]}"}\n    fi\n'
+
+# The engine.
+expect_caught 'db-matcher-error-denies db-matcher-error-in-ask-rule-denies' 'a matcher that errors reads as "no match"' \
+  "$guard" $'      *)\n        printf \'error %s grep-exit-%s\' "${guard_rule_ids[index]}" "$rc"\n        return 0\n        ;;\n' \
+  $'      *) ;;\n'
 
 expect_caught db-internal-error-denies 'errexit is not inherited by the classification' \
   "$guard" $'shopt -s inherit_errexit\n' ''
@@ -157,8 +263,12 @@ expect_caught db-internal-error-denies 'errexit is not inherited by the classifi
 expect_caught db-internal-error-denies 'nothing denies when the guard aborts' \
   "$guard" $'trap \'guard_on_exit\' EXIT\n' ''
 
-expect_caught 'no-allow-decision db-deny-prisma-reset' 'the guard prints allow instead of deny' \
-  "$guard" 'permissionDecision: "deny",' 'permissionDecision: "allow",'
+expect_caught 'no-allow-decision db-deny-prisma-reset' 'the guard prints allow instead of its decision' \
+  "$guard" 'permissionDecision: $decision,' 'permissionDecision: "allow",'
+
+expect_caught 'db-deny-prisma-reset sensitive-deny-remote-login-dir db-ask-brace-split' \
+  'the decision names the wrong hook event, which Claude Code would ignore' \
+  "$guard" 'hookEventName: "PreToolUse",' 'hookEventName: "PostToolUse",'
 
 expect_caught 'db-malformed-no-command db-malformed-null-command sensitive-malformed-no-command' \
   'input without a command string reads as an empty command instead of denying' \
@@ -166,15 +276,21 @@ expect_caught 'db-malformed-no-command db-malformed-null-command sensitive-malfo
   $'\'if (.tool_input.command | type) == "string" then .tool_input.command else error("no Bash command") end\'' \
   $'\'.tool_input.command // ""\''
 
-expect_caught db-deny-quote-split 'quote concatenation is no longer removed before matching' \
+expect_caught db-deny-quote-split 'double-quote concatenation is no longer removed before matching' \
   "$guard" $'  text=${text//\\"/}\n' ''
+
+expect_caught sensitive-deny-single-quote-split 'single-quote concatenation is no longer removed before matching' \
+  "$guard" $'  text=${text//\\\'/}\n' ''
+
+expect_caught sensitive-deny-backslash-split 'a backslash is no longer removed before matching' \
+  "$guard" $'  text=${text//\\\\/}\n' ''
 
 expect_caught 'db-deny-sql-wipe-uppercase db-deny-sql-drop-db' \
   'the command is matched without lowercasing it' \
   "$guard" $'  printf \'%s\' "$text" | tr \'[:upper:]\' \'[:lower:]\'\n' \
   $'  printf \'%s\' "$text"\n'
 
-expect_caught db-deny-multiline 'newlines are left in place, so grep matches one line at a time' \
+expect_caught db-deny-multiline-no-indent 'newlines are left in place, so grep matches one line at a time' \
   "$guard" $'  text=${text//$\'\\n\'/ }\n' ''
 
 # The build.
@@ -184,8 +300,18 @@ expect_caught 'db-pass-list-files sensitive-pass-read-readme' \
   $'      runtimeInputs = [\n        pkgs.jq\n        pkgs.coreutils\n        pkgs.gnugrep\n      ];\n      inheritPath = false;\n' \
   $'      runtimeInputs = [\n        pkgs.coreutils\n        pkgs.gnugrep\n      ];\n      inheritPath = true;\n'
 
+wait
+
+failures=0
+for ((n = 1; n <= mutants; n++)); do
+  cat "$work_dir/result.$n"
+  if grep -q '^MISSED' "$work_dir/result.$n"; then
+    failures=$((failures + 1))
+  fi
+done
+
 if ((failures > 0)); then
-  echo "$failures mutation check(s) failed"
+  echo "$failures of $mutants mutants were missed"
   exit 1
 fi
-echo "every mutant is caught"
+echo "every mutant is caught ($mutants mutants)"
