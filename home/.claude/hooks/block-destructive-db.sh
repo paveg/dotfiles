@@ -41,6 +41,18 @@ guard_stems=(
   'db:'
 )
 
+# A database client plus anything a shell expands or a SQL comment opens. The
+# verb need not survive for the command to reach a database: it can arrive in a
+# variable (`psql -c "$SQL"`) or hide behind `-- comment`. The cost is that an
+# ordinary `select *` and any `--flag` on a client are denied too; measured in
+# docs/verification.md.
+client='(psql|mysql|mariadb|sqlite3|prisma|drizzle-kit|dropdb|pg_restore|db:)'
+client_construct='([$`*?[{]|--)'
+guard_patterns+=(
+  "${guard_name_start}${client}.*${client_construct}"
+  "${client_construct}.*${guard_name_start}${client}"
+)
+
 guard_advice='These operations wipe data unconditionally, and a test-environment marker does not prove which datasource the client reaches. A transient schema error is environment noise, not a reason to reset: report the failing command instead.'
 
 guard_main

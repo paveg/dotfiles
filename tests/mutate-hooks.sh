@@ -69,11 +69,11 @@ expect_caught db-deny-sql-wipe-uppercase 'the raw-SQL wipe pattern is gone' \
 
 # Emptying the nouns rather than dropping the line, which would leave the gap
 # unused and fail shellcheck in the build instead of the checks.
-expect_caught 'db-deny-sql-drop-db db-deny-quote-split db-deny-multiline db-deny-single-table db-deny-dash-comment' \
+expect_caught 'db-deny-sql-drop-db db-deny-quote-split db-deny-multiline db-deny-single-table db-deny-unlisted-client-comment' \
   'the pattern for dropping a database, a schema or a table matches no noun' \
   "$db" '(database|schema|table)' '(nosuchnoun)'
 
-expect_caught db-deny-dash-comment \
+expect_caught db-deny-unlisted-client-comment \
   'only whitespace may stand between two SQL keywords, not a comment' \
   "$db" "gap='([[:space:]]|/\\*[^*]*\\*/|--[^[:space:]]*[[:space:]])+'" "gap='[[:space:]]+'"
 
@@ -98,20 +98,40 @@ expect_caught 'sensitive-deny-dotenv-unlisted-suffix sensitive-deny-dotenv-custo
   'two more .env suffixes are exempt' \
   "$sensitive" $'  \'.env.template\'\n' $'  \'.env.template\'\n  \'.env.ci\'\n  \'.env.docker\'\n'
 
-expect_caught 'sensitive-deny-glob-fragment sensitive-deny-glob-fragment-bare sensitive-deny-brace-fragment' \
-  'an expansion inside the segment that would name the directory is no longer denied' \
-  "$sensitive" $'  "${guard_name_start}[.][[:alnum:]_-]+${guard_expansion}"\n' ''
+expect_caught 'sensitive-deny-glob-fragment sensitive-deny-glob-fragment-bare sensitive-deny-variable-stem' \
+  'no dot-prefixed fragment is watched' \
+  "$sensitive" 'fragment="${guard_name_start}[.][[:alnum:]_-]+"' 'fragment="nosuchfragment"'
 
 expect_caught sensitive-deny-brace-expansion \
   'an expansion that replaces the name outright is no longer denied' \
   "$sensitive" $'  "/[.]${guard_expansion}"\n' ''
 
-expect_caught 'sensitive-pass-regex-dot-star sensitive-pass-sed-expression sensitive-pass-parent-glob' \
-  'the dot segment needs no name character before the expansion' \
-  "$sensitive" '[.][[:alnum:]_-]+${guard_expansion}' '[.][[:alnum:]_-]*${guard_expansion}'
+expect_caught 'sensitive-pass-regex-dot-star sensitive-pass-sed-expression sensitive-pass-brace-extensions sensitive-pass-parent-glob' \
+  'the dot segment needs no name character after the dot' \
+  "$sensitive" '[.][[:alnum:]_-]+"' '[.][[:alnum:]_-]*"'
 
 expect_caught db-deny-single-table 'dropping one table is no longer matched' \
   "$db" '(database|schema|table)' '(database|schema)'
+
+# The client rule and the fragment rule.
+expect_caught 'db-deny-assembled-command db-deny-spaced-line-comment' \
+  'no command counts as invoking a database client' \
+  "$db" "client='(psql|mysql|mariadb|sqlite3|prisma|drizzle-kit|dropdb|pg_restore|db:)'" \
+  "client='(nosuchclient)'"
+
+expect_caught db-deny-spaced-line-comment \
+  'a SQL line comment beside a client is no longer a construct' \
+  "$db" "client_construct='([\$\`*?[{]|--)'" "client_construct='([\$\`*?[{])'"
+
+expect_caught sensitive-deny-cd-home-brace \
+  'moving into the home directory first is no longer noticed' \
+  "$sensitive" "home_cd='cd[[:space:]]+(~|[\$][{]?home[}]?)([^[:alnum:]_/-]|\$)'" \
+  "home_cd='nosuchcommand'"
+
+expect_caught sensitive-deny-variable-stem \
+  'the expansion has to stand next to the dot-prefixed name again' \
+  "$sensitive" $'  "${fragment}.*${guard_expansion}"\n  "${guard_expansion}.*${fragment}"\n' \
+  $'  "${fragment}${guard_expansion}"\n'
 
 # The whole-command rule.
 expect_caught 'db-deny-brace-list-piped db-deny-brace-split' \

@@ -35,13 +35,22 @@ for protected_name in "${protected_names[@]}"; do
   guard_patterns+=("${guard_name_start}${protected_name}${name_end}")
 done
 
-# An expansion inside the path segment that would have named the directory, as
-# in `~/.ss*` or `"$HOME"/.{ssh,aws}`. The whole-command rule cannot see these,
-# because the name it would look for is the part that is missing. One name
-# character is required before the expansion, so that a regex or a glob of its
-# own (`rg 'import .* from'`, `*.{ts,tsx}`, `ls ../*`) is not a credential path.
+# A command that names a dot-prefixed file and expands something, in either
+# order and anywhere: the name the guard looks for may be the part that the
+# expansion replaces (`~/.ss*`, `x=.ss; cat ~/${x}h`). `cd ~` counts as naming
+# the home directory, because what follows it needs no path at all
+# (`cd ~ && cat .{ssh,aws}/x`). A dot with no name character after it is a
+# regex or a glob of its own (`rg 'import .* from'`, `*.{ts,tsx}`, `ls ../*`),
+# except directly after a slash, where it is the start of a hidden name.
+# The cost is that a glob after a hidden directory (`ls .github/workflows/*.yml`)
+# is denied too; measured in docs/verification.md.
+fragment="${guard_name_start}[.][[:alnum:]_-]+"
+home_cd='cd[[:space:]]+(~|[$][{]?home[}]?)([^[:alnum:]_/-]|$)'
 guard_patterns+=(
-  "${guard_name_start}[.][[:alnum:]_-]+${guard_expansion}"
+  "${fragment}.*${guard_expansion}"
+  "${guard_expansion}.*${fragment}"
+  "${home_cd}.*${guard_expansion}"
+  "${guard_expansion}.*${home_cd}"
   "/[.]${guard_expansion}"
 )
 
