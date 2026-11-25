@@ -4,3 +4,5 @@
 .claude/settings.local.json
 .claude/worktrees/
 *.excalidraw
+*_TTrace_*.tla
+*_TTrace_*.bin

@@ -1,0 +1,23 @@
+name: spec
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "spec/**"
+      - ".github/workflows/spec.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  tlc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Model-check the specs and their mutants
+        run: nix shell nixpkgs#tlaplus18 nixpkgs#python3 --command spec/check.sh

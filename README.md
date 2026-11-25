@@ -56,6 +56,8 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
+| [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
+| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh` |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repository |
 
-The planned implementation layout (`flake.nix`, `nix/`, `home/`, `hosts/`, `scripts/`, `spec/`, `templates/`) is in [design: Repository layout](docs/design.md#repository-layout).
+The planned implementation layout (`flake.nix`, `nix/`, `home/`, `hosts/`, `scripts/`, `templates/`) is in [design: Repository layout](docs/design.md#repository-layout).

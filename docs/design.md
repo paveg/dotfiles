@@ -143,7 +143,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 ├── tests/
 ├── scripts/{bootstrap.sh,work-sync.sh,unattended-setup.sh}
 ├── templates/{tlaplus,lean}/  # flake templates for formal-methods projects
-├── spec/                     # TLA+ models of the bootstrap and of settings.json writers
+├── spec/                     # TLA+ models and check.sh (TLC plus one mutant per property)
 ├── docs/
 ├── .github/workflows/
 ├── justfile
@@ -486,14 +486,14 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 
 ### Formal models (TLA+)
 
-Two parts of this design fail through combinations of state that reviews kept missing: the bootstrap's reruns and skips (an unpushed work-profile edit overwritten on rerun, a step that could never finish when Keeper is unavailable), and several programs writing one `settings.json`. Both are modelled in TLA+ under `spec/` and checked with TLC in CI, using the devShell from this repository's own `tlaplus` template. Lean is not used: nothing here needs a proof beyond what tests show.
+Two parts of this design fail through combinations of state that reviews kept missing: the bootstrap's reruns and skips (an unpushed work-profile edit overwritten on rerun, a step that could never finish when Keeper is unavailable), and several programs writing one `settings.json`. Both are modelled in TLA+ under `spec/` and checked with TLC in CI by `spec/check.sh`, which runs each model and then a mutant copy per property that must fail on that property. `spec/bootstrap.tla` exists; `spec/settings_writers.tla` is still to be written. CI gets TLC from `nix shell nixpkgs#tlaplus18` until the repository's own `tlaplus` template exists. Lean is not used: nothing here needs a proof beyond what tests show.
 
 - `spec/bootstrap.tla` models the steps of the Bootstrap section as actions over: the recorded host, whether Nix, the checkout, and each switch are present, each human step's check, whether `~/.config/dots-work/` exists and holds unpushed edits, and whether Keeper Secrets Manager is available. A run may stop after any action and be started again. Invariants and properties:
   - a personal host never calls `ksm` and never creates `~/.config/dots-work/`;
   - a host argument that is missing or differs from the recorded one changes nothing;
   - `work-mac` never reaches the end without its work profile;
   - unpushed work-profile edits survive every rerun;
-  - from any stopped state, rerunning with the human steps done eventually finishes. This liveness property holds only if the person does not stop the run forever: under weak fairness alone, a behaviour that stops and restarts endlessly violates it (TLC counterexample, reproduced). The model therefore states two assumptions: each step has strong fairness (`SF_vars`), so a step enabled again and again is eventually taken, and the restart has weak fairness (`WF_vars(EnvRestart)`), so a stopped run is eventually started again. Strong fairness on the steps alone is not enough: a run that stops and is never restarted violates the property (TLC counterexample, by a review agent).
+  - from any stopped state, rerunning with the human steps done eventually finishes. This liveness property holds only if the person does not stop the run forever: under weak fairness alone, a behaviour that stops and restarts endlessly violates it (TLC counterexample, reproduced). The model states its assumptions, each added because TLC found a behaviour that broke the property without it: each step has strong fairness (`SF_vars`), so a step enabled again and again is eventually taken; the host check has weak fairness, and strong fairness only for a run with the right host, since halting a wrong-host rerun is not progress; a stopped run is eventually restarted with the intended host (`SF_vars(EnvRestart)`: weak fairness is not enough, because wrong-host reruns keep disabling it); the owner eventually stops naming wrong hosts (`EnvBecomeCareful`), and undoes a wrong first host by the reset below (`EnvResetHost`); and people finish their human steps, including placing the work profile by hand, which they can do while a run is going.
 - `spec/settings_writers.tla` models three writers of `~/.claude/settings.json`: the switch's generator, Orca merging its hook entries at app start, and Claude Code adding a plugin. Each reads the file and writes it back, in any interleaving. Properties:
   - after the writers settle, Orca's entries and this repository's guard hooks are both present;
   - the generator never drops an entry another writer added that it is meant to carry over.
@@ -532,7 +532,7 @@ Work and personal are kept apart by the host, never by guessing:
 - The host is a required argument. The script does not infer it from the hostname, the hardware, or a network.
 - Only `work-mac` runs step 7, and only `work-mac`'s configuration links `~/.config/dots-work/`. A personal host never calls `ksm` and never creates that directory.
 - On `work-mac` the script does not run the second switch until `~/.config/dots-work/` exists, so the machine cannot finish half personal.
-- Changing a machine's host means deleting the recorded host by hand first; the script never overwrites it.
+- Changing a machine's host, for example after a first run named the wrong one, is done by hand and the script never does it: push any work-profile edits, then delete the recorded host, `~/.config/dots-work/`, and the KSM profile together. Deleting only the recorded host leaves the work profile on what is now a personal machine (TLC counterexample on `spec/bootstrap.tla`).
 
 Notes:
 
@@ -603,7 +603,7 @@ Each Nix network path reads certificates from a different place (checked against
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and a real user's WSL2 setup (the Windows-side apps and the Windows PATH of that machine); the `windows-2025` job below covers WSL2 itself only as far as it states. The monthly run covers the bootstrap; `scripts/unattended-setup.sh` and Tailscale are covered only by the manual acceptance criterion for the unattended host.
 - Templates: each flake template is instantiated and checked (see Project layer).
-- TLC checks `spec/bootstrap.tla` and `spec/settings_writers.tla` (see Formal models). Like every other test, each model is shown to fail when one of its invariants is deliberately broken in the model.
+- `.github/workflows/spec.yml` runs `spec/check.sh`: TLC on each model, and on one mutant per property that must fail on that property (see Formal models).
 - Windows runner: the `wsl` bootstrap test also runs on `windows-2025`, whose image lists "Windows Subsystem for Linux (Default, WSLv2)", in an Ubuntu distro installed by `Vampire/setup-wsl` (the image has no distro; the action defaults to WSL 2 and its `wsl-conf` input writes `/etc/wsl.conf`, which is used to set `[boot] systemd=true`). If systemd is still not running, step 2 stops as the Bootstrap section says, and the job fails: that is a defect in the job to fix, not an expected stop. A separate step runs `ssh.exe -V` from the distro to check interop, because the bootstrap never exercises it in CI: step 4 clones over HTTPS, and step 6's check uses a stub `ssh-add.exe`. Whether the `wsl-conf` route brings up systemd on a hosted runner, and whether the image ships an `ssh.exe`, are **Unverified**. The image's software list has no winget, so the Windows-side installs are not tested in CI.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 - Weekly: `DeterminateSystems/update-flake-lock` opens a pull request that updates `flake.lock`. A pull request opened with the default `GITHUB_TOKEN` does not trigger CI (the action's README), while one opened with a GitHub App token triggers `push` and `pull_request` workflows (peter-evans/create-pull-request, which the action uses), so the workflow mints a token with `actions/create-github-app-token` from a GitHub App made for this job alone: installed only on this repository, with Contents and Pull requests write and nothing else beyond the Metadata read that every App has. Its App ID and private key are repository secrets. The private key is long-lived, but it can mint tokens only for this repository and only with those two permissions.
