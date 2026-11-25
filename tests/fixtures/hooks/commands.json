@@ -145,6 +145,19 @@
           "echo -- | pg_restore -d app",
           "echo $x && pnpm run db:migrate"
         ]
+      },
+      "client-after-brace": {
+        "tier": "ask",
+        "fixtures": [
+          "echo {psql,x}",
+          "echo {mysql,x}",
+          "echo {mariadb,x}",
+          "echo {sqlite3,x}",
+          "echo {prisma,x}",
+          "echo {drizzle-kit,x}",
+          "echo {pg_restore,x}",
+          "pnpm run {db:res,x}et"
+        ]
       }
     },
     "deny": {

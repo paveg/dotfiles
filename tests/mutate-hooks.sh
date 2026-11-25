@@ -116,6 +116,10 @@ expect_caught 'db-fixtures-name-known-rules sensitive-fixtures-name-known-rules'
   'the reversed order of a pair of shape rules is not registered' \
   "$guard" $'  guard_rule "$1-reversed" "$2" "$4.*$3"\n' ''
 
+expect_caught db-rule-client-after-brace-fires-7 'a client straight after an opening brace is no longer noticed' \
+  "$db" $'guard_rule client-after-brace ask "[{]${client}"\n' \
+  $'guard_rule client-after-brace ask "[{] ${client}"\n'
+
 expect_caught db-rule-drop-expansion-reversed-fires-0 'a verb straight after the expansion is no longer noticed' \
   "$db" '(.*[^[:alnum:]_-])?drop' '.*[^[:alnum:]_-]drop'
 

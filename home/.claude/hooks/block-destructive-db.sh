@@ -51,3 +51,6 @@ client_construct='([$`*?[{#]|--)'
 guard_rule drop-expansion ask "${guard_name_start}drop.*${guard_expansion}"
 guard_rule drop-expansion-reversed ask "${guard_expansion}(.*[^[:alnum:]_-])?drop"
 guard_rule_both_orders client-construct ask "${guard_name_start}${client}" "$client_construct"
+# A brace list can open on the client (`pnpm run {db:res,x}et`), where the one
+# character cannot be both the construct and the character before the client.
+guard_rule client-after-brace ask "[{]${client}"
