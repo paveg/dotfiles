@@ -288,7 +288,7 @@ Pure evaluation cannot read `~/.config/dots-work/` (absolute paths outside the f
 - `Read(...)` rules for secrets outside a repository start with `~/` (for example `Read(~/.ssh/**)`, `Read(~/.aws/**)`, `Read(~/.kube/**)`). A pattern with no leading `/`, `~/` or `//`, such as `Read(id_rsa)` or `Read(**/*credential*)`, covers only the current directory and below, so it never reaches the home directory while the agent works in a repository.
 - A Bash prefix rule ends in a space before the wildcard (`Bash(gh *)`). Without it, `Bash(gh*)` also matches `ghq`, and `Bash(go*)` matches `gopass`.
 - `allow` holds no database client and no command whose subcommands include a destructive one without an `ask` rule for those (`gh pr merge`, `gh repo delete`, `gh release delete`). A client is left to the database guard and auto mode's classifier.
-- Commands that rewrite history but can be undone from the reflog (`git reset`, `git rebase`) are `ask`, not `deny`. `ask` rules still prompt in auto mode.
+- `git reset` and `git rebase` are `ask`, not `deny`. They are routine on a feature branch, but `git reset --hard` discards uncommitted work that no reflog holds, so a person confirms each. An `ask` rule with a command pattern still prompts in auto mode.
 - A `deny` or `ask` prefix rule matches the order Claude usually writes, not every spelling (`Bash(git push --force *)` misses `git push origin main --force`). What must hold whatever the spelling is enforced elsewhere: branch protection on GitHub, the sandbox, or a guard hook.
 - `Edit(~/.claude/settings.json)` and `Edit(~/.claude/hooks/**)` are denied, and `permissions.disableBypassPermissionsMode` is `"disable"`.
 
