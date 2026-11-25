@@ -20,7 +20,7 @@ Agents call `gh` and git all day. A long-lived token stored by `gh auth login` o
 - The work `includeIf` that scopes the credential helper names the org directory, so it lives in the work profile (`git/include.gitconfig`), which the public gitconfig includes; git ignores the include when the file is absent.
 - The `GH_TOKEN` pass-through exists only for callers that already hold a short-lived token, such as CI.
 - Both `ghtkn.yaml` files set `backend.type: agent`; ghtkn's default backend is the OS keyring.
-- `ghtkn exec` never starts the device flow, so bootstrap runs `ghtkn auth` once per app before `ghtkn agent unlock`. Exit code 111 means either that the agent is locked or that the app is not authenticated yet.
+- `ghtkn exec` never starts the device flow, so bootstrap runs `ghtkn auth` once per app, after `ghtkn agent unlock --enable-refresh` has set the passphrase (no token can be obtained from a locked agent). Exit code 111 means either that the agent is locked or that the app is not authenticated yet.
 - The ghtkn agent runs from `launchd.user.agents` on macOS and a systemd user service on WSL2.
 - `GITHUB_TOKEN`, `AQUA_GITHUB_TOKEN`, and `AQUA_KEYRING_ENABLED` are never set, because aqua then ignores ghtkn.
 
