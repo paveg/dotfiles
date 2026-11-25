@@ -4,29 +4,41 @@
 
 guard_subject='The sensitive-read guard'
 
-# A path counts when it is rooted at the home directory, however a shell spells
-# that, or when it leads a command argument. This repository's own tracked
-# copies (home/.ssh/config, home/.config/ghtkn/) sit behind a relative segment
-# and stay readable. The scan is lowercase, with quotes already removed.
-hook_home='(^|[^[:alnum:]_.~/-])(~/|[$][{]?home[}]?/|/users/[^/[:space:]]+/|/home/[^/[:space:]]+/)?'
-hook_end='([^[:alnum:]_.-]|$)'
+# A credential name counts wherever it stands as a path segment, because no
+# regex can require a path to be home-rooted: `~user/.ssh`, `//Users/x/.ssh`
+# and `./../.ssh` all reach the same files. This repository's own tracked
+# copies, home/.ssh/config and home/.config/ghtkn/, are therefore denied in
+# Bash too; the Read tool reaches them, and the deny reason names the override.
+name_end='([^[:alnum:]_.-]|$)'
+
+# ERE has no negative lookahead, so ".env with a suffix other than a committed
+# template" is spelled as a mismatch against each exempt word. The three start
+# with different letters, so one branch each covers it. A suffix that only
+# begins with one (.env.examples) is exempt, and a truncated one (.env.e)
+# passes; both are template names rather than places a secret is kept.
+other_suffix='([^est]'
+other_suffix+='|e([^x]|x([^a]|a([^m]|m([^p]|p([^l]|l[^e])))))'
+other_suffix+='|s([^a]|a([^m]|m([^p]|p([^l]|l[^e]))))'
+other_suffix+='|t([^e]|e([^m]|m([^p]|p([^l]|l([^a]|a([^t]|t[^e])))))))'
 
 guard_patterns=(
-  "${hook_home}[.]ssh${hook_end}"
-  "${hook_home}[.]aws${hook_end}"
-  "${hook_home}[.]kube${hook_end}"
-  "${hook_home}[.]config/gcloud${hook_end}"
-  "${hook_home}[.]config/(1password|op|keeper|ksm|ghtkn)${hook_end}"
-  "${hook_home}[.](1password|keeper|ghtkn)${hook_end}"
-  "${hook_home}[.]local/share/(ghtkn|atuin)${hook_end}"
-  "${hook_home}[.]atuin${hook_end}"
-  "${hook_home}[.]claude/[.]credentials[.]json"
-  "${hook_home}[.]codex/auth[.]json"
-  # .env and its per-environment variants, but not the committed templates
-  # (.env.example, .env.sample) and not direnv's .envrc.
-  "(^|[^[:alnum:]_.-])[.]env${hook_end}"
-  "(^|[^[:alnum:]_.-])[.]env[.](local|development|dev|staging|stg|production|prod|test)${hook_end}"
+  "${guard_name_start}[.]ssh${name_end}"
+  "${guard_name_start}[.]aws${name_end}"
+  "${guard_name_start}[.]kube${name_end}"
+  "${guard_name_start}kubeconfig${name_end}"
+  "${guard_name_start}[.]config/gcloud${name_end}"
+  "${guard_name_start}[.]config/(1password|op|keeper|ksm|ghtkn)${name_end}"
+  "${guard_name_start}[.](1password|keeper|ghtkn)${name_end}"
+  "${guard_name_start}[.]local/share/(ghtkn|atuin)${name_end}"
+  "${guard_name_start}[.]atuin${name_end}"
+  "${guard_name_start}[.]claude/[.]credentials[.]json"
+  "${guard_name_start}[.]codex/auth[.]json"
+  "${guard_name_start}[.]env${name_end}"
+  "${guard_name_start}[.]env[.]${other_suffix}"
 )
+
+guard_watch_unresolvable \
+  "${guard_name_start}(ssh|aws|kube|atuin|ghtkn|keeper|1password|gcloud|credentials|[.]env)"
 
 guard_advice='These paths hold credentials, cluster access, or shell history that must not reach an agent transcript. Take the value from its vault at run time instead: op run, ksm exec, or ghtkn exec.'
 

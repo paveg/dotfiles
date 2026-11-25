@@ -9,10 +9,17 @@
       "sql-wipe-uppercase": "psql -d app_dev -c 'TRUNCATE TABLE users'",
       "sql-drop-db": "psql -c \"DROP DATABASE app_dev\"",
       "quote-split": "psql -d app_dev -c 'dro\"p data\"base app_dev'",
-      "multiline": "psql -d app_dev -c \"DROP\n  DATABASE app_dev\""
+      "multiline": "psql -d app_dev -c \"DROP\n  DATABASE app_dev\"",
+      "single-table": "psql -d app_dev -c 'DROP TABLE users'",
+      "comment-split": "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
+      "dash-comment": "psql -d app_dev -c 'DROP--wipe\n  DATABASE app_dev'",
+      "brace-split": "psql -d app_dev -c \"DROP${IFS}DATABASE app_dev\""
     },
     "pass": {
       "read-only-query": "psql -d app_dev -c 'select count(*) from users'",
+      "star-in-query": "psql -d app_dev -c 'select * from users'",
+      "search-word": "rg -n 'create table' src/",
+      "migration-path": "cat migrations/0003_add_users.sql",
       "generate-migration": "pnpm drizzle-kit generate",
       "run-tests": "pnpm vitest run",
       "list-files": "ls -la"
@@ -27,13 +34,22 @@
       "agent-login": "cat ~/.claude/.credentials.json",
       "history-db": "sqlite3 ~/.local/share/atuin/history.db .dump",
       "absolute-home": "install -m 600 /home/dev/.aws/credentials /tmp/copy",
+      "other-user-home": "cat ~dev/.ssh/id_ed25519",
+      "double-slash": "sed -n '1,5p' //Users/dev/.aws/credentials",
+      "relative-parent": "cat ./../.ssh/id_ed25519",
+      "command-substitution": "cat \"$(echo ~)/.ssh/id_ed25519\"",
+      "brace-expansion": "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}",
+      "repo-copy": "cat home/.ssh/config",
+      "repo-vault-config": "cat home/.config/ghtkn/gh-app.personal",
       "dotenv": "cat .env",
-      "dotenv-variant": "rg -n PASSWORD .env.production"
+      "dotenv-variant": "rg -n PASSWORD .env.production",
+      "dotenv-unlisted-suffix": "cat .env.ci",
+      "dotenv-custom-suffix": "cat .env.docker"
     },
     "pass": {
       "read-readme": "cat README.md",
-      "repo-copy": "cat home/.ssh/config",
-      "repo-vault-config": "cat home/.config/ghtkn/gh-app.personal",
+      "aws-cli": "aws s3 ls s3://bucket/prefix",
+      "cluster-query": "kubectl get pods -n default",
       "direnv-file": "cat .envrc",
       "dotenv-template": "cat .env.example",
       "vault-run": "op run --env-file=config/local.env -- just serve",

@@ -22,9 +22,14 @@ guard_patterns=(
   'db:(reset|drop|nuke|wipe|clear)([^[:alnum:]_]|$)'
   '(^|[^[:alnum:]_])dropdb([^[:alnum:]_]|$)'
   'mysqladmin[[:space:]]+(.*[[:space:]])?drop([^[:alnum:]_]|$)'
-  'drop[[:space:]]+(database|schema)([^[:alnum:]_]|$)'
+  'drop[[:space:]]+(database|schema|table)([^[:alnum:]_]|$)'
   'truncate([[:space:]]+table)?([^[:alnum:]_]|$)'
 )
+
+# A SQL comment or a shell construct between the keywords (DROP/**/DATABASE)
+# defeats the patterns above, and resolving one needs a shell. Only the verbs
+# are listed: `table` or `database` on its own appears in ordinary commands.
+guard_watch_unresolvable "${guard_name_start}(drop|truncate|dropdb|db:)"
 
 guard_advice='These operations wipe data unconditionally, and a test-environment marker does not prove which datasource the client reaches. A transient schema error is environment noise, not a reason to reset: report the failing command instead.'
 

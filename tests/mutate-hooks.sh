@@ -67,26 +67,51 @@ expect_pass
 expect_caught db-deny-sql-wipe-uppercase 'the raw-SQL wipe pattern is gone' \
   "$db" $'  \'truncate([[:space:]]+table)?([^[:alnum:]_]|$)\'\n' ''
 
-expect_caught 'db-deny-sql-drop-db db-deny-quote-split db-deny-multiline' \
-  'the pattern for dropping a whole database is gone' \
-  "$db" $'  \'drop[[:space:]]+(database|schema)([^[:alnum:]_]|$)\'\n' ''
+expect_caught 'db-deny-sql-drop-db db-deny-quote-split db-deny-multiline db-deny-single-table' \
+  'the pattern for dropping a database, a schema or a table is gone' \
+  "$db" $'  \'drop[[:space:]]+(database|schema|table)([^[:alnum:]_]|$)\'\n' ''
 
 expect_caught sensitive-deny-remote-login-dir 'the SSH directory pattern is gone' \
-  "$sensitive" $'  "${hook_home}[.]ssh${hook_end}"\n' ''
+  "$sensitive" $'  "${guard_name_start}[.]ssh${name_end}"\n' ''
 
 expect_caught sensitive-deny-dotenv 'the .env pattern is gone' \
-  "$sensitive" $'  "(^|[^[:alnum:]_.-])[.]env${hook_end}"\n' ''
+  "$sensitive" $'  "${guard_name_start}[.]env${name_end}"\n' ''
 
 expect_caught sensitive-pass-dotenv-template \
-  'the .env variants are matched by a wildcard, so the committed templates are denied too' \
-  "$sensitive" '[.]env[.](local|development|dev|staging|stg|production|prod|test)' \
-  '[.]env[.][[:alnum:]_-]+'
+  'every .env suffix is denied, so the committed templates are denied too' \
+  "$sensitive" "other_suffix='([^est]'" "other_suffix='([[:alnum:]]'"
 
-expect_caught 'sensitive-pass-repo-copy sensitive-pass-repo-vault-config' \
-  'a credential path no longer has to be rooted at the home directory' \
-  "$sensitive" \
-  "hook_home='(^|[^[:alnum:]_.~/-])(~/|[\$][{]?home[}]?/|/users/[^/[:space:]]+/|/home/[^/[:space:]]+/)?'" \
-  "hook_home='(^|[^[:alnum:]_-])'"
+expect_caught 'sensitive-deny-other-user-home sensitive-deny-relative-parent sensitive-deny-repo-copy' \
+  'the SSH directory counts only when the path is rooted at the home directory' \
+  "$sensitive" $'  "${guard_name_start}[.]ssh${name_end}"\n' \
+  $'  "${guard_name_start}(~/|/users/[^/[:space:]]+/|/home/[^/[:space:]]+/)[.]ssh${name_end}"\n'
+
+expect_caught 'sensitive-deny-dotenv-unlisted-suffix sensitive-deny-dotenv-custom-suffix' \
+  'two more .env suffixes are treated as committed templates' \
+  "$sensitive" "other_suffix='([^est]'" "other_suffix='([^estcd]'"
+
+expect_caught db-deny-single-table 'dropping one table is no longer matched' \
+  "$db" 'drop[[:space:]]+(database|schema|table)' 'drop[[:space:]]+(database|schema)'
+
+# A mutant that no longer builds is a harness error rather than a caught
+# mutant, so these two empty the watched names instead of dropping the call.
+expect_caught 'db-deny-comment-split db-deny-dash-comment db-deny-brace-split' \
+  'the database guard watches no name for constructs it cannot resolve' \
+  "$db" '(drop|truncate|dropdb|db:)"' '(nosuchverb)"'
+
+expect_caught sensitive-deny-brace-expansion \
+  'the sensitive guard watches no name for constructs it cannot resolve' \
+  "$sensitive" '(ssh|aws|kube|atuin|ghtkn|keeper|1password|gcloud|credentials|[.]env)"' \
+  '(nosuchname)"'
+
+expect_caught db-deny-dash-comment \
+  'a SQL line comment no longer counts as a construct the guard cannot resolve' \
+  "$guard" 'guard_unresolvable='"'"'([$]|`|--|/\*' \
+  'guard_unresolvable='"'"'([$]|`|/\*'
+
+expect_caught sensitive-deny-brace-expansion \
+  'a construct standing before the protected name is no longer watched' \
+  "$guard" $'    "${guard_unresolvable}[^[:space:]]*${1}"\n' ''
 
 # The shared engine.
 expect_caught db-matcher-error-denies 'a matcher that errors reads as "no match"' \

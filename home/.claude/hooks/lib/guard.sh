@@ -48,6 +48,25 @@ guard_pass() {
   exit 0
 }
 
+# The character before a name, so that a pattern does not match the tail of a
+# longer word. A slash, a tilde, a brace or a quote's old position all qualify.
+guard_name_start='(^|[^[:alnum:]_-])'
+
+# Quotes, backslashes and newlines are gone by the time a pattern runs, but a
+# glob, a brace, a substitution or a SQL comment can still hold a protected
+# name apart, and expanding one needs a shell rather than a matcher. A guard
+# therefore also denies when such a construct shares a whitespace-delimited
+# word with one of its protected names: a command it cannot resolve statically
+# is a command it cannot clear. Each guard adds the pair with its own names.
+guard_unresolvable='([$]|`|--|/\*|\*/|\*|\?|\[|\{)'
+
+guard_watch_unresolvable() { # <name alternation>
+  guard_patterns+=(
+    "${1}[^[:space:]]*${guard_unresolvable}"
+    "${guard_unresolvable}[^[:space:]]*${1}"
+  )
+}
+
 # Drop quote and backslash concatenation so that token splitting cannot hide an
 # operation, flatten the newlines because grep matches one line at a time, and
 # lowercase. Over-normalizing can only add a pause for review; from here there
@@ -88,7 +107,7 @@ guard_classify() { # <normalized-command>
 }
 
 guard_main() {
-  local rc=0 command scan verdict
+  local rc=0 command scan verdict pattern
 
   # The guard is registered on Bash alone, so an input without a command string
   # means the wiring is wrong, not that the call is safe.
@@ -107,9 +126,19 @@ $guard_override_advice"
     guard_pass
     ;;
   'match '*)
+    pattern=${verdict#match }
+    if [[ $pattern == *"$guard_unresolvable"* ]]; then
+      guard_deny "$guard_subject cannot resolve this command: a name it protects shares a word with a glob, a brace, a substitution or a comment, which only a shell could expand. A guard that cannot read a command denies it.
+
+Command: $command
+
+$guard_advice
+
+$guard_override_advice"
+    fi
     guard_deny "$guard_subject denied this command.
 
-Matched pattern: ${verdict#match }
+Matched pattern: $pattern
 Command: $command
 
 $guard_advice
