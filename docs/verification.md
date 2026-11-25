@@ -189,3 +189,5 @@ Injection counts are `hook_additional_context` attachments grouped by hook event
 | Under the PATH `/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin`, `orca serve service install --dry-run` exits 1; with `--command /usr/local/bin/orca` it succeeds and the plist runs that path | Holds | Measured on this Mac |
 | `orca serve service status --json` reports `"installed": false` when no service exists | Holds | Measured on this Mac |
 | `orca pair` mobile pairing works on the same network or tailnet only, unless `--relay` is given | Holds | Source (by a review agent): `orca pair --help` |
+| home-manager's `recursive` option defaults to `false`, which links a directory as a single symlink | Holds | Source (by a review agent): home-manager `modules/lib/file-type.nix` |
+| After moving Karabiner's config, `launchctl kickstart -k gui/$(id -u)/org.pqrs.service.agent.Karabiner-Console-User-Server` is needed once for Karabiner to watch the new location | Holds | Source (by a review agent): karabiner-elements.pqrs.org/docs/manual/misc/configuration-file-path/ |
