@@ -5,6 +5,8 @@ let
   link = path: config.lib.file.mkOutOfStoreSymlink "${checkout}/home/${path}";
 in
 {
+  imports = [ ./packages.nix ];
+
   home.username = host.user;
   home.homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/${host.user}" else "/home/${host.user}";
   home.stateVersion = "26.11";

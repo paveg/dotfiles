@@ -11,6 +11,9 @@
 
   home-manager = {
     useGlobalPkgs = true;
+    # Packages land in /etc/profiles/per-user/<user>/bin, which $ZDOTDIR/.zshenv
+    # puts on PATH.
+    useUserPackages = true;
     extraSpecialArgs = { inherit host; };
     users.${host.user} = ./home.nix;
   };
