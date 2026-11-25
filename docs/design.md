@@ -139,6 +139,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 ├── tests/
 ├── scripts/{bootstrap.sh,work-sync.sh}
 ├── templates/{tlaplus,lean}/  # flake templates for formal-methods projects
+├── spec/                     # TLA+ models of the bootstrap and of settings.json writers
 ├── docs/
 ├── .github/workflows/
 ├── justfile
@@ -432,6 +433,22 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 | Internal tokens | Keeper (`keeper://`) |
 | CA certificates | See below |
 
+### Formal models (TLA+)
+
+Two parts of this design fail through combinations of state that reviews kept missing: the bootstrap's reruns and skips (an unpushed work-profile edit overwritten on rerun, a step that could never finish when Keeper is unavailable, a GUI Tailscale counted as connected), and several programs writing one `settings.json`. Both are modelled in TLA+ under `spec/` and checked with TLC in CI, using the devShell from this repository's own `tlaplus` template. Lean is not used: nothing here needs a proof beyond what tests show.
+
+- `spec/bootstrap.tla` models the steps of the Bootstrap section as actions over: the recorded host, whether Nix, the checkout, and each switch are present, each human step's check, whether `~/.config/dots-work/` exists and holds unpushed edits, and whether Keeper Secrets Manager is available. A run may stop after any action and be started again. Invariants and properties:
+  - a personal host never calls `ksm` and never creates `~/.config/dots-work/`;
+  - a host argument that is missing or differs from the recorded one changes nothing;
+  - `work-mac` never reaches the end without its work profile;
+  - unpushed work-profile edits survive every rerun;
+  - from any stopped state, rerunning with the human steps done eventually finishes (liveness, under weak fairness).
+- `spec/settings_writers.tla` models three writers of `~/.claude/settings.json`: the switch's generator, Orca merging its hook entries at app start, and Claude Code adding a plugin. Each reads the file and writes it back, in any interleaving. Properties:
+  - after the writers settle, Orca's entries and this repository's guard hooks are both present;
+  - the generator never drops an entry another writer added that it is meant to carry over.
+  If TLC finds an interleaving that loses an entry, the design changes (for example, the generator re-reads the file immediately before writing, or the switch restarts Orca), not the model.
+- The model is not the bash script. Each state and transition the model checks becomes a case in the bootstrap tests (CI), so the tests and the model cover the same states. Each step in `scripts/bootstrap.sh` is a function with the same name as its model action, and CI compares the two lists, so a step added to one side only fails CI.
+
 ## Bootstrap
 
 One command on a fresh machine, with the host named explicitly:
@@ -531,6 +548,7 @@ Each Nix network path reads certificates from a different place (checked against
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
 - Templates: each flake template is instantiated and checked (see Project layer).
+- TLC checks `spec/bootstrap.tla` and `spec/settings_writers.tla` (see Formal models). Like every other test, each model is shown to fail when one of its invariants is deliberately broken in the model.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 - Weekly: `DeterminateSystems/update-flake-lock` opens a pull request that updates `flake.lock`. A pull request opened with the default `GITHUB_TOKEN` does not trigger CI (the action's README), so the workflow mints a token with `actions/create-github-app-token` from a GitHub App made for this job alone: installed only on this repository, with Contents and Pull requests write and no other permission. Its App ID and private key are repository secrets. The private key is long-lived, but it can mint tokens only for this repository and only with those two permissions.
 - Dependabot updates GitHub Actions versions (`github-actions` ecosystem only).
