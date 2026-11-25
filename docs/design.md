@@ -86,7 +86,7 @@ Host names are placeholders. Only `work-mac` carries the work profile and sits b
 
 - No language runtimes are installed globally.
 - The default for new projects is **mise in shims mode** ([ADR 0006](adr/0006-project-layer-mise-shims.md)). The condition it meets: its tools resolve from `zsh -c` without a shell hook. `$ZDOTDIR/.zshenv` puts mise's shims directory (`$XDG_DATA_HOME/mise/shims`; mise uses `MISE_DATA_DIR`, else `XDG_DATA_HOME/mise`) on PATH, and nothing calls `mise activate`. Measured: with only the shims directory on PATH, a non-interactive `zsh -c` ran a project tool declared in `mise.toml`.
-- mise tools come from the `aqua:` backend where one exists, never from asdf plugins, and projects commit `mise.lock` (ADR 0006). Whether a global setting can refuse asdf plugins on every host is **Unverified**; until then it is a rule for project configs.
+- mise tools come from the `aqua:` backend where one exists, never from asdf plugins, and projects commit `mise.lock` (ADR 0006). `home/.config/mise/config.toml` sets `disable_backends = ["asdf"]`, so every host refuses an `asdf:` tool with `backend asdf is disabled by disable_backends` before it fetches anything (measured). It is a host default rather than a lock: a project whose own `[settings]` sets `disable_backends` to something else gets that value, measured in a directory whose `mise.toml` set it to `[]`.
 - Hook-activated environments (direnv, `mise activate`) are not used, because a plain `zsh -c` never sees them.
 - Existing projects keep what they use (devbox, a flake devShell). Agents then run commands through `devbox run` / `nix develop -c`, which the project's own CLAUDE.md states.
 - Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `.zshenv` also puts on PATH.
@@ -130,6 +130,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 │   ├── .zshenv               # sets ZDOTDIR and sources the real one
 │   ├── .config/zsh/{.zshenv,.zprofile,.zshrc}
 │   ├── .config/atuin/config.toml
+│   ├── .config/mise/config.toml  # global settings; refuses the asdf backend
 │   ├── .config/git/{config,ignore,personal.gitconfig}
 │   ├── .config/ghtkn/{ghtkn.personal.yaml.tpl,gh-app.personal}
 │   ├── .config/1Password/ssh/agent.toml
@@ -453,7 +454,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 
 - `nix/packages.nix`: `claude-code` ([ADR 0011](adr/0011-claude-code-from-nixpkgs.md)), `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `ghtkn` (in nixpkgs), `mise`, `atuin`.
 - The 1Password CLI is not a nixpkgs package on any host: on macOS it comes from the module below, and on `wsl` the Windows `op.exe` is used, because the Linux `op` inside WSL cannot use the desktop app integration. Every `op` call on `wsl` (step 8's `op inject` included) means `op.exe`.
-- Unfree packages are allowed by name only: `_1password-gui`, `_1password-cli` (both evaluated by the macOS modules), and `raycast`.
+- Unfree packages are allowed by name only: `claude-code`, `_1password-gui`, `_1password-cli` (both evaluated by the macOS modules), and `raycast`. `claude-code` is the only unfree package in `nix/packages.nix` (measured), and the predicate lives in `flake.nix`, which is where both the nix-darwin `pkgs` and the standalone home-manager `pkgs` for `wsl` are built.
 - macOS apps, by P8's order. nix-darwin copies nixpkgs apps into `/Applications/Nix Apps` with rsync (`modules/system/applications.nix`), so their paths stay the same across rebuilds:
   - nix-darwin modules: 1Password (`programs._1password-gui`, which installs `/Applications/1Password.app`; the app must exist before any `op` step), the 1Password CLI (`programs._1password`, which installs `/usr/local/bin/op`: the module notes that the app integration works only with the CLI at that path), Tailscale (ADR 0010).
   - nixpkgs packages: Raycast (`raycast`, unfree, allowed by name), Ghostty (`ghostty-bin`; nixpkgs' `ghostty` builds for Linux only), and the font (`udev-gothic-nf` through `fonts.packages`).
@@ -593,6 +594,7 @@ Each Nix network path reads certificates from a different place (checked against
   - the interactive shell writes no history file and creates `$XDG_CACHE_HOME/zsh`;
   - after the shells exit, every entry in `$HOME` is on an allowlist, which catches a stray history, completion dump, rc file, or `~/.atuin`;
   - each variable repeated for launchd or `environment.d` equals its value in `$ZDOTDIR/.zshenv`.
+- Package tests, on the built configuration and still without a switch: each build job builds `home.path` and `home-files` for its host and checks that every global tool is in the profile, that `env -i PATH=<profile>/bin:/usr/bin:/bin zsh -c 'command -v <tool>'` answers with the profile's copy rather than `/usr/bin`, that `~/.config/zsh` and `~/.config/mise` are real directories of per-file links, and that the global mise config refuses an `asdf:` tool. One mutant per check (a package dropped, the unfree allowance emptied, the zsh directory linked whole, the asdf setting removed) runs on the Linux runner.
 - Bootstrap tests run `scripts/bootstrap.sh` from the start with `DOTFILES_REF` set to the commit under test: `wsl` on a Linux runner as a newly created user with an empty home, and `personal-mac` and `work-mac` on a macOS runner, whose preinstalled Homebrew exercises `autoMigrate`. Whether a hosted macOS runner can run a nix-darwin switch is **Unverified**.
   - Human steps are stubbed by making each step's check pass, so the script's own logic runs unchanged:
     - 1Password on macOS: a real Unix socket listening at the agent socket path, so the check can stay `test -S`. On WSL2, where SSH goes through `ssh.exe`, a stub `ssh-add.exe` that lists one key.

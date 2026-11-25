@@ -2,7 +2,7 @@
 
 Nix-based dotfiles for agent-first development on macOS and WSL2. One command turns a fresh machine into a configured host, coding agents see the same tools as an interactive shell, and secrets stay in vaults.
 
-> **Status: implementation started.** The flake builds every host with the zsh layout in [`home/`](home/), and its tests are in; packages, agent configuration, and the bootstrap script are not. [`docs/design.md`](docs/design.md) is the design, [`docs/adr/`](docs/adr/) records the decisions, and [`docs/verification.md`](docs/verification.md) holds the evidence behind each factual claim. Statements marked **Unverified** there still need a real machine.
+> **Status: implementation started.** The flake builds every host with the zsh layout in [`home/`](home/) and the global CLI tools in [`nix/packages.nix`](nix/packages.nix), and their tests are in; agent configuration and the bootstrap script are not. [`docs/design.md`](docs/design.md) is the design, [`docs/adr/`](docs/adr/) records the decisions, and [`docs/verification.md`](docs/verification.md) holds the evidence behind each factual claim. Statements marked **Unverified** there still need a real machine.
 
 ![From one command to a configured host](docs/diagrams/architecture.png)
 
@@ -57,10 +57,10 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
 | [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system and login name, and the nix-darwin and home-manager modules |
-| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh so far |
+| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh and mise so far |
 | [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
-| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME` and `mutate.sh` breaks one condition at a time to show each check fails |
-| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell tests on Linux and macOS, `nix.yml` builds every host |
+| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME`, `packages.sh` checks the built profile, and each has a `mutate*.sh` that breaks one condition at a time to show the checks fail |
+| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell tests on Linux and macOS, `nix.yml` builds every host and runs the package tests on what it built |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repository |
 
 The rest of the planned layout (`scripts/`, `templates/`) is in [design: Repository layout](docs/design.md#repository-layout).
