@@ -6,8 +6,6 @@ Nix-based dotfiles for agent-first development on macOS and WSL2. One command tu
 
 ![From one command to a configured host](docs/diagrams/architecture.png)
 
-The diagram's source is [`docs/diagrams/architecture.excalidraw`](docs/diagrams/architecture.excalidraw); open it in Excalidraw to edit.
-
 ## What it sets up
 
 | Area | Choice | Decision |
@@ -57,7 +55,7 @@ The full list, P1 to P8, is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/design.md`](docs/design.md) | Goals, architecture, bootstrap, CI, acceptance criteria, open questions |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
-| [`docs/diagrams/`](docs/diagrams/) | Excalidraw sources and their rendered PNGs |
+| [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repository |
 
 The planned implementation layout (`flake.nix`, `nix/`, `home/`, `hosts/`, `scripts/`, `spec/`, `templates/`) is in [design: Repository layout](docs/design.md#repository-layout).
