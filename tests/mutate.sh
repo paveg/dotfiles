@@ -78,9 +78,21 @@ expect_caught xdg-config-home 'XDG_CONFIG_HOME defaults to the wrong directory' 
   .zshenv 'export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}' \
   'export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.configdir}'
 
-expect_caught caller-xdg-config-home-kept 'an XDG default overrides the value the caller set' \
+expect_caught caller-xdg-config-home-kept 'XDG_CONFIG_HOME overrides the value the caller set' \
   .zshenv 'export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}' \
   'export XDG_CONFIG_HOME=$HOME/.config'
+
+expect_caught caller-xdg-data-home-kept 'XDG_DATA_HOME overrides the value the caller set' \
+  .zshenv 'export XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}' \
+  'export XDG_DATA_HOME=$HOME/.local/share'
+
+expect_caught caller-xdg-state-home-kept 'XDG_STATE_HOME overrides the value the caller set' \
+  .zshenv 'export XDG_STATE_HOME=${XDG_STATE_HOME:-$HOME/.local/state}' \
+  'export XDG_STATE_HOME=$HOME/.local/state'
+
+expect_caught caller-xdg-cache-home-kept 'XDG_CACHE_HOME overrides the value the caller set' \
+  .zshenv 'export XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}' \
+  'export XDG_CACHE_HOME=$HOME/.cache'
 
 expect_caught xdg-data-home 'XDG_DATA_HOME defaults to the wrong directory' \
   .zshenv 'export XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}' \
@@ -94,7 +106,7 @@ expect_caught xdg-cache-home 'XDG_CACHE_HOME defaults to the wrong directory' \
   .zshenv 'export XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}' \
   'export XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cachedir}'
 
-expect_caught caller-xdg-cache-home-still-default 'XDG_CACHE_HOME follows XDG_CONFIG_HOME' \
+expect_caught xdg-cache-home 'XDG_CACHE_HOME follows XDG_CONFIG_HOME' \
   .zshenv 'export XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}' \
   'export XDG_CACHE_HOME=${XDG_CACHE_HOME:-$XDG_CONFIG_HOME/cache}'
 

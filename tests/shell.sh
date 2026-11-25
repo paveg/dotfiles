@@ -54,12 +54,6 @@ run_zsh() { # <home> <zsh-arg>...
   env -i HOME="$home" TERM=dumb PATH="$base_path" "$zsh_bin" "$@"
 }
 
-run_zsh_with() { # <home> <VAR=VALUE> <zsh-arg>...
-  local home=$1 assignment=$2
-  shift 2
-  env -i HOME="$home" TERM=dumb PATH="$base_path" "$assignment" "$zsh_bin" "$@"
-}
-
 path_index() { # <dir> <path-value>; 0 when absent
   local i=1 entry
   local IFS=:
@@ -143,14 +137,20 @@ added=$(LC_ALL=C comm -13 <(echo "$before_tree") <(tree_of "$home") |
   grep -vE '^\./\.cache(/zsh(/.*)?)?$' || true)
 is home-tree-adds-only-cache "" "$added"
 
+# Each XDG variable the caller sets is kept, and ZDOTDIR follows XDG_CONFIG_HOME.
 alt_home=$(new_home caller-xdg)
-alt_config=$work_dir/caller-xdg-config
-mkdir -p "$alt_config"
-cp -R "$home_src/.config/." "$alt_config/"
-alt_vars=$(run_zsh_with "$alt_home" "XDG_CONFIG_HOME=$alt_config" -c "$print_vars" 2>/dev/null) || true
-is caller-xdg-config-home-kept "$alt_config" "$(field XDG_CONFIG_HOME "$alt_vars")"
-is caller-zdotdir-follows-config-home "$alt_config/zsh" "$(field ZDOTDIR "$alt_vars")"
-is caller-xdg-cache-home-still-default "$alt_home/.cache" "$(field XDG_CACHE_HOME "$alt_vars")"
+alt=$work_dir/caller-dirs
+mkdir -p "$alt/config"
+cp -R "$home_src/.config/." "$alt/config/"
+alt_vars=$(env -i HOME="$alt_home" TERM=dumb PATH="$base_path" \
+  XDG_CONFIG_HOME="$alt/config" XDG_DATA_HOME="$alt/data" \
+  XDG_STATE_HOME="$alt/state" XDG_CACHE_HOME="$alt/cache" \
+  "$zsh_bin" -c "$print_vars" 2>/dev/null) || true
+is caller-xdg-config-home-kept "$alt/config" "$(field XDG_CONFIG_HOME "$alt_vars")"
+is caller-xdg-data-home-kept "$alt/data" "$(field XDG_DATA_HOME "$alt_vars")"
+is caller-xdg-state-home-kept "$alt/state" "$(field XDG_STATE_HOME "$alt_vars")"
+is caller-xdg-cache-home-kept "$alt/cache" "$(field XDG_CACHE_HOME "$alt_vars")"
+is caller-zdotdir-follows-config-home "$alt/config/zsh" "$(field ZDOTDIR "$alt_vars")"
 
 echo "summary: $checks checks, $failures failed (zsh $zsh_bin, home $home_src)"
 if ((failures > 0)); then exit 1; fi
