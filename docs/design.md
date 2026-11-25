@@ -30,7 +30,7 @@ Three properties of the previous setup work against that:
 ## Non-goals
 
 - Rewriting config file contents in the Nix language (no `programs.*` generation).
-- Managing the Windows side (`%USERPROFILE%`) of WSL2 hosts, apart from the Windows apps listed under Packages (1Password, its CLI, Raycast, the font), which are installed by hand on Windows.
+- Managing the Windows side (`%USERPROFILE%`) of WSL2 hosts, apart from the Windows apps listed under Packages (Windows Terminal, 1Password, its CLI, Raycast, the font), which are installed by hand on Windows.
 - Maximum shell start-up speed.
 - Human-oriented shortcuts (aliases, functions).
 - Exhaustive macOS defaults: start empty, add only what is missed.
@@ -462,6 +462,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 - No other language runtimes.
 - Font (UDEV Gothic NF): `udev-gothic-nf` from nixpkgs on macOS; installed by hand on the Windows side for WSL2.
 - Windows side of `wsl`, installed by hand before the bootstrap's step 6, because WSL reaches 1Password only through the Windows app:
+  - Windows Terminal: `winget install --id Microsoft.WindowsTerminal -e`, the command its repository's README gives. Microsoft's install page does not say that Windows 11 ships with it, so it is installed explicitly; on a machine that has it, the command changes nothing. Its `settings.json` lives on the Windows side and is not managed here. Ghostty, the macOS terminal, lists only macOS and Linux builds.
   - 1Password: `winget install --id AgileBits.1Password -e`.
   - 1Password CLI: `winget install --id AgileBits.1Password.CLI -e`. WSL calls the Windows `op.exe`; 1Password's docs say the Linux `op` inside WSL cannot use the desktop app integration and recommend calling `op.exe` from the WSL shell.
   - This relies on WSL's interop staying at its defaults (`[interop] enabled = true`, `appendWindowsPath = true` in `/etc/wsl.conf`): with `enabled` off, WSL cannot start `ssh.exe`, `op.exe`, or 1Password's signer, and with `appendWindowsPath` off, `op.exe` must be called by its full path.
@@ -605,7 +606,7 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Acceptance criteria
 
-- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication, App Management for the switching terminals, Karabiner's approvals, Raycast's script directory, the Windows-side 1Password, 1Password CLI, and Raycast installs for `wsl`, and the Raycast import excepted; `personal-mac`'s unattended setup is a separate, manual step)
+- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication, App Management for the switching terminals, Karabiner's approvals, Raycast's script directory, the Windows-side Windows Terminal, 1Password, 1Password CLI, and Raycast installs for `wsl`, and the Raycast import excepted; `personal-mac`'s unattended setup is a separate, manual step)
 - [ ] The bootstrap without a host, or with a host other than the recorded one, exits non-zero and changes nothing
 - [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
 - [ ] Running the bootstrap again after it stopped at a human step resumes and finishes
