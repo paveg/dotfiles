@@ -136,7 +136,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 │   └── .local/bin/
 ├── profiles/work.example/    # shape of the work profile, empty values, used by CI
 ├── tests/
-├── scripts/{bootstrap.sh,work-sync.sh}
+├── scripts/{bootstrap.sh,work-sync.sh,unattended-setup.sh}
 ├── docs/
 ├── .github/workflows/
 ├── justfile
@@ -389,10 +389,18 @@ Goal 9 means no class 3 step on the unattended path. With the design as it stand
 
 **The unattended host** is `personal-mac` itself ([ADR 0010](adr/0010-unattended-host-reachability.md)):
 
-- `orca serve service install` keeps Orca's server running as a LaunchAgent, independent of the desktop app. Orca writes that LaunchAgent itself, so nix-darwin does not own it; bootstrap step 11 runs the install command, and `orca serve service status` is how the design checks it. Orca's help says a packaged macOS app's server runs Electron, which needs a desktop login, and that `ORCA_SERVE_RUNTIME=orcad` runs a Node server instead when nobody is logged in (measured: `orca serve --help`).
+- `orca serve service install` keeps Orca's server running as a LaunchAgent, independent of the desktop app. Orca writes that LaunchAgent itself, so nix-darwin does not own it; `scripts/unattended-setup.sh` runs the install command (below), and `orca serve service status --json` is how the design checks it. Orca's help says a packaged macOS app's server runs Electron, which needs a desktop login, and that `ORCA_SERVE_RUNTIME=orcad` runs a Node server instead when nobody is logged in (measured: `orca serve --help`).
 - nix-darwin's `power.sleep.computer = "never"` keeps the Mac awake. How a laptop behaves with the lid closed or on battery under this setting is **Unverified**.
 - Tailscale, through nix-darwin's `services.tailscale` on `personal-mac` only, makes the host reachable from the phone outside the LAN. `orca serve` already accepts Tailscale addresses (100.64/10 and fd7a:115c:a1e0::/48) without `--allow-public` (measured: `orca serve --help`). Tailscale SSH is the way back into the host when Orca itself is stuck. Key expiry is disabled for this device only; otherwise re-authentication becomes a class 3 step every 180 days (Tailscale's default, by a review agent). `work-mac` gets no Tailscale: a personal VPN on a company machine is not this repository's decision. `wsl` gets none until it runs agents unattended.
 - FileVault is on (measured: `fdesetup isactive` printed `true`). After an unplanned restart the Mac stops at the FileVault unlock screen, so it is unreachable until someone is at the desk. That is class 3 and no setting here removes it. A planned restart uses `sudo fdesetup authrestart`, which asks for the password in the terminal, so starting it from the phone is class 2; whether Orca comes back without a login is not yet known (table below).
+
+**Setup, by hand, on `personal-mac` only.** The bootstrap does not do this, because almost every step needs a person and none can be stubbed in CI. After the bootstrap finishes, the owner runs `scripts/unattended-setup.sh` at the desk. Every `tailscale` call uses `/run/current-system/sw/bin/tailscale`, the open-source build nix-darwin installs, and every `orca` call uses `/Applications/Orca.app/Contents/Resources/bin/orca`, so neither depends on PATH:
+
+1. Human: install Orca from its website. Homebrew's `orca` cask is an unrelated, disabled app (measured: `brew info --cask orca`).
+2. Human: `sudo /run/current-system/sw/bin/tailscale up --ssh`, sign in in the browser, then disable key expiry for this device in Tailscale's admin console. `--ssh` makes the host a Tailscale SSH server.
+3. The script runs `orca serve service install --command /Applications/Orca.app/Contents/Resources/bin/orca` with PATH set to `/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin`. The LaunchAgent stores the installing shell's PATH, and without `--command` the install fails under that PATH because it looks `orca` up there (measured: exit 1; with `--command`, the plist runs the given path). These paths are stable symlinks, so later switches need no reinstall.
+4. Human, on the phone: install Tailscale and sign in to the same tailnet, then scan the QR code from `orca pair --mobile --address <the host's Tailscale IPv4>` with Orca Mobile. `orca pair --help` says mobile pairing works on the same network or tailnet only, unless `--relay` is given. An SSH client on the phone is what the "Orca is stuck" row below relies on.
+5. On a rerun, the script skips Tailscale when `tailscale status --json` reports `BackendState` `Running`, and the service when `orca serve service status --json` reports `"installed": true`. It does not parse the text output, which also lacks "is not installed" when `orca` itself is missing.
 
 | Host event | Away, 1Password locked |
 |---|---|
@@ -428,7 +436,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 ### Packages
 
 - `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` (unfree, so the flake allows that one package by name), `ghtkn` (in nixpkgs), `mise`, `atuin`.
-- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca has no Homebrew cask and is installed by hand (bootstrap step 11). Karabiner-Elements and Raycast on every macOS host. Both are desk tools the owner asked for: neither reaches a process without an interactive shell, so they are a stated exception to P6.
+- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca has no Homebrew cask and is installed by hand (Unattended host). Karabiner-Elements and Raycast on every macOS host. Both are desk tools the owner asked for: neither reaches a process without an interactive shell, so they are a stated exception to P6.
 - Karabiner-Elements needs four approvals after install, per its docs: background services, Accessibility, Input Monitoring (normally granted with Accessibility), and its driver extension. They are made once, at the desk. On `work-mac`, whether the company's device management allows the driver extension is **Unverified**.
 - Raycast keeps its settings in its own database, not in a file (`~/Library/Application Support/com.raycast.macos/`). The free plan has no Cloud Sync, which needs Pro. So:
   - Script Commands are plain scripts in `home/.config/raycast/scripts/`, which is added once in Raycast's settings as a script directory.
@@ -473,13 +481,6 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
 10. Install the repository's git hooks (`lefthook install`).
     On macOS the script then prints a checklist of one-time GUI steps: Karabiner's approvals, adding Raycast's script directory, and importing the `.rayconfig` from 1Password (skipped on a first machine that has no export yet). They are a checklist rather than human steps that wait for Enter, because nothing later in the bootstrap depends on them, so waiting would only hold up the rest of the run.
-11. `personal-mac` only, the unattended host (ADR 0010). Every `tailscale` call uses `/run/current-system/sw/bin/tailscale`, the open-source build nix-darwin installs, never the GUI app's wrapper in `/usr/local/bin`:
-    - Human: install Orca from its website. Homebrew's `orca` cask is an unrelated, disabled app (measured: `brew info --cask orca`).
-    - Human: `sudo /run/current-system/sw/bin/tailscale up --ssh`, sign in in the browser, then disable key expiry for this device in Tailscale's admin console. `--ssh` makes the host a Tailscale SSH server.
-    - The script runs `orca serve service install` with PATH set to the fixed list `/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin`. The LaunchAgent stores the installing shell's PATH (measured: `orca serve service install --dry-run`), and these paths are stable symlinks, so later switches need no reinstall.
-    - Human: `orca pair --mobile --address <the host's Tailscale IPv4>` and scan the QR code with Orca Mobile, so the phone dials the Tailscale address rather than the LAN one.
-    - Skipped parts on a rerun: Tailscale when `tailscale status --json` reports `BackendState` `Running`; the service when `orca serve service status` does not print "is not installed". Its exit status is 0 either way (measured).
-
 Work and personal are kept apart by the host, never by guessing:
 
 - The host is a required argument. The script does not infer it from the hostname, the hardware, or a network.
@@ -553,12 +554,12 @@ Each Nix network path reads certificates from a different place (checked against
     - a login shell after the real switch resolves `git` from Nix;
     - `$HOME` gains no entry outside the allowlist: on Linux by listing the new user's home, on macOS by diffing the runner's home before and after.
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
-- Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
+- Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 
 ## Acceptance criteria
 
-- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, ghtkn, and Tailscale sign-in, the Orca install, mobile pairing, Karabiner's approvals, Raycast's script directory, and the Raycast import excepted)
+- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication, Karabiner's approvals, Raycast's script directory, and the Raycast import excepted; `personal-mac`'s unattended setup is a separate, manual step)
 - [ ] The bootstrap without a host, or with a host other than the recorded one, exits non-zero and changes nothing
 - [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
 - [ ] Running the bootstrap again after it stopped at a human step resumes and finishes

@@ -186,3 +186,6 @@ Injection counts are `hook_additional_context` attachments grouped by hook event
 | Karabiner-Elements needs background services, Accessibility, Input Monitoring, and driver extension approvals after install | Holds | Source (by a fetch agent): karabiner-elements.pqrs.org/docs/getting-started/installation/ |
 | Raycast exports settings only as an encrypted `.rayconfig` (passphrase of at least 8 characters); Cloud Sync needs Pro; Script Commands are indexed from directories the user adds | Holds | Source (by a fetch agent): manual.raycast.com/import-export, /cloud-sync, /script-commands |
 | Karabiner writes `automatic_backups/` into its config directory, and Raycast's data is SQLite under `~/Library/Application Support/com.raycast.macos/` | Holds | Measured: directory listings on this Mac |
+| Under the PATH `/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin`, `orca serve service install --dry-run` exits 1; with `--command /usr/local/bin/orca` it succeeds and the plist runs that path | Holds | Measured on this Mac |
+| `orca serve service status --json` reports `"installed": false` when no service exists | Holds | Measured on this Mac |
+| `orca pair` mobile pairing works on the same network or tailnet only, unless `--relay` is given | Holds | Source (by a review agent): `orca pair --help` |

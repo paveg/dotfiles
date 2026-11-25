@@ -10,7 +10,7 @@ Goal 9 asks that an agent loop started from the Orca iOS app never waits on a pr
 ## Decision
 
 - `personal-mac` is the unattended host. A headless Linux host is not used, because 1Password's SSH signing and `op` need the macOS desktop app, so on Linux they would need a 1Password service account, which reads only custom vaults (see Open questions).
-- Orca is installed by hand (it has no Homebrew cask). `orca serve service install` runs its server as a LaunchAgent with a fixed PATH; Orca writes it, not nix-darwin. The phone pairs with the host's Tailscale address (`orca pair --mobile --address`).
+- Orca is installed by hand (it has no Homebrew cask). `orca serve service install --command <Orca's bundled CLI>` runs its server as a LaunchAgent with a fixed PATH; Orca writes it, not nix-darwin. The phone joins the tailnet and pairs with the host's Tailscale address (`orca pair --mobile --address`).
 - nix-darwin's `power.sleep.computer = "never"` keeps the Mac awake.
 - Tailscale (`services.tailscale` in nix-darwin, the open-source `tailscaled`) on `personal-mac` only, brought up with `--ssh` and with key expiry disabled for that device. The Tailscale GUI app is removed from that host, because only the open-source daemon can be a Tailscale SSH server. `orca serve` accepts Tailscale addresses without `--allow-public`. Tailscale SSH is the way in when Orca is stuck.
 - FileVault stays on. An unplanned restart is accepted as class 3. A planned restart uses `sudo fdesetup authrestart`; whether Orca's per-user service runs again before someone logs in is to be measured.
@@ -18,7 +18,7 @@ Goal 9 asks that an agent loop started from the Orca iOS app never waits on a pr
 ## Consequences
 
 - Tailscale's node key is a credential on disk, and a Tailscale account is a new dependency.
-- The Orca LaunchAgent is state that nix-darwin does not manage; a rebuild from scratch reinstalls it through bootstrap.
+- The Orca LaunchAgent is state that nix-darwin does not manage; a rebuild from scratch reinstalls it through `scripts/unattended-setup.sh`, which the owner runs by hand after the bootstrap. It is kept out of the bootstrap because almost all of it needs a person and CI cannot stub it.
 - After a power loss the host is unreachable until someone unlocks FileVault at the Mac.
 - `work-mac` and `wsl` cannot be reached from outside their LAN.
 
