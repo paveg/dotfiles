@@ -307,6 +307,7 @@ Hooks come in three kinds, decided by what a failure of the hook should do:
 | Comment-rot check | PreToolUse (Write, Edit, MultiEdit, Bash) | Checker | Kept, rewritten from Python |
 | PR-body, browser, and Japanese-writing context | PreToolUse (Bash; `mcp__claude-in-chrome__*`; Write, Edit) | Injector | Kept |
 | Unaddressed-request check | Stop (`type: "agent"`) | Checker | Kept as a prompt in `settings.common.json`; there is no script to build |
+| Reply-language check | Stop | Checker | Added. When the user's last message is Japanese and the reply is mostly English (code, inline code, and URLs left out), it sends Claude back to rewrite once. A written rule in memory and CLAUDE.md did not stop the drift: the user corrected it more than ten times across two sessions. Replies under 20 words are not judged |
 
 Entries owned by other tools, as listed in `nix/agents.nix`:
 

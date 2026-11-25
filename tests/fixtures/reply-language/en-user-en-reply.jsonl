@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"Please merge the pull request now"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I merged the pull request and the checks on main passed. Nothing else needs your decision."}]}}
