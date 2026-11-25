@@ -145,6 +145,20 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | The sandbox can deny reads (`filesystem.denyRead`), restrict network by domain, and refuse unsandboxed retries (`allowUnsandboxedCommands: false`), on macOS and WSL2 | Holds | Source: code.claude.com/docs/en/sandboxing |
 | `Read(...)` deny rules cover file tools and recognized Bash file commands (`cat`, `head`, `tail`, `sed`, `tee`, redirections) | Holds | Source: code.claude.com/docs/en/permissions |
 
+## Writers of `settings.json`
+
+| Statement | Result | Evidence |
+|---|---|---|
+| Orca's hook installer reads the whole `settings.json`, merges, and renames a temp file over it, with no lock and no check against what it read | Holds | Source (by a review agent): Orca `v1.4.273`, `src/main/claude/hook-service.ts:193` (read) and `:227` (write); `hooks-json-write.ts:27-61` (temp file, `renameSync`, a re-read compared only with the new text); the guard at `:55,60` returns early outside Codex (`concurrent-file-edit-guard.ts:70-74`); the installed `app.asar.unpacked` chunk has the same sequence |
+| Claude Code 2.1.332 takes `settings.json.lock` (best effort: it writes without it after about 500 ms of contention), re-reads inside it, merges a patch, and renames a temp file | Holds | Source (by a review agent): the installed binary, functions around offsets 306729560 (lock, "writing without it"), 306731900-306736300 (re-read, merge) and 321201833 (plugin enable) |
+| Hook entries merge across settings levels; a user-level `disableAllHooks` cannot turn off managed hooks; the same handler in two files runs once | Holds | Source (by a review agent): code.claude.com/docs/en/hooks ("Hook locations", "Disable or remove hooks", "Hook handler fields") |
+| File-based managed settings live in `/Library/Application Support/ClaudeCode/` (macOS) and `/etc/claude-code/` (Linux, WSL); `managed-settings.d/*.json` merge after `managed-settings.json`, lists combining; a symlink is followed, with a `/status` warning when it leads outside the directory | Holds | Source (by a review agent): code.claude.com/docs/en/managed-settings ("Where each mechanism stores the policy", "Split a file-based policy across teams") |
+| By default Claude Code uses only the highest-ranked managed source: server-managed settings, then MDM, then the files | Holds | Source (by a review agent): code.claude.com/docs/en/managed-settings ("How Claude Code combines managed sources", `"first-wins"`) |
+| On WSL, `/etc/claude-code` is user-writable | Holds | Source (by a review agent): code.claude.com/docs/en/managed-settings ("When an admin document counts as present") |
+| A managed `enabledPlugins` entry cannot be disabled by the user; a managed `model` reapplies at each new session over a `/model` choice | Holds | Source (by a review agent): code.claude.com/docs/en/plugins/org ("Require a marketplace and its plugins"); code.claude.com/docs/en/settings ("Settings precedence") and model-config |
+| With the guards only in `settings.json` and Orca's entries carried over from the read, a switch can drop Orca's entries and Orca can drop the guards; re-reading before writing leaves the second, restarting Orca leaves the guards to Claude Code's stale write | Holds | Measured: TLC 1.8.0 on prototype variants of `spec/settings_writers.tla` (one variant per fix, each property checked separately) |
+| The committed model holds both properties (770 distinct states), each first-design mistake is caught, and a Claude Code write can drop Orca's entries | Holds | Measured: `spec/check.sh` exit 0; replacing `CCWrite` with `FALSE` in `OnlyClaudeCodeDropsOrca` gave a counterexample ending in `CCWrite` |
+
 ## Hook need across repositories
 
 Collected 2026-11-25. Repositories: `gh repo list paveg` returned 131, of which 70 are neither archived nor forks; each of the 70 file trees was read through the GitHub API (no errors). Past sessions: 693 transcripts under `~/.claude/projects`, excluding the session that wrote this table. Deny counts are transcript lines carrying the hook's deny text, so they are a rough order of magnitude, not exact firings.
