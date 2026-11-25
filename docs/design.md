@@ -86,6 +86,7 @@ Host names are placeholders. Only `work-mac` carries the work profile and sits b
 
 - No language runtimes are installed globally.
 - The default for new projects is **mise in shims mode** ([ADR 0006](adr/0006-project-layer-mise-shims.md)). The condition it meets: its tools resolve from `zsh -c` without a shell hook. `$ZDOTDIR/.zshenv` puts mise's shims directory (`$XDG_DATA_HOME/mise/shims`; mise uses `MISE_DATA_DIR`, else `XDG_DATA_HOME/mise`) on PATH, and nothing calls `mise activate`. Measured: with only the shims directory on PATH, a non-interactive `zsh -c` ran a project tool declared in `mise.toml`.
+- mise tools come from the `aqua:` backend where one exists, never from asdf plugins, and projects commit `mise.lock` (ADR 0006). Whether a global setting can refuse asdf plugins on every host is **Unverified**; until then it is a rule for project configs.
 - Hook-activated environments (direnv, `mise activate`) are not used, because a plain `zsh -c` never sees them.
 - Existing projects keep what they use (devbox, a flake devShell). Agents then run commands through `devbox run` / `nix develop -c`, which the project's own CLAUDE.md states.
 - Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `.zshenv` also puts on PATH.

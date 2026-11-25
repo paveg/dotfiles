@@ -163,6 +163,15 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | Orca has a second writer of `settings.json`, its theme sync: it re-reads after its last await, then writes back what it read plus `theme`, under a lock only Orca takes | Holds | Source (by a review agent): Orca `v1.4.273`, `src/main/claude/theme-sync/claude-code-theme-sync.ts:117-124` (re-read, write), `claude-code-theme-ownership.ts:74` (Orca's lock); whether theme sync is on by default is not checked |
 | Writing `settings.json` before the drop-in lets the guards drop out during the first switch; writing the drop-in first does not | Holds | Measured (by a review agent): TLC on a variant of the committed model where the switch writes `settings.json` and then the drop-in violates `GuardsInEffect` mid-switch; the committed order passes. The `check.sh` mutant (the `managedGuard` precondition of `GenWrite` removed) shows the first design, a switch that never writes the drop-in |
 
+## mise and aqua verification
+
+| Statement | Result | Evidence |
+|---|---|---|
+| mise's `aqua:` backend verifies checksums, Cosign and Minisign, SLSA, and GitHub attestations as the aqua registry declares them, each setting defaulting to `true` | Holds | Source (by a fetch agent): mise.jdx.dev/security.html ("Download verification"), mise.jdx.dev/dev-tools/backends/aqua.html |
+| asdf plugins "are shell scripts that run with your permissions"; mise describes no artifact verification for them | Holds | Source (by a fetch agent): mise.jdx.dev/dev-tools/backends/asdf.html |
+| mise does not create `mise.lock` by default; it records exact versions, URLs, and checksums, and verifies what mise downloads, not what is on disk | Holds | Source (by a fetch agent): mise.jdx.dev/dev-tools/mise-lock.html |
+| aqua's checksum verification is disabled by default; its Policy allows only the standard registry by default | Holds | Source (by a fetch agent): aquaproj.github.io/docs/reference/security/checksum ("Enforce Checksum Verification by environment variables"), /security/policy-as-code/ |
+
 ## Claude Code install
 
 | Statement | Result | Evidence |
