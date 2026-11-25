@@ -10,8 +10,8 @@ Project tools (language runtimes, CLIs pinned per repository) were activated by 
 ## Decision
 
 - New projects declare their tools in `mise.toml`.
-- `.zshenv` puts `~/.local/share/mise/shims` on PATH. Nothing calls `mise activate`, and direnv is not used.
-- Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `.zshenv` also puts on PATH.
+- `$ZDOTDIR/.zshenv` puts `$XDG_DATA_HOME/mise/shims` on PATH (mise uses `MISE_DATA_DIR`, else `$XDG_DATA_HOME/mise`). Nothing calls `mise activate`, and direnv is not used.
+- Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `$ZDOTDIR/.zshenv` also puts on PATH.
 - Existing projects on devbox or a flake devShell keep them; their CLAUDE.md tells agents to run commands through `devbox run` / `nix develop -c`.
 
 ## Consequences

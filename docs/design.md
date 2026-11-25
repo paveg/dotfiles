@@ -370,14 +370,14 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 
 | Item | Personal (`personal-mac`, `wsl`) | Work (`work-mac`) |
 |---|---|---|
-| `ghtkn.yaml` | Rendered by `op inject` from `home/.config/ghtkn/ghtkn.personal.yaml.tpl` (client IDs as `op://` references) for a personal GitHub App | `~/.config/dots-work/ghtkn/ghtkn.yaml`: none / read / git / write apps, with the no-permission app first so the default is safe |
+| `ghtkn.yaml` | Rendered by `op inject` from `home/.config/ghtkn/ghtkn.personal.yaml.tpl` (client IDs as `op://` references) for a personal GitHub App | `~/.config/dots-work/ghtkn/ghtkn.yaml`: none / read / git / write apps. The none app is listed first, but `GHTKN_APP` (below) makes the read app the default |
 | App used by `gh` (`gh-app` file) | `home/.config/ghtkn/gh-app.personal` | `~/.config/dots-work/ghtkn/gh-app` (`<work-gh-org>/write`) |
 | Git transport | SSH through 1Password | Work repositories: HTTPS with `ghtkn git-credential`, set in `work.gitconfig` and scoped by `includeIf`. Everything else: SSH |
 | aqua | Not used | `AQUA_GHTKN_ENABLED=true`, `GHTKN_APP=<work-gh-org>/read`, set in `env/static.env` so non-interactive shells get them |
 
 - Each machine has exactly one profile. On personal hosts, `~/.config/ghtkn/ghtkn.yaml` is the rendered file; on `work-mac` it links to the work profile. ghtkn reads `${XDG_CONFIG_HOME:-$HOME/.config}/ghtkn/ghtkn.yaml`.
 - Both `ghtkn.yaml` files set `backend.type: agent`; ghtkn's default backend is the OS keyring, which the agent design does not use.
-- `ghtkn exec` never starts the device flow, so exit code 111 means either "the agent is locked" or "not authenticated yet". Bootstrap runs `ghtkn auth` once per app before the unlock step.
+- `ghtkn exec` never starts the device flow, so exit code 111 means either "the agent is locked" or "not authenticated yet". Bootstrap first runs `ghtkn agent unlock --enable-refresh`, which sets the passphrase and creates the data key, and then `ghtkn auth` once per app: ghtkn's docs say no token can be obtained until the agent is unlocked (that `ghtkn auth` fails against a locked agent is inferred, not run).
 - `git-credential` picks its app from `apps[].git_owner` / `git_owners` in `ghtkn.yaml` (with `credential.useHttpPath true` in git config), then `GHTKN_GIT_APP`, then `GHTKN_APP`. `static.env` sets `GHTKN_APP` to the read app for aqua, so the work `ghtkn.yaml` names the write app for the work owner through `git_owners`, with `credential.useHttpPath true` in `work.gitconfig`; otherwise pushes would get a read-only token. Whether aqua's embedded ghtkn honors `GHTKN_APP` is **Unverified**.
 - That same `GHTKN_APP` makes the read app, not the no-permission app, the default for any command that names no app. The `gh` wrapper always names its app, so this affects only direct `ghtkn exec` calls.
 - The personal GitHub App is created before the first switch of `personal-mac` (Rollout step 1), so `gh` works from day one.

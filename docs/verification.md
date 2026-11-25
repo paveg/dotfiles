@@ -90,6 +90,7 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | `ghtkn exec -e <env>[:<app>]` sets a token variable; ghtkn exits 111 without running the command when no token is available; `ghtkn agent unlock --enable-refresh` exists | Holds | Source: suzuki-shunsuke/ghtkn `USAGE.md` at v0.4.3 |
 | ghtkn reads `${XDG_CONFIG_HOME:-$HOME/.config}/ghtkn/ghtkn.yaml`; its default backend is the OS keyring; `exec` never starts the device flow | Holds | Source: ghtkn README and `USAGE.md` (main) |
 | `git-credential` picks the app from `git_owners`, then `GHTKN_GIT_APP`, then `GHTKN_APP`, then the first app | Holds | Source: ghtkn `USAGE.md` (git credential helper) |
+| With the agent backend, the data key is created on the first `ghtkn agent unlock`, and no access token can be obtained until the agent is unlocked; `ghtkn auth` caches the token it gets | Holds | Source: ghtkn `docs/backend.md` (lines 77, 87) and `docs/token-management.md` (line 75), read with `gh api repos/suzuki-shunsuke/ghtkn/contents/docs/...`. That `ghtkn auth` fails against a locked agent is inferred, not run |
 | `ghtkn` 0.4.3 and `_1password-cli` (unfree) are in nixpkgs | Holds | Measured (by a review agent): `nix eval` at nixos-unstable `2786a2a` |
 | aqua uses ghtkn with `AQUA_GHTKN_ENABLED=true` (aqua v2.54.0 or later); an environment token, or the keyring when `AQUA_KEYRING_ENABLED=true`, takes precedence | Holds | Source: aquaproj.github.io, security / ghtkn; aqua `pkg/github/github.go` (v2.66.1) |
 

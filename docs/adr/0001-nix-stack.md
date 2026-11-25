@@ -10,7 +10,8 @@ The previous setup combined chezmoi, devbox global, mise, aqua, and Homebrew. Pa
 ## Decision
 
 - Install Nix with Determinate Nix on every host, including WSL2.
-- macOS: nix-darwin with home-manager as a darwin module. nix-darwin sets `nix.enable = false` (Determinate's nix-darwin module does this automatically) and manages casks and launchd agents.
+- macOS: nix-darwin with home-manager as a darwin module. nix-darwin sets `nix.enable = false` (Determinate's nix-darwin module does this automatically) and manages casks and launchd agents. `system.primaryUser` is set, because per-user options such as `launchd.user.envVariables` require it.
+- nix-homebrew installs Homebrew. nix-darwin's homebrew module does not install it, and activation aborts when it is missing. On a Mac that already has Homebrew, `nix-homebrew.autoMigrate = true` takes over the existing installation and keeps its packages.
 - WSL2: standalone home-manager.
 - Configuration stays in plain files linked with `mkOutOfStoreSymlink`, using absolute string paths to the checkout.
 - `flake.lock` is committed.
