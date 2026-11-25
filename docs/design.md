@@ -79,7 +79,7 @@ Host names are placeholders. Only `work-mac` carries the work profile and sits b
 
 - `mkOutOfStoreSymlink` takes the checkout's **absolute path as a string**. A flake-relative path such as `./home/.zshrc` evaluates to the flake's copy in the store, so the link points there and edits do not show up.
 - With absolute paths, edits to existing files apply immediately. Adding, removing, or renaming a linked file needs a switch.
-- Files are linked one by one, with one exception: `~/.config/karabiner` is linked as a whole directory. Karabiner-Elements' docs say to link the directory, not `karabiner.json`, because Karabiner fails to detect changes and reload when the file itself is a symlink. Karabiner writes `automatic_backups/` into that directory, so the repository ignores it. Changes made in Karabiner's GUI land in the checkout and show up in `git diff`.
+- `~/.config/karabiner` is linked as a whole directory, not file by file, and without home-manager's `recursive` option (default `false`), which would turn `karabiner.json` itself into a symlink. Karabiner-Elements' docs say to link the directory, not `karabiner.json`, because Karabiner fails to detect changes and reload when the file itself is a symlink. Karabiner writes `automatic_backups/` into that directory, so the repository ignores it. Changes made in Karabiner's GUI land in the checkout and show up in `git diff`. Where Karabiner is already running when the link is created (Rollout step 2 on this Mac), its docs require restarting its console user server once: `launchctl kickstart -k gui/$(id -u)/org.pqrs.service.agent.Karabiner-Console-User-Server`.
 
 ### Project layer
 
@@ -428,7 +428,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 ### Packages
 
 - `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` (unfree, so the flake allows that one package by name), `ghtkn` (in nixpkgs), `mise`, `atuin`.
-- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca has no Homebrew cask and is installed by hand (bootstrap step 11). Karabiner-Elements and Raycast on every macOS host.
+- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca has no Homebrew cask and is installed by hand (bootstrap step 11). Karabiner-Elements and Raycast on every macOS host. Both are desk tools the owner asked for: neither reaches a process without an interactive shell, so they are a stated exception to P6, like the interactive kube tools.
 - Karabiner-Elements needs four approvals after install, per its docs: background services, Accessibility, Input Monitoring (normally granted with Accessibility), and its driver extension. They are made once, at the desk. On `work-mac`, whether the company's device management allows the driver extension is **Unverified**.
 - Raycast keeps its settings in its own database, not in a file (`~/Library/Application Support/com.raycast.macos/`). The free plan has no Cloud Sync, which needs Pro. So:
   - Script Commands are plain scripts in `home/.config/raycast/scripts/`, which is added once in Raycast's settings as a script directory.
@@ -472,7 +472,7 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
 9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
 10. Install the repository's git hooks (`lefthook install`).
-    The script then prints the one-time GUI steps it cannot check: Karabiner's approvals, adding Raycast's script directory, and importing the `.rayconfig` from 1Password. They are not script steps, because none of them has a check that does not itself need the GUI.
+    On macOS the script then prints a checklist of one-time GUI steps: Karabiner's approvals, adding Raycast's script directory, and importing the `.rayconfig` from 1Password (skipped on a first machine that has no export yet). They are a checklist rather than human steps that wait for Enter, because nothing later in the bootstrap depends on them, so waiting would only hold up the rest of the run.
 11. `personal-mac` only, the unattended host (ADR 0010). Every `tailscale` call uses `/run/current-system/sw/bin/tailscale`, the open-source build nix-darwin installs, never the GUI app's wrapper in `/usr/local/bin`:
     - Human: install Orca from its website. Homebrew's `orca` cask is an unrelated, disabled app (measured: `brew info --cask orca`).
     - Human: `sudo /run/current-system/sw/bin/tailscale up --ssh`, sign in in the browser, then disable key expiry for this device in Tailscale's admin console. `--ssh` makes the host a Tailscale SSH server.
@@ -558,7 +558,7 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Acceptance criteria
 
-- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, ghtkn, and Tailscale sign-in, the Orca install, mobile pairing, Karabiner's approvals, and the Raycast import excepted)
+- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, ghtkn, and Tailscale sign-in, the Orca install, mobile pairing, Karabiner's approvals, Raycast's script directory, and the Raycast import excepted)
 - [ ] The bootstrap without a host, or with a host other than the recorded one, exits non-zero and changes nothing
 - [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
 - [ ] Running the bootstrap again after it stopped at a human step resumes and finishes
