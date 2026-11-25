@@ -23,7 +23,8 @@ The design asks for gitleaks before every commit and in CI, but did not say what
 
 - Which of these tools treefmt-nix ships as a module, and which need a custom formatter entry, is **Unverified** until the flake is written.
 - gitleaks is not a formatter and stays outside treefmt. `gitleaks` and `lefthook` come from `nix/packages.nix`.
-- lefthook runs gitleaks on staged changes and the treefmt check in this repository only. `lefthook install` is a bootstrap step.
+- lefthook runs gitleaks on staged changes, `git diff --cached --check`, and the treefmt check in this repository only; CI runs the same `--check` over the pull request. `--check` rejects staged leftover conflict markers and whitespace errors (it exits 2 on a staged conflict marker, measured); over this repository's tracked files it currently reports nothing (measured).
+- `--check` also flags legitimate Markdown: a setext heading underlined with exactly seven `=`, a lone `=======` line, or conflict markers quoted in a code block (measured). `.gitattributes` sets `*.md conflict-marker-size=32`, which makes git both write and look for 32-character markers in Markdown, so those lines pass and a real Markdown conflict is still caught (measured). Two trailing spaces, Markdown's hard line break, are still rejected as trailing whitespace; the repository's prose is not hard-wrapped, so it does not use them. `lefthook install` is a bootstrap step.
 - CI runs gitleaks over the full history and `nix flake check`, so a missing local hook cannot let a leak or a format error through.
 
 ## Consequences
