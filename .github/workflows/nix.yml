@@ -7,8 +7,10 @@ on:
     paths:
       - "flake.nix"
       - "flake.lock"
+      - "home/**"
       - "hosts/**"
       - "nix/**"
+      - "tests/**"
       - ".github/workflows/nix.yml"
 
 permissions:
@@ -30,6 +32,14 @@ jobs:
         env:
           HOST: ${{ matrix.host }}
         run: nix build --no-link ".#darwinConfigurations.${HOST}.system"
+      - name: Check what the ${{ matrix.host }} profile gives the host
+        env:
+          DOTFILES_HOST: ${{ matrix.host }}
+        run: tests/packages.sh
+      - name: Check that the per-user profile checks fail on a broken copy
+        env:
+          DOTFILES_HOST: ${{ matrix.host }}
+        run: tests/mutate-packages.sh per-user
 
   wsl:
     runs-on: ubuntu-latest
@@ -38,5 +48,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Install zsh
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zsh
       - name: Build the wsl home configuration
         run: nix build --no-link ".#homeConfigurations.\"$(nix eval --raw --file hosts/wsl.nix user)@wsl\".activationPackage"
+      - name: Check what the wsl profile gives the host
+        run: tests/packages.sh
+      - name: Check that the host-independent package checks fail on a broken copy
+        run: tests/mutate-packages.sh common
