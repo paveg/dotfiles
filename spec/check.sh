@@ -77,9 +77,9 @@ expect_caught bootstrap 'Temporal properties were violated' \
 expect_pass settings_writers
 
 expect_caught settings_writers 'Invariant GuardsInEffect is violated' \
-  'the guard hooks live only in settings.json' \
-  "/\\ managedGuard' = TRUE" \
-  "/\\ managedGuard' = FALSE"
+  'settings.json is written while the guard drop-in is missing (the first design, or the reverse order)' \
+  '/\ managedGuard            \* the drop-in is written first' \
+  ''
 expect_caught settings_writers 'Action property OnlyClaudeCodeDropsOrca is violated' \
   "the generator carries Orca's entries over from the file it read" \
   "/\\ file' = {\"guard\", \"orca\"}" \

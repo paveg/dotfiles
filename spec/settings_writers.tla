@@ -3,8 +3,9 @@
    settings.json"): the switch's generator, Orca merging its hook entries at
    app start, and Claude Code enabling a plugin. Each reads the file and later
    writes the whole file back; nothing serialises the three, so any write may
-   land between another writer's read and write. The generator also writes the
-   guard hooks to a managed-settings drop-in, which no other writer touches. *)
+   land between another writer's read and write. On macOS the generator first
+   writes the guard hooks to a managed-settings drop-in, which no other writer
+   touches. herdr is left out until it is adopted. *)
 EXTENDS Naturals
 
 Entries == {"guard", "orca", "plugin"}
@@ -33,15 +34,20 @@ GenRead ==
     /\ gen' = Reading /\ genBuf' = file /\ genLeft' = genLeft - 1
     /\ UNCHANGED <<file, managedGuard, orca, orcaBuf, cc, ccBuf, orcaLeft, ccLeft, genRan>>
 
+GenWriteDropIn ==
+    /\ gen = Reading /\ ~managedGuard
+    /\ managedGuard' = TRUE
+    /\ UNCHANGED <<file, gen, genBuf, orca, orcaBuf, cc, ccBuf, genLeft, orcaLeft, ccLeft, genRan>>
+
 (* The generator writes Orca's entries itself, so its write never depends on
    what it read. A plugin enabled in Claude Code is dropped: by design, the
    next switch overwrites changes made inside Claude Code. *)
 GenWrite ==
     /\ gen = Reading
+    /\ managedGuard            \* the drop-in is written first
     /\ file' = {"guard", "orca"}
-    /\ managedGuard' = TRUE
     /\ gen' = Idle /\ genRan' = TRUE
-    /\ UNCHANGED <<genBuf, orca, orcaBuf, cc, ccBuf, genLeft, orcaLeft, ccLeft>>
+    /\ UNCHANGED <<managedGuard, genBuf, orca, orcaBuf, cc, ccBuf, genLeft, orcaLeft, ccLeft>>
 
 (* Orca's hook installer: read the whole file, merge, rename over it, with no
    lock and no re-check (Orca source, see docs/verification.md). *)
@@ -73,14 +79,16 @@ EnvDone ==
     /\ genLeft = 0 /\ orcaLeft = 0 /\ ccLeft = 0
     /\ UNCHANGED vars
 
-Next == GenRead \/ GenWrite \/ OrcaRead \/ OrcaWrite \/ CCRead \/ CCWrite \/ EnvDone
+Next == GenRead \/ GenWriteDropIn \/ GenWrite \/ OrcaRead \/ OrcaWrite \/ CCRead \/ CCWrite \/ EnvDone
 
 Spec == Init /\ [][Next]_vars
 
 ---------------------------------------------------------------------------
-(* Once a switch has written, the guard hooks are in effect in every state.
-   Assumes Claude Code reads the managed drop-in; when a higher managed source
-   (server-managed settings, an MDM profile) hides it, only the copy in
+(* Once a switch has written settings.json, the guard hooks are in effect in
+   every state. This follows from the drop-in, not from the interleavings.
+   Assumes nothing else writes the drop-in and Claude Code reads it; when a
+   higher managed source (server-managed settings, an MDM profile) hides it,
+   only the copy in
    settings.json is left, and Orca or Claude Code can drop that copy until the
    next switch (docs/design.md). *)
 GuardsInEffect == genRan => (managedGuard \/ "guard" \in file)
