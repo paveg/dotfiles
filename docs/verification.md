@@ -17,6 +17,9 @@ Evidence behind the factual statements in [`design.md`](design.md), collected on
 | `useUserPackages = true` installs into `/etc/profiles/per-user/$USER/bin` | Holds | Source: home-manager `nixos/common.nix`; nix-darwin `modules/users/default.nix`; home-manager manual, nix-darwin installation |
 | Only shell initialization puts that directory on PATH | Holds | Source: nix-darwin `modules/environment/default.nix` (`set-environment`, sourced from `/etc/zshenv`, `/etc/bashrc`, fish) |
 | `launchctl config user path` applies to all users and needs a reboot | Holds | Measured: `launchctl help config` ("modifies the configuration for all user domains. You must reboot") |
+| In a login shell on macOS, `/etc/zprofile` runs `path_helper` after `~/.zshenv` and moves system directories ahead of entries `.zshenv` prepended | Holds | Measured on this Mac (no nix-darwin), temporary `HOME`: first PATH entry stayed the `.zshenv` one under `zsh -c`, became `/usr/local/bin` under `zsh -lc`; `/etc/zprofile` line 11 runs `path_helper -s` |
+| macOS's `/etc/zshrc` sets `HISTFILE` after `.zshenv` runs | Holds | `/etc/zshrc` line 16 on this Mac |
+| zsh does not create the parent directory of `HISTFILE`; history is dropped silently without it | Holds | Measured in a temporary `HOME`: no history file without the directory, file written once the directory existed |
 
 ## Git
 
@@ -162,3 +165,5 @@ Injection counts are `hook_additional_context` attachments grouped by hook event
 | Statement | Result | Evidence |
 |---|---|---|
 | apm (microsoft/apm) is pre-1.0, supports Claude Code user scope, and is in nixpkgs | Holds | Source: microsoft/apm releases (v0.38.1), `docs/.../reference/targets-matrix.md`; nixpkgs `pkgs/by-name/ap/apm-cli/package.nix` |
+| atuin's `secrets_filter` defaults to `true`; its patterns include GitHub PATs, `ghu_`, `ghs_`, GitHub refresh tokens, AWS key IDs, Slack, and Stripe | Holds | Source: atuin main, `crates/atuin-client/config.toml` (`# secrets_filter = true`) and `crates/atuin-common/src/secrets.rs` (pattern names), read with `gh api`. The nixpkgs version is not checked |
+| atuin's `auto_sync` defaults to `true`, with `https://api.atuin.sh` as `sync_address`; `history_filter` and `cwd_filter` take regular expressions | Holds | Source: atuin main, `crates/atuin-client/config.toml` |
