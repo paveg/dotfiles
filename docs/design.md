@@ -166,28 +166,29 @@ The work profile lives only on `work-mac`, untracked:
 
 - `~/.zshenv` is the only zsh file in `$HOME`. It sets the four XDG base directories to the spec defaults when unset (`XDG_CONFIG_HOME=~/.config`, `XDG_DATA_HOME=~/.local/share`, `XDG_STATE_HOME=~/.local/state`, `XDG_CACHE_HOME=~/.cache`), sets `ZDOTDIR=$XDG_CONFIG_HOME/zsh`, and sources `$ZDOTDIR/.zshenv`. zsh reads `~/.zshenv` before it knows `ZDOTDIR`, so that file cannot move.
 - `$ZDOTDIR/.zshenv` (every shell): PATH (Nix profiles, `/etc/profiles/per-user/$USERNAME/bin`, `~/.local/bin`, mise shims, aqua's bin directory), `EDITOR`, and `~/.config/dots-work/env/static.env` if it exists. No secrets.
-  - Login shells: macOS's `/etc/zprofile` runs `path_helper`, which runs after `~/.zshenv` and moves the system directories to the front of PATH. Measured in a temporary `HOME` on this Mac (no nix-darwin): the first PATH entry set in `.zshenv` stayed first under `zsh -c` and became `/usr/local/bin` under `zsh -lc`, so `/usr/bin/git` would win over Nix's. `$ZDOTDIR/.zprofile`, read after `/etc/zprofile`, therefore puts the same directories back in front. Whether nix-darwin changes `/etc/zprofile` is **Unverified**; the CI test below decides it.
+  - Login shells: macOS's `/etc/zprofile` runs `path_helper`, which runs after `~/.zshenv` and moves the system directories to the front of PATH. Measured in a temporary `HOME` on this Mac (no nix-darwin): the first PATH entry set in `.zshenv` stayed first under `zsh -c` and became `/usr/local/bin` under `zsh -lc`, so `/usr/bin/git` would win over Nix's. `$ZDOTDIR/.zprofile`, read after `/etc/zprofile`, therefore puts the same directories back in front. A review agent read nix-darwin's `modules/programs/zsh/default.nix`: with `programs.zsh.enable` (default `true`) it generates `/etc/zprofile` with no `path_helper` call. Whether that replaces Apple's file on a given host is **Unverified**, so `.zprofile` keeps the fix either way, and the bootstrap tests check login-shell PATH after a real switch.
   - nix-darwin's `/etc/zshenv` adds `/etc/profiles/per-user/$USER/bin`, and `$USER` is a literal expanded at run time. Under `env -i` zsh leaves `USER` empty but still sets `USERNAME` and `LOGNAME` (measured), so that entry becomes `/etc/profiles/per-user//bin`. The `$USERNAME` entry above covers it.
 - Environment variables are written by hand in plain files, not generated from one Nix source (ADR 0001). A variable that a process started without zsh also needs (a GUI app, the ghtkn agent) is repeated in `launchd.user.envVariables` on macOS or `~/.config/environment.d/` on WSL2, and a CI test checks that each repeated value equals the one in `$ZDOTDIR/.zshenv`. Variables left at their spec defaults need no repetition.
 - XDG policy: a tool that already follows the XDG variables needs nothing. A tool that needs its own variable to move (for example `KUBECONFIG`, `CLOUDSDK_CONFIG`, `DOCKER_CONFIG`) gets it in `$ZDOTDIR/.zshenv`, and only after its support is checked; each tool's support is **Unverified** until then. Two limits apply. A process that does not start through zsh never sees these variables, which is why the defaults are the spec defaults. A moved credential path must also move in the `permissions.deny` `Read(...)` rules; a CI test compares the paths exported in `$ZDOTDIR/.zshenv` with those rules, so the two cannot drift.
 - Expected not to move (both **Unverified**): `~/.ssh`, which OpenSSH reads from the home directory, and git include paths, which expand `~` but not environment variables. `~/.claude` and `~/.codex` stay where they are until `CLAUDE_CONFIG_DIR` / `CODEX_HOME` are shown to reach Orca-launched agents.
-- `$ZDOTDIR/.zshrc` (interactive only): history in `$XDG_STATE_HOME/zsh/history` as a fallback to atuin, completion cache in `$XDG_CACHE_HOME/zsh`, key bindings (`Ctrl+g` for ghq + fzf, `Ctrl+r` for atuin), plain prompt. `HISTFILE` is set here, not in `.zshenv`, because macOS's `/etc/zshrc` sets it after `.zshenv` runs.
-- The switch creates `$XDG_STATE_HOME/zsh` and `$XDG_CACHE_HOME/zsh`. zsh does not create the parent directory of `HISTFILE`; without it, history is dropped with no warning (measured in a temporary `HOME`). Sources `$ZDOTDIR/.zshrc.local` (untracked, non-secret local settings) if present.
+- `$ZDOTDIR/.zshrc` (interactive only): completion cache in `$XDG_CACHE_HOME/zsh`, key bindings (`Ctrl+g` for ghq + fzf, `Ctrl+r` for atuin), plain prompt. Sources `$ZDOTDIR/.zshrc.local` (untracked, non-secret local settings) if present.
+- zsh keeps history in memory only (`SAVEHIST=0`, `HISTFILE` unset), so up-arrow works within a session and atuin is the only history on disk. A zsh history file would bypass every filter atuin applies. Both settings are made in `.zshrc`, because macOS's `/etc/zshrc` sets `HISTFILE` after `.zshenv` runs.
+- `.zshrc` creates `$XDG_CACHE_HOME/zsh` when it is missing, so a fresh machine needs no switch step for it. zsh does not create the parent directory of a file it writes; for a history file it prints `locking failed … no such file or directory` at exit and saves nothing (measured).
 - Aliases: none by default. At most short forms that shadow nothing, such as `g=git`.
 
 ### Shell history (atuin)
 
-See [ADR 0009](adr/0009-shell-history-atuin.md). atuin records interactive commands in SQLite with directory, exit code, duration, and session, so the history can be analysed for repeated or failing steps. Commands that agents run through `zsh -c` are not recorded, so the history holds human operations only; agent behaviour is analysed from session transcripts instead.
+See [ADR 0009](adr/0009-shell-history-atuin.md). `$ZDOTDIR/.zshenv` sets `ATUIN_HOME=$XDG_DATA_HOME/atuin`: atuin's default home is `~/.atuin`, and it uses `XDG_DATA_HOME` only as a fallback for older installs (`crates/atuin-common/src/dirs.rs`), so without the variable a fresh machine gets a new entry in `$HOME`. atuin reads its config from `$XDG_CONFIG_HOME/atuin` when `$ATUIN_HOME` holds none (by a review agent). atuin records interactive commands in SQLite with directory, exit code, duration, and session, so the history can be analysed for repeated or failing steps. Commands that agents run through `zsh -c` are not recorded, because atuin's zsh integration uses `preexec` / `precmd` / `zshaddhistory` hooks that do not fire in a non-interactive shell (measured by a review agent). The history holds human operations only; agent behaviour is analysed from session transcripts instead. atuin's opt-in agent hooks (`atuin hook claude-code`, `atuin hook codex`) are not installed.
 
 Tokens are kept out of the history, and out of what an AI reads from it, in five layers:
 
 1. Commands never carry tokens: `op run`, `ksm exec`, and `ghtkn exec` pass them as environment variables.
-2. `secrets_filter = true` (atuin's default). Its patterns, read from `crates/atuin-common/src/secrets.rs` on atuin's main branch, include AWS key IDs, GitHub PATs, `ghu_` / `ghs_` tokens and refresh tokens, Slack, and Stripe keys, and mask values assigned to sensitive variable names. Whether the nixpkgs version carries the same patterns is **Unverified**.
-3. `history_filter` adds commands specific to this setup, such as `ksm profile init`, which takes a one-time token as an argument.
-4. `auto_sync = false`, set explicitly: atuin's default is `true` with `https://api.atuin.sh` as the sync address.
-5. Agents never read atuin's database: its data directory (`~/.local/share/atuin` by default) is in the `Read(...)` deny rules. An AI receives only an export from `atuin history list` that gitleaks has scanned and found clean.
+2. `secrets_filter = true` (atuin's default). A command that matches one of its patterns is not saved at all (`should_save` in `crates/atuin-client/src/history.rs`). The patterns in `crates/atuin-common/src/secrets.rs` include AWS key IDs, GitHub PATs, `ghu_` / `ghs_` tokens and refresh tokens, Slack, and Stripe keys; the nixpkgs version (v18.24.8) has the same `should_save` logic (by a review agent). A value assigned to a sensitive name, such as `DB_PASSWORD=…`, is not caught by this filter and is stored as typed. A command that starts with a space is not saved either.
+3. `history_filter` adds what layer 2 misses: commands specific to this setup that take a secret as an argument, such as `ksm profile init`, and assignments to variables whose names contain `TOKEN`, `SECRET`, `PASSWORD`, or `KEY`.
+4. `auto_sync = false` and `update_check = false`, set explicitly: atuin's default for `auto_sync` is `true` with `https://api.atuin.sh` as the sync address, and its update check calls the same host when built with that feature.
+5. An AI reads the history only through `scripts/history-export.sh`, which runs `atuin history list` and passes the output on only if gitleaks finds nothing. atuin's data directory is in the `Read(...)` deny rules, which stops file tools and common Bash reads. It does not stop an agent from running `atuin history list` or `sqlite3` itself: like every hook and deny rule here this is a tripwire, and the boundary is the sandbox's `denyRead` once it is enabled (ADR 0007).
 
-A token that none of layers 1-3 recognises (an internal token typed on the command line) is the residual risk; the gitleaks scan in layer 5 is the last stop before an AI sees it.
+A token that none of layers 1-3 recognises (an internal token typed on the command line) is the residual risk: it stays in atuin's database on the local disk, and the gitleaks scan in layer 5 is the last stop before an AI sees it.
 
 ### GUI apps and PATH
 
@@ -460,7 +461,7 @@ Work and personal are kept apart by the host, never by guessing:
 Notes:
 
 - Every step must be safe to rerun, so a stopped run is resumed by running the same command again. Step 7 achieves this by skipping what already exists; `ksm profile init` itself consumes a one-time token and is never repeated. This is a requirement on the script, not yet a tested property.
-- `DOTFILES_REF` overrides the ref that step 4 checks out (default `main`), so CI runs the bootstrap against the commit under test.
+- `DOTFILES_REF`, when set, makes step 4 run `git fetch origin <ref>` and `git checkout --detach FETCH_HEAD` in the checkout after `ghq get`, so CI runs the bootstrap against the commit under test. `ghq get` alone cannot do this: it takes only a branch name, and on an existing checkout it runs no git command (measured). Without `DOTFILES_REF`, step 4 never moves an existing checkout.
 - The first run executes `scripts/bootstrap.sh` from `main` without a prior review step, which is the same trust as the clone in step 4. Later runs use the checkout: `scripts/bootstrap.sh <host>`.
 - `GHQ_ROOT` overrides ghq's root before any git config exists (measured: `GHQ_ROOT=/tmp/x ghq root` printed `/tmp/x`).
 - An existing Mac that runs upstream Nix (this one does: `nix (Nix) 2.33.0`, no `determinate-nixd`, measured) switches with Determinate's macOS package. Determinate's docs do not say whether the existing `/nix/store` survives (**Unverified**), so everything installed through it, devbox global included, is treated as lost at that step.
@@ -502,15 +503,26 @@ Each Nix network path reads certificates from a different place (checked against
 - Tests for hooks, skills, and scripts.
 - gitleaks.
 - No tracked path matches a `Read(...)` deny pattern in the common settings, so every file stays readable to the agents that maintain it. The check reads the patterns from the settings rather than a copied list.
-- Shell tests, without a switch, on any runner and locally: a temporary `HOME` holds only this repository's `home/` files, and `env -i` starts `zsh -c`, `zsh -lc`, and `zsh -ic`. They check:
-  - the four XDG variables and `ZDOTDIR` take the spec defaults, and an `XDG_CONFIG_HOME` set by the caller is kept;
-  - Nix's directories precede `/usr/bin` in PATH in a login shell;
-  - history is written to `$XDG_STATE_HOME/zsh/history`;
-  - after the shells exit, every entry in `$HOME` is on an allowlist, which catches a stray history, completion dump, or rc file written to `$HOME`;
+- Shell tests, without a switch, on any runner and locally: a temporary `HOME` holds only this repository's `home/` files, and `env -i` starts `zsh -c`, `zsh -lc`, and an interactive zsh fed commands on stdin (`zsh -ic` runs no history or `preexec` hooks, measured). They check:
+  - the four XDG variables, `ZDOTDIR`, and `ATUIN_HOME` take the expected defaults, and an `XDG_CONFIG_HOME` set by the caller is kept;
+  - with stock `/etc` files, `.zprofile` puts Nix's directories ahead of `/usr/bin` in a login shell;
+  - the interactive shell writes no history file and creates `$XDG_CACHE_HOME/zsh`;
+  - after the shells exit, every entry in `$HOME` is on an allowlist, which catches a stray history, completion dump, rc file, or `~/.atuin`;
   - each variable repeated for launchd or `environment.d` equals its value in `$ZDOTDIR/.zshenv`.
 - Bootstrap tests run `scripts/bootstrap.sh` from the start with `DOTFILES_REF` set to the commit under test: `wsl` on a Linux runner as a newly created user with an empty home, and `personal-mac` and `work-mac` on a macOS runner, whose preinstalled Homebrew exercises `autoMigrate`. Whether a hosted macOS runner can run a nix-darwin switch is **Unverified**.
-  - Human steps are stubbed. The script already waits on a check rather than on a person, so CI makes each check pass: a placeholder file at the 1Password SSH agent socket path, `profiles/work.example/` placed in `~/.config/dots-work/` (the hand-placed path of step 7, so `ksm` is never called), and a stub `ghtkn` that exits 0, found first through `DOTFILES_TEST_STUB_DIR`, which only CI sets and which the script announces when set.
-  - They check that a missing or mismatched host exits non-zero and changes nothing; that a run stopped at a human step resumes when started again; that a second complete run changes nothing; and that `$HOME` passes the allowlist above.
+  - Human steps are stubbed by making each step's check pass, so the script's own logic runs unchanged:
+    - 1Password on macOS: a real Unix socket listening at the agent socket path, so the check can stay `test -S`. On WSL2, where SSH goes through `ssh.exe`, a stub `ssh-add.exe` that lists one key.
+    - 1Password sign-in for the `ghtkn.yaml` render in step 8: a stub `op` whose `inject` writes the template with placeholder client IDs.
+    - Keeper: `profiles/work.example/` placed in `~/.config/dots-work/` (the hand-placed path of step 7, so `ksm` is never called).
+    - ghtkn: a stub `ghtkn` that exits 0.
+  - Stubs live in `DOTFILES_TEST_STUB_DIR`, which only CI sets and which the script announces when set. The script puts it at the front of PATH after every PATH change, including after step 5, so a stub always wins over the real tool.
+  - When a check fails and no terminal is attached, the script exits with a distinct status ("waiting for a person") instead of waiting for Enter, so CI fails rather than hangs.
+  - They check:
+    - a missing or mismatched host exits non-zero and changes nothing;
+    - a run with one stub removed exits with the "waiting for a person" status, and resumes and finishes once the stub is back;
+    - a second complete run changes nothing;
+    - a login shell after the real switch resolves `git` from Nix;
+    - `$HOME` gains no entry outside the allowlist: on Linux by listing the new user's home, on macOS by diffing the runner's home before and after.
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
@@ -522,8 +534,8 @@ Each Nix network path reads certificates from a different place (checked against
 - [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
 - [ ] Running the bootstrap again after it stopped at a human step resumes and finishes
 - [ ] In a login shell (`zsh -lc`), `command -v git` prints a Nix path, not `/usr/bin/git`
-- [ ] After a fresh bootstrap and one interactive shell, `$HOME` holds only allowlisted entries, and history lands in atuin and in `$XDG_STATE_HOME/zsh/history`
-- [ ] A command containing a `ghu_` token typed in an interactive shell is not stored in atuin unmasked, and atuin makes no request to `api.atuin.sh`
+- [ ] After a fresh bootstrap and one interactive shell, `$HOME` holds only allowlisted entries, history lands in atuin under `$XDG_DATA_HOME/atuin`, and no zsh history file exists
+- [ ] A command containing a `ghu_` token, and one assigning `FOO_TOKEN=…`, typed in an interactive shell are absent from atuin, and atuin makes no request to `api.atuin.sh`
 - [ ] `env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -c 'command -v gh ghq fzf rg'` succeeds on every host, and each path it prints is under a Nix profile (today it passes only through devbox global, measured)
 - [ ] A project tool installed with the project layer's default resolves from `zsh -c` inside that project
 - [ ] Orca sees `gh` and can show PRs; record whether Orca starts zsh
