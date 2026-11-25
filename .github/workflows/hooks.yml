@@ -1,0 +1,38 @@
+name: hooks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "home/.claude/hooks/**"
+      - "nix/agents.nix"
+      - "flake.nix"
+      - "flake.lock"
+      - "hosts/**"
+      - "tests/hooks.sh"
+      - "tests/mutate-hooks.sh"
+      - "tests/fixtures/hooks/**"
+      - ".github/workflows/hooks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guards:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Build the guard hooks
+        run: nix build --no-link ".#block-destructive-db" ".#block-sensitive-read"
+      - name: Check each guard against its fixtures under an empty PATH
+        run: tests/hooks.sh
+      - name: Check that each guard check fails on a deliberately broken guard
+        run: tests/mutate-hooks.sh
