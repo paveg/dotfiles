@@ -23,7 +23,7 @@ The design asks for gitleaks before every commit and in CI, but did not say what
 
 - Which of these tools treefmt-nix ships as a module, and which need a custom formatter entry, is **Unverified** until the flake is written.
 - gitleaks is not a formatter and stays outside treefmt. `gitleaks` and `lefthook` come from `nix/packages.nix`.
-- lefthook runs gitleaks on staged changes and the treefmt check in this repository only. `lefthook install` is a bootstrap step.
+- lefthook runs gitleaks on staged changes, `git diff --cached --check`, and the treefmt check in this repository only. `--check` rejects staged leftover conflict markers and whitespace errors (it exits 2 on a staged conflict marker, measured); over this repository's tracked files it currently reports nothing (measured). `lefthook install` is a bootstrap step.
 - CI runs gitleaks over the full history and `nix flake check`, so a missing local hook cannot let a leak or a format error through.
 
 ## Consequences
