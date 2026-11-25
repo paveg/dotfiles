@@ -2,7 +2,7 @@
 
 Nix-based dotfiles for agent-first development on macOS and WSL2. One command turns a fresh machine into a configured host, coding agents see the same tools as an interactive shell, and secrets stay in vaults.
 
-> **Status: design only.** Nothing is implemented yet. [`docs/design.md`](docs/design.md) is the design, [`docs/adr/`](docs/adr/) records the decisions, and [`docs/verification.md`](docs/verification.md) holds the evidence behind each factual claim. Statements marked **Unverified** there still need a real machine.
+> **Status: implementation started.** The zsh layout in [`home/`](home/) and its tests are in; the Nix flake, the host builds, and the bootstrap script are not. [`docs/design.md`](docs/design.md) is the design, [`docs/adr/`](docs/adr/) records the decisions, and [`docs/verification.md`](docs/verification.md) holds the evidence behind each factual claim. Statements marked **Unverified** there still need a real machine.
 
 ![From one command to a configured host](docs/diagrams/architecture.png)
 
@@ -56,8 +56,10 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
+| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh so far |
 | [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
-| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh` |
+| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME` and `mutate.sh` breaks one condition at a time to show each check fails |
+| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell tests on Linux and macOS |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repository |
 
-The planned implementation layout (`flake.nix`, `nix/`, `home/`, `hosts/`, `scripts/`, `templates/`) is in [design: Repository layout](docs/design.md#repository-layout).
+The rest of the planned layout (`flake.nix`, `nix/`, `hosts/`, `scripts/`, `templates/`) is in [design: Repository layout](docs/design.md#repository-layout).
