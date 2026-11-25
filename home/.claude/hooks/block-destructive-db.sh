@@ -9,6 +9,11 @@ guard_subject='The destructive-database guard'
 # shell parser. \b is in neither bash nor POSIX ERE, so a name ends with
 # ([^[:alnum:]_]|$). `truncate` on its own also matches coreutils' truncate and
 # the word in any argument; the over-match is the cheaper side of the trade.
+
+# What may stand between two SQL keywords: whitespace, a block comment, or a
+# line comment, which the normalizer has already turned into one line.
+gap='([[:space:]]|/\*[^*]*\*/|--[^[:space:]]*[[:space:]])+'
+
 guard_patterns=(
   'prisma[[:space:]]+.*migrate[[:space:]]+reset([^[:alnum:]_]|$)'
   'prisma[[:space:]]+.*db[[:space:]]+push[[:space:]]+.*--force-reset([^[:alnum:]_]|$)'
@@ -22,15 +27,19 @@ guard_patterns=(
   'db:(reset|drop|nuke|wipe|clear)([^[:alnum:]_]|$)'
   '(^|[^[:alnum:]_])dropdb([^[:alnum:]_]|$)'
   'mysqladmin[[:space:]]+(.*[[:space:]])?drop([^[:alnum:]_]|$)'
-  'drop[[:space:]]+(database|schema|table)([^[:alnum:]_]|$)'
+  "drop${gap}(database|schema|table)([^[:alnum:]_]|$)"
   'truncate([[:space:]]+table)?([^[:alnum:]_]|$)'
 )
 
-# Every pattern above spans two words, which a SQL comment or a shell construct
-# can glue into one (DROP/**/DATABASE), and resolving that needs a shell. Only
-# the verbs are watched: `table` or `database` alone appears in ordinary
-# commands, and the construct has to sit in the verb's own word.
-guard_patterns+=("${guard_name_start}(drop|truncate|dropdb|db:)[^[:space:]]*${guard_unresolvable}")
+# The whole-command rule watches the verbs alone: `table` or `database` on its
+# own appears in ordinary commands, while `drop` next to any expansion
+# (`echo {DROP,DATABASE} x | psql`) is a command no matcher can read.
+guard_stems=(
+  drop
+  truncate
+  dropdb
+  'db:'
+)
 
 guard_advice='These operations wipe data unconditionally, and a test-environment marker does not prove which datasource the client reaches. A transient schema error is environment noise, not a reason to reset: report the failing command instead.'
 

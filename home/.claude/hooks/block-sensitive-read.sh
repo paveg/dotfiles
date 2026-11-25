@@ -4,14 +4,13 @@
 
 guard_subject='The sensitive-read guard'
 
-# One list of protected names, which every pattern below is built from, so that
-# a name added here cannot be missed by one of them. A name counts wherever it
-# stands as a path segment, because no regex can require a path to be
-# home-rooted: `~user/.ssh`,
-# `//Users/x/.ssh` and `./../.ssh` all reach the same files. This repository's
-# own tracked copies, home/.ssh/config and home/.config/ghtkn/, are therefore
-# denied in Bash too; the Read tool reaches them, and the deny reason names the
-# override.
+# One list of protected names. The path patterns and the whole-command rule are
+# both built from it, so a name added here cannot be missed by one of them. A
+# name counts wherever it stands as a path segment, because no regex can require
+# a path to be home-rooted: `~user/.ssh`, `//Users/x/.ssh` and `./../.ssh` all
+# reach the same files. This repository's own tracked copies, home/.ssh/config
+# and home/.config/ghtkn/, are therefore denied in Bash too; the Read tool
+# reaches them, and the deny reason names the override.
 protected_names=(
   '[.]ssh'
   '[.]aws'
@@ -27,6 +26,8 @@ protected_names=(
   '[.]env'
 )
 
+guard_stems=("${protected_names[@]}")
+
 name_end='([^[:alnum:]_-]|$)'
 
 guard_patterns=()
@@ -34,14 +35,18 @@ for protected_name in "${protected_names[@]}"; do
   guard_patterns+=("${guard_name_start}${protected_name}${name_end}")
 done
 
-# An expansion character inside a dot-prefixed path segment, as in `~/.ss*` or
-# `"$HOME"/.{ssh,aws}`: there is no name left to compare, and expanding one
-# needs a shell. Globbing inside a directory (src/*.ts, .github/workflows/*.yml)
-# is untouched, because the character has to follow the dot's own name.
-guard_patterns+=("${guard_name_start}[.][[:alnum:]_-]*${guard_unresolvable}")
+# An expansion inside the path segment that would have named the directory, as
+# in `~/.ss*` or `"$HOME"/.{ssh,aws}`. The whole-command rule cannot see these,
+# because the name it would look for is the part that is missing. One name
+# character is required before the expansion, so that a regex or a glob of its
+# own (`rg 'import .* from'`, `*.{ts,tsx}`, `ls ../*`) is not a credential path.
+guard_patterns+=(
+  "${guard_name_start}[.][[:alnum:]_-]+${guard_expansion}"
+  "/[.]${guard_expansion}"
+)
 
-# Committed templates, compared as whole tokens so that .env.exam stays denied.
-guard_exempt_suffixes=(
+# Committed templates, exempt where the token stands alone.
+guard_exempt_tokens=(
   '.env.example'
   '.env.sample'
   '.env.template'

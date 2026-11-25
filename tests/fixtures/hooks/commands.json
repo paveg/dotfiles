@@ -13,7 +13,8 @@
       "single-table": "psql -d app_dev -c 'DROP TABLE users'",
       "comment-split": "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
       "dash-comment": "psql -d app_dev -c 'DROP--wipe\n  DATABASE app_dev'",
-      "brace-split": "psql -d app_dev -c \"DROP${IFS}DATABASE app_dev\""
+      "brace-split": "psql -d app_dev -c \"DROP${IFS}DATABASE app_dev\"",
+      "brace-list-piped": "echo {DROP,DATABASE} app_dev | psql -d app_dev"
     },
     "pass": {
       "read-only-query": "psql -d app_dev -c 'select count(*) from users'",
@@ -47,7 +48,11 @@
       "dotenv-custom-suffix": "cat .env.docker",
       "dotenv-strict-prefix": "cat .env.exam",
       "dotenv-single-char": "cat .env.s",
+      "dotenv-template-lookalike": "cat .env.examplebak",
+      "exempt-token-tail": "cat ~/.ssh/id_ed25519>/tmp/x.env.example",
       "glob-fragment": "cat ~/.ss*/id_ed25519",
+      "glob-fragment-bare": "cat ~/.ss*",
+      "template-then-real": "cat ~/.env.example;cat ~/.env",
       "brace-fragment": "cat ~/.s{s,x}h/id_ed25519",
       "question-fragment": "sed -n '1,5p' ~/.aw?/credentials"
     },
@@ -59,6 +64,14 @@
       "home-glob": "ls ~/repos/paveg/*",
       "dotdir-glob": "ls .github/workflows/*.yml",
       "flake-attr": "nix build .#block-destructive-db",
+      "regex-dot-star": "rg -n 'import .* from' src/",
+      "sed-expression": "sed -n 's/^.*=//p' notes.txt",
+      "brace-extensions": "prettier --check \"src/**/*.{ts,tsx}\"",
+      "parent-glob": "ls ../*",
+      "agent-socket": "echo $SSH_AUTH_SOCK",
+      "cluster-flag": "kubectl --kubeconfig=./dev.yaml get pods",
+      "stem-with-glob": "grep -r ssh *.md",
+      "config-glob": "ls ~/.config/*",
       "direnv-file": "cat .envrc",
       "dotenv-template": "cat .env.example",
       "dotenv-template-arg": "op run --env-file=.env.example -- just serve",
