@@ -45,8 +45,8 @@ Three properties of the previous setup work against that:
 | P4 | Lock files are committed | `flake.lock` is tracked and updated explicitly. |
 | P5 | Agent config is a first-class asset | `~/.claude/` and `~/.codex/` are covered by tests and CI. |
 | P6 | Two questions before adding anything | Does it reach a process without an interactive shell? Does it remove a human interruption? If neither, leave it out. |
-| P8 | Nix first | A tool comes from the first source that has it: a nix-darwin or home-manager module, then a nixpkgs package, then a Homebrew cask through nix-homebrew, then a manual install. Each tool on a later rung names why the earlier ones do not work. |
 | P7 | Secrets come from a vault | Secret values never live in this repository. `op://` references for the personal profile may (they are pointers that need the account to resolve). Anything identifying the company, including `keeper://` references and org names, lives only in the work profile. gitleaks guards against leaks. |
+| P8 | Nix first | A tool comes from the first source that has it: a nix-darwin or home-manager module, then a nixpkgs package, then a Homebrew cask through nix-homebrew, then a manual install. Each tool on a later rung names why the earlier ones do not work. |
 
 ## Hosts
 
