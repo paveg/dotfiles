@@ -399,7 +399,7 @@ Goal 9 means no class 3 step on the unattended path. With the design as it stand
 
 **Setup, by hand, on `personal-mac` only.** The bootstrap does not do this, because almost every step needs a person and none can be stubbed in CI. After the bootstrap finishes, the owner runs `scripts/unattended-setup.sh` at the desk. Every `tailscale` call uses `/run/current-system/sw/bin/tailscale`, the open-source build nix-darwin installs, and every `orca` call uses `/Applications/Orca.app/Contents/Resources/bin/orca`, so neither depends on PATH:
 
-1. Human: install Orca from its website. Homebrew's `orca` cask is an unrelated, disabled app (measured: `brew info --cask orca`).
+1. Orca is already installed by the switch (see Packages); the script stops if `/Applications/Orca.app` is missing.
 2. Human: `sudo /run/current-system/sw/bin/tailscale up --ssh`, sign in in the browser, then disable key expiry for this device in Tailscale's admin console. `--ssh` makes the host a Tailscale SSH server.
 3. The script runs `orca serve service install --command /Applications/Orca.app/Contents/Resources/bin/orca` with PATH set to `/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin`. The LaunchAgent stores the installing shell's PATH, and without `--command` the install fails under that PATH because it looks `orca` up there (measured: exit 1; with `--command`, the plist runs the given path). These paths are stable symlinks, so later switches need no reinstall.
 4. Human, on the phone: install Tailscale and sign in to the same tailnet, then scan the QR code from `orca pair --mobile --address <the host's Tailscale IPv4>` with Orca Mobile. `orca pair --help` says mobile pairing works on the same network or tailnet only, unless `--relay` is given. An SSH client on the phone is what the "Orca is stuck" row below relies on.
@@ -439,7 +439,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 ### Packages
 
 - `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` (unfree, so the flake allows that one package by name), `ghtkn` (in nixpkgs), `mise`, `atuin`.
-- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca has no Homebrew cask and is installed by hand (Unattended host).
+- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca from its own tap: `homebrew.taps = [ "stablyai/orca" ]` and the cask `stablyai/orca/orca`, which Orca's install docs give (`brew install --cask stablyai/orca/orca`). Homebrew's core `orca` cask is an unrelated, disabled app.
 - `hosts/work-mac.nix`: Keeper Secrets Manager CLI, aqua, internal tools. The KSM CLI is not in nixpkgs, and Keychain storage needs its pip `keyring` extra; without it the config falls back to a plain `keeper.ini`. Packaging it (a local derivation or another installer) is **Unverified**.
 - No other language runtimes.
 - Font (UDEV Gothic NF): cask on macOS; installed by hand on the Windows side for WSL2.
