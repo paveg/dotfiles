@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 - **Same tools for every caller.** PATH holds real executables only, so a GUI app, a non-interactive shell, and an agent resolve the same binaries.
 - **Reproducible over clever.** Locked definitions, one command, and nothing that depends on guessing the machine.
 - **No secrets in the repository.** Secrets come from a vault at run time; company information stays in the work profile.
-- **Checked, not asserted.** Factual claims in the docs cite their source, and the design specifies TLA+ models of the bootstrap and of the programs that write `settings.json`.
+- **Checked, not asserted.** Factual claims in the docs cite their source, and TLA+ models of the bootstrap and of the programs that write `settings.json` are checked by TLC in CI, each with mutants that must fail.
 
 The full list is in [`docs/design.md`](docs/design.md#principles).
 
