@@ -413,38 +413,40 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 One command on a fresh machine, with the host named explicitly:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstrap.sh | sh -s -- <host>
+curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstrap.sh | bash -s -- <host>
 # <host> is one of personal-mac, work-mac, wsl. There is no default.
 ```
 
-`scripts/bootstrap.sh` runs these steps in order. It stops at each human step, says what to do, and continues after checking the result where a check exists (for example that the 1Password SSH agent socket exists); otherwise it waits for Enter.
+`scripts/bootstrap.sh` is bash that runs on macOS's bash 3.2, so it uses no bash 4 features and no `inherit_errexit`. It pipes into `bash`, not `sh`, because `sh` is dash on Ubuntu. It runs these steps in order. At each human step it says what to do and continues after checking the result where a check exists (for example that the 1Password SSH agent socket exists); otherwise it waits for Enter. Every prompt reads from `/dev/tty`, because the script's own stdin is the pipe from `curl`.
 
-1. Check `<host>`: it must be one of the listed hosts and, on a rerun, match the host recorded in step 3. Otherwise exit non-zero before changing anything.
+1. Check `<host>`: it must be one of the listed hosts, match the OS (`wsl` only on Linux, the others only on macOS), and, on a rerun, match the recorded host (step 3). Otherwise exit non-zero before changing anything.
 2. Install Determinate Nix if `nix` is missing, then load its profile into the running script. On WSL2 without systemd, stop and say how to enable it. On a Mac with upstream Nix, stop and point to Determinate's macOS package (below).
-3. Record `<host>` in `$XDG_CONFIG_HOME/dotfiles/host`. `just switch` reads it, so later switches never take a host name again.
-4. Clone over HTTPS with git and ghq from nixpkgs (no SSH key yet; no git is assumed on the host): `GHQ_ROOT=~/repos nix shell nixpkgs#git nixpkgs#ghq -c ghq get https://github.com/paveg/dotfiles`.
-5. First switch: installs packages, Homebrew (nix-homebrew), casks including 1Password, and the ksm CLI on work-mac. macOS: `sudo nix run nix-darwin -- switch --flake .#<host>`; WSL2: `nix run home-manager -- switch --flake .#<user>@wsl`.
+3. Record `<host>` in `${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/host`. The XDG variables are not set yet (`~/.zshenv` arrives with the first switch), so the script uses the spec default. `just switch` reads this file, so later switches never take a host name again.
+4. Clone over HTTPS with git and ghq from nixpkgs (no SSH key yet; no git is assumed on the host): `GHQ_ROOT=~/repos nix shell nixpkgs#git nixpkgs#ghq -c ghq get https://github.com/paveg/dotfiles`, then work from `~/repos/github.com/paveg/dotfiles`. On an existing checkout `ghq get` prints `exists` and exits 0 without running git (measured).
+5. First switch: installs packages, Homebrew (nix-homebrew), casks including 1Password, and the ksm CLI on work-mac. macOS: `sudo nix run nix-darwin -- switch --flake .#<host>`; WSL2: `nix run home-manager -- switch --flake .#<user>@wsl`. The script then prepends the profile's bin directories (`/etc/profiles/per-user/$USER/bin` on macOS, `~/.nix-profile/bin` on WSL2) to its own PATH, so the tools the switch installed are found in later steps.
 6. Human: sign in to the 1Password app; enable the SSH agent and CLI integration.
-7. Human, work-mac only: `ksm profile init <one-time token>`; the script then runs `scripts/work-sync.sh pull`.
+7. work-mac only, skipped when `~/.config/dots-work/` already exists, so a rerun never overwrites unpushed work-profile edits:
+   - If Keeper Secrets Manager is available: human, `ksm profile init <one-time token>`, skipped when a KSM profile already exists; the script then runs `scripts/work-sync.sh pull`.
+   - Otherwise: human, place the work profile in `~/.config/dots-work/` by hand (the fallback in ADR 0002), then press Enter.
 8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
-9. Human: authenticate each ghtkn app once (`ghtkn auth`); the script then runs `ghtkn agent unlock --enable-refresh`.
+9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
 10. Install the repository's git hooks (`lefthook install`).
 
 Work and personal are kept apart by the host, never by guessing:
 
 - The host is a required argument. The script does not infer it from the hostname, the hardware, or a network.
 - Only `work-mac` runs step 7, and only `work-mac`'s configuration links `~/.config/dots-work/`. A personal host never calls `ksm` and never creates that directory.
-- On `work-mac` the script does not run the second switch until `~/.config/dots-work/` has been pulled, so the machine cannot finish half personal.
+- On `work-mac` the script does not run the second switch until `~/.config/dots-work/` exists, so the machine cannot finish half personal.
 - Changing a machine's host means deleting the recorded host by hand first; the script never overwrites it.
 
 Notes:
 
-- Every step except `ksm profile init`, which consumes a one-time token, must be safe to rerun, so a stopped run is resumed by running the same command again. This is a requirement on the script, not yet a tested property.
+- Every step must be safe to rerun, so a stopped run is resumed by running the same command again. Step 7 achieves this by skipping what already exists; `ksm profile init` itself consumes a one-time token and is never repeated. This is a requirement on the script, not yet a tested property.
 - The first run executes `scripts/bootstrap.sh` from `main` without a prior review step, which is the same trust as the clone in step 4. Later runs use the checkout: `scripts/bootstrap.sh <host>`.
 - `GHQ_ROOT` overrides ghq's root before any git config exists (measured: `GHQ_ROOT=/tmp/x ghq root` printed `/tmp/x`).
 - An existing Mac that runs upstream Nix (this one does: `nix (Nix) 2.33.0`, no `determinate-nixd`, measured) switches with Determinate's macOS package. Determinate's docs do not say whether the existing `/nix/store` survives (**Unverified**), so everything installed through it, devbox global included, is treated as lost at that step.
 - Later switches: `just switch`, which runs `darwin-rebuild switch --flake .#<host>` or `home-manager switch --flake .#<user>@wsl` with the recorded host.
-- On `work-mac` the first `curl` and the Nix installer go through the corporate proxy before any Nix CA setting exists. Whether macOS' `curl` and Determinate's installer trust the corporate CA from the Keychain is **Unverified**; test it on the corporate network before relying on the one command there.
+- On `work-mac` the first `curl`, the Nix installer, and the clone in step 4 go through the corporate proxy before any Nix CA setting or `http.sslCAInfo` exists (the latter arrives with the work profile in step 7). Whether macOS' `curl`, Determinate's installer, and nixpkgs' git trust the corporate CA at that point is **Unverified**; test it on the corporate network before relying on the one command there.
 - `justfile` defines exactly `switch`, `update`, and `check`.
 
 ## Corporate TLS interception
