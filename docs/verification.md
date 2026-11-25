@@ -169,8 +169,8 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 |---|---|---|
 | mise's `aqua:` backend verifies checksums, Cosign and Minisign, SLSA, and GitHub attestations as the aqua registry declares them, each setting defaulting to `true` | Holds | Source (by a fetch agent): mise.jdx.dev/security.html ("Download verification"), mise.jdx.dev/dev-tools/backends/aqua.html |
 | asdf plugins "are shell scripts that run with your permissions"; mise describes no artifact verification for them | Holds | Source (by a fetch agent): mise.jdx.dev/dev-tools/backends/asdf.html |
-| mise does not create `mise.lock` by default; it records exact versions, URLs, and checksums, and verifies what mise downloads, not what is on disk | Holds | Source (by a fetch agent): mise.jdx.dev/dev-tools/mise-lock.html |
-| aqua's checksum verification is disabled by default; its Policy allows only the standard registry by default | Holds | Source (by a fetch agent): aquaproj.github.io/docs/reference/security/checksum ("Enforce Checksum Verification by environment variables"), /security/policy-as-code/ |
+| mise does not create `mise.lock` by default; it records exact versions, and URLs and checksums where the backend provides them, and verifies what mise downloads, not what is on disk | Holds | Source (by a fetch agent): mise.jdx.dev/dev-tools/mise-lock.html |
+| aqua's checksum verification is disabled by default; `AQUA_ENFORCE_CHECKSUM` alone forces it on (aqua source `pkg/config/aqua/checksum.go:7-10`, by a review agent); its Policy allows only the standard registry by default | Holds | Source (by a fetch agent): aquaproj.github.io/docs/reference/security/checksum ("Enforce Checksum Verification by environment variables"), /security/policy-as-code/ |
 
 ## Claude Code install
 
@@ -179,8 +179,9 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | The native installer is the recommended method and updates in the background; Homebrew, WinGet, apt, dnf, and apk installs do not by default | Holds | Source (by a fetch agent and a review agent): code.claude.com/docs/en/setup ("Install Claude Code", "Update Claude Code") |
 | The `stable` channel is "typically about one week old, skipping releases with major regressions", and setting it downgrades a newer install | Holds | Source (by a review agent): code.claude.com/docs/en/setup ("Configure release channel": "a native installation updates to the stable version even when that version is older than yours") |
 | On 2026-11-25, `stable` was 2.1.326, `latest` 2.1.332, and nixpkgs' `claude-code` 2.1.330 | Holds | Measured (by a review agent): `downloads.claude.ai/claude-code-releases/stable` and `/latest`. Measured: `nix eval nixpkgs#claude-code.version` (nixpkgs-unstable rev 619c39f6eac5) |
-| nixpkgs' wrapper sets `DISABLE_AUTOUPDATER=1` and `CLAUDE_CODE_CERT_STORE=system`, passes `NIX_SSL_CERT_FILE` as `NODE_EXTRA_CA_CERTS` on macOS, and puts `procps`, `ripgrep`, `bubblewrap`, and `socat` on PATH | Holds | Source: `pkgs/by-name/cl/claude-code/package.nix:56-57` in that revision; the CA and PATH lines by a review agent (`:61`, `:66-67`, `:76-84`) |
-| The `orca serve` LaunchAgent's PATH does not include `~/.local/bin` | Holds | design.md, Unattended host: the PATH under which `orca serve service install` is run |
+| nixpkgs' wrapper sets `DISABLE_AUTOUPDATER=1`, defaults `CLAUDE_CODE_CERT_STORE` to `system`, on macOS copies `NIX_SSL_CERT_FILE` into `NODE_EXTRA_CA_CERTS` when the first is set and the second is not, and puts `procps` and `ripgrep` on PATH, plus `bubblewrap` and `socat` on Linux only | Holds | Source: `pkgs/by-name/cl/claude-code/package.nix:56-57` in that revision; the CA and PATH lines by a review agent (`:61`, `:64-68`, `:73-85`) |
+| nixpkgs' `claude-code` is unfree: the flake refuses to evaluate it until it is allowed | Holds | Measured (by a review agent): `nix eval .#darwinConfigurations.personal-mac.pkgs.claude-code.drvPath` → "Refusing to evaluate package 'claude-code-2.1.330' ... unfree license" |
+| The PATH this design plans for the `orca serve` LaunchAgent does not include `~/.local/bin` | Design only | design.md, Unattended host; no `orca serve` LaunchAgent is installed yet (`orca serve service status --json` reports `"installed": false`), so nothing was measured |
 
 ## Hook need across repositories
 
