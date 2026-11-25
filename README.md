@@ -57,10 +57,10 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
 | [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system and login name, and the nix-darwin and home-manager modules |
-| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh and mise so far |
+| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh, mise, and the reply-language hook so far |
 | [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
-| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME`, `packages.sh` checks the built profile, and each has a `mutate*.sh` that breaks one condition at a time to show the checks fail |
-| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell tests on Linux and macOS, `nix.yml` builds every host and runs the package tests on what it built |
+| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME`, `packages.sh` checks the built profile, `reply-language.sh` checks the reply-language hook, and each has a `mutate*.sh` that breaks one condition at a time to show the checks fail, except the ones that guard the harness itself (mutants that need `/etc` to reorder the login PATH run only where it does, as on macOS) |
+| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell and reply-language tests on Linux and macOS, `nix.yml` builds every host and runs the package tests on what it built |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repository |
 
-The rest of the planned layout (`scripts/`, `templates/`) is in [design: Repository layout](docs/design.md#repository-layout).
+The rest of the planned layout (for example `scripts/`, `templates/`, `profiles/`, and further files under `nix/` and `home/`) is in [design: Repository layout](docs/design.md#repository-layout).

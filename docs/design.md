@@ -308,6 +308,7 @@ Hooks come in three kinds, decided by what a failure of the hook should do:
 | Comment-rot check | PreToolUse (Write, Edit, MultiEdit, Bash) | Checker | Kept, rewritten from Python |
 | PR-body, browser, and Japanese-writing context | PreToolUse (Bash; `mcp__claude-in-chrome__*`; Write, Edit) | Injector | Kept |
 | Unaddressed-request check | Stop (`type: "agent"`) | Checker | Kept as a prompt in `settings.common.json`; there is no script to build |
+| Reply-language check | Stop | Checker | Added. When the user's last message is Japanese and the reply is mostly English (code, inline code, and URLs left out), it sends Claude back to rewrite once. A written rule in memory and CLAUDE.md did not stop the drift: the user corrected it more than ten times across two sessions. Replies under 20 words are not judged |
 
 Entries owned by other tools, as listed in `nix/agents.nix`:
 
@@ -610,7 +611,7 @@ Each Nix network path reads certificates from a different place (checked against
     - a login shell after the real switch resolves `git` from Nix;
     - `$HOME` gains no entry outside the allowlist: on Linux by listing the new user's home, on macOS by diffing the runner's home before and after.
 - `git diff --check origin/main...HEAD`, the same check lefthook runs before a commit (the job checks out with `fetch-depth: 0`, since a shallow checkout has no `origin/main` merge base and the command would fail), so a commit made without lefthook installed still cannot merge leftover conflict markers.
-- Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
+- Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI. A mutant that needs a platform behaviour (the `.zprofile` one needs an `/etc` that reorders the login PATH) runs where that behaviour exists and is reported as skipped elsewhere. The mutants must come from someone other than the test's author too: the first shell tests passed 39 of 53 mutants written by a reviewer (recorded in #23).
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and a real user's WSL2 setup (the Windows-side apps and the Windows PATH of that machine); the `windows-2025` job below covers WSL2 itself only as far as it states. The monthly run covers the bootstrap; `scripts/unattended-setup.sh` and Tailscale are covered only by the manual acceptance criterion for the unattended host.
 - Templates: each flake template is instantiated and checked (see Project layer).
 - `.github/workflows/spec.yml` runs `spec/check.sh`: TLC on each model, and on one mutant per property that must fail on that property (see Formal models).
@@ -664,7 +665,7 @@ Each Nix network path reads certificates from a different place (checked against
 ## Rollout
 
 1. Create this repository with the minimum: flake, `.zshenv`, `.zshrc`, git, ssh, `~/.claude`. Create the personal GitHub App for ghtkn. Create the lock-update GitHub App described in CI and store its secrets.
-2. Switch `personal-mac`. Remove the Tailscale GUI app first (it is installed today), so that the only `tailscaled` is the open-source one nix-darwin runs (ADR 0010). It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point.
+2. Switch `personal-mac`. Remove the Tailscale GUI app first (it is installed today), so that the only `tailscaled` is the open-source one nix-darwin runs (ADR 0010). It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point. Remove the native Claude Code install (`~/.local/bin/claude`, `~/.local/share/claude`) once the Nix one works, so only one `claude` exists (ADR 0011).
 3. Run it for one to two weeks; pull in from the old repository only what is missed, judged by P6.
 4. Roll out to WSL2 (enable systemd first).
 5. Roll out to `work-mac`: set up KSM, pull the work profile, verify CA handling.
