@@ -11,7 +11,7 @@ Nix-based dotfiles for agent-first development on macOS and WSL2. One command tu
 | Area | Choice | Decision |
 |---|---|---|
 | Nix | Determinate Nix, nix-darwin on macOS, standalone home-manager on WSL2, one committed `flake.lock` | [ADR 0001](docs/adr/0001-nix-stack.md) |
-| Where tools come from | Nix first: a module, then a nixpkgs package, then a Homebrew cask, then a manual install | [design: P8](docs/design.md#principles) |
+| Where tools come from | Nix first: a module, then a nixpkgs package, then a Homebrew cask, then a manual install | [design: Principles](docs/design.md#principles) |
 | Shell | zsh with `ZDOTDIR` under `~/.config`, PATH built in `.zshenv` so non-interactive shells and agents see the same tools | [design: Shell](docs/design.md#shell) |
 | Project tools | mise in shims mode; TLA+ and Lean as flake templates | [ADR 0006](docs/adr/0006-project-layer-mise-shims.md) |
 | Secrets | 1Password for personal secrets, SSH, and signing; Keeper for the work profile | [ADR 0002](docs/adr/0002-vaults-and-work-profile.md), [ADR 0005](docs/adr/0005-commit-signing.md) |
@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 - **No secrets in the repository.** Secrets come from a vault at run time; company information stays in the work profile.
 - **Checked, not asserted.** Factual claims in the docs cite their source, and the design specifies TLA+ models of the bootstrap and of the programs that write `settings.json`.
 
-The full list, P1 to P8, is in [`docs/design.md`](docs/design.md#principles).
+The full list is in [`docs/design.md`](docs/design.md#principles).
 
 ## Layout
 
