@@ -31,6 +31,11 @@
       wsl = import ./hosts/wsl.nix;
     in
     {
+      # The agent hook builds, exposed so that CI can build and test them.
+      packages = nixpkgs.lib.genAttrs [ "aarch64-darwin" "x86_64-linux" ] (
+        system: import ./nix/agents.nix { pkgs = nixpkgs.legacyPackages.${system}; }
+      );
+
       darwinConfigurations = nixpkgs.lib.genAttrs [ "personal-mac" "work-mac" ] darwinHost;
 
       homeConfigurations."${wsl.user}@wsl" = home-manager.lib.homeManagerConfiguration {
