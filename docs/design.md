@@ -30,7 +30,7 @@ Three properties of the previous setup work against that:
 ## Non-goals
 
 - Rewriting config file contents in the Nix language (no `programs.*` generation).
-- Managing the Windows side (`%USERPROFILE%`) of WSL2 hosts.
+- Managing the Windows side (`%USERPROFILE%`) of WSL2 hosts, apart from the apps listed under Packages that the owner wants on every machine (Raycast, the font), which are installed by hand on Windows.
 - Maximum shell start-up speed.
 - Human-oriented shortcuts (aliases, functions).
 - Exhaustive macOS defaults: start empty, add only what is missed.
@@ -450,6 +450,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 - `hosts/work-mac.nix`: Keeper Secrets Manager CLI, aqua, internal tools. The KSM CLI is not in nixpkgs, and Keychain storage needs its pip `keyring` extra; without it the config falls back to a plain `keeper.ini`. Packaging it (a local derivation or another installer) is **Unverified**.
 - No other language runtimes.
 - Font (UDEV Gothic NF): cask on macOS; installed by hand on the Windows side for WSL2.
+- Raycast on every machine. On `wsl` it runs on the Windows side, installed by hand with `winget install raycast` (Raycast's Windows page; Windows 10 21H2+ or Windows 11). Its settings come from the same `.rayconfig` in 1Password: Raycast's manual says the files are cross-platform. The Script Commands in this repository are macOS shell scripts; Raycast on Windows runs scripts with whatever interpreter is on the Windows PATH, so they are not offered there until a script is written for it.
 
 ### Work / personal differences
 
@@ -504,7 +505,7 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
 9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
 10. Install the repository's git hooks (`lefthook install`).
-    On macOS the script then prints a checklist of one-time GUI steps: Karabiner's approvals, adding Raycast's script directory, and importing the `.rayconfig` from 1Password (skipped on a first machine that has no export yet). They are a checklist rather than human steps that wait for Enter, because nothing in the bootstrap depends on them, so they need no check and the run can finish without them.
+    On macOS the script then prints a checklist of one-time GUI steps: Karabiner's approvals, adding Raycast's script directory, and importing the `.rayconfig` from 1Password (skipped on a first machine that has no export yet). On `wsl` the checklist names the Windows-side steps instead: `winget install raycast` in Windows and the same `.rayconfig` import. They are a checklist rather than human steps that wait for Enter, because nothing in the bootstrap depends on them, so they need no check and the run can finish without them.
 
 Work and personal are kept apart by the host, never by guessing:
 
@@ -588,7 +589,7 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Acceptance criteria
 
-- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication, Karabiner's approvals, Raycast's script directory, and the Raycast import excepted; `personal-mac`'s unattended setup is a separate, manual step)
+- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication, Karabiner's approvals, Raycast's script directory, the Raycast install on Windows for `wsl`, and the Raycast import excepted; `personal-mac`'s unattended setup is a separate, manual step)
 - [ ] The bootstrap without a host, or with a host other than the recorded one, exits non-zero and changes nothing
 - [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
 - [ ] Running the bootstrap again after it stopped at a human step resumes and finishes
