@@ -135,10 +135,11 @@ ran_and_quiet() { # <label> <out-file> <log>
   else
     fail "$1-ran" "no probe output; log: $(tr '\n' ' ' <"$3" | cut -c1-200)"
   fi
-  # Lines a shell with no zsh files also prints come from the platform (for
-  # example "can't open terminal" on a runner without a tty), not from home/.
-  is "$1-log-quiet" "" "$(LC_ALL=C comm -23 <(error_lines "$3" | LC_ALL=C sort -u) \
-    <(error_lines "$bare_log" | LC_ALL=C sort -u) | tr '\n' ' ')"
+  # Ignore only the one line zsh prints on a runner without a tty, and only when
+  # a shell with no zsh files prints it too. If home/ caused the same line, the
+  # macOS leg, which has no such noise, still fails.
+  is "$1-log-quiet" "" "$(error_lines "$3" | { if grep -qx "$tty_noise" "$bare_log"; then
+    grep -vx "$tty_noise"; else cat; fi; } | tr '\n' ' ' || true)"
 }
 
 path_index() { # <dir> <path-value>; 0 when absent
@@ -245,6 +246,7 @@ bare_home=$work_dir/bare
 mkdir -p "$bare_home"
 bare_probe=$work_dir/bare.vars
 bare_log=$work_dir/bare.log
+tty_noise="not interactive and can't open terminal"
 run_interactive "$bare_home" "$bare_probe" "$bare_log"
 
 run_interactive "$home" "$probe" "$log"
@@ -368,7 +370,7 @@ ran_and_quiet caller-cache-interactive-shell "$cache_probe" "$cache_log"
 dump=
 if [[ -d $alt_cache/zsh ]]; then
   ok caller-cache-dir-created
-  dump=$(find "$alt_cache/zsh" -type f | LC_ALL=C sort | head -1)
+  dump=$(find "$alt_cache/zsh" -type f | LC_ALL=C sort | sed -n 1p || true)
 else
   fail caller-cache-dir-created "$alt_cache/zsh does not exist"
 fi
