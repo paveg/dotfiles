@@ -42,9 +42,11 @@
         "prisma validate sch[1]ema.cfg",
         "drizzle-kit studio {a,b}",
         "pg_restore --list dump.tar",
-        "pnpm run db:migrate -- --verbose"
+        "pnpm run db:migrate -- --verbose",
+        "mysql -e 'DROP # c\nDATABASE app'"
       ],
       "client-construct-reversed": [
+        "echo '# header' | mysql -D app",
         "echo \"$SQL\" | psql -d app_dev",
         "echo `cat query.sql` | mysql -D app",
         "cat query* | mariadb app",
@@ -80,7 +82,8 @@
       "read-only-query": "psql -d app_dev -c 'select count(*) from users'",
       "star-in-query": "psql -c 'select * from users'",
       "migrate-verbose-flag": "pnpm run db:migrate -- --verbose",
-      "drop-word-in-glob-search": "rg -n 'drop' src/*.ts"
+      "drop-word-in-glob-search": "rg -n 'drop' src/*.ts",
+      "mysql-hash-comment": "mysql -e 'DROP # c\nDATABASE app'"
     },
     "pass": {
       "search-word": "rg -n 'create table' src/",
@@ -137,17 +140,45 @@
         "ls ~/.[a]sh",
         "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}"
       ],
+      "glued-variable-name": [
+        "cat ~/$x.ssh/id_ed25519",
+        "cat ~/$x.aws/credentials",
+        "cat ~/$x.kube/config",
+        "cat ~/$x.config/gcloud/credentials.db",
+        "cat ~/$x.config/1password/x",
+        "cat ~/$x.config/op/x",
+        "cat ~/$x.config/keeper/x",
+        "cat ~/$x.config/ksm/x",
+        "cat ~/$x.config/ghtkn/x",
+        "cat ~/$x.1password/x",
+        "cat ~/$x.keeper/x",
+        "cat ~/$x.ghtkn/x",
+        "cat ~/$x.local/share/ghtkn/token",
+        "cat ~/$x.local/share/atuin/history.db",
+        "cat ~/$x.atuin/config",
+        "cat ~/$x.codex/auth.json",
+        "cat ~/$x.env"
+      ],
+      "bare-cd-expansion": [
+        "cd && cat .{ssh,aws}/x",
+        "cd; cat .{ssh,aws}/x",
+        "cd || cat .{ssh,aws}/x",
+        "pushd && cat .{ssh,aws}/x"
+      ],
+      "bare-cd-expansion-reversed": ["echo {a,b}; cd", "echo {a,b}; pushd"],
       "kubeconfig-expansion": ["cat kubeconfig-p*"],
       "kubeconfig-expansion-reversed": ["cat $DIR/kubeconfig-prod"],
       "home-cd-expansion": [
         "cd ~ && cat .{ssh,aws}/credentials",
         "cd $HOME && cat .{ssh,aws}/credentials",
-        "cd ${HOME} && cat .{ssh,aws}/credentials"
+        "cd ${HOME} && cat .{ssh,aws}/credentials",
+        "cd ~/ && cat .{ssh,aws}/credentials"
       ],
       "home-cd-expansion-reversed": [
         "echo {a,b}; cd ~",
         "echo {a,b}; cd $HOME",
-        "echo {a,b}; cd ${HOME}"
+        "echo {a,b}; cd ${HOME}",
+        "echo {a,b}; cd ~/"
       ]
     },
     "deny": {
@@ -178,6 +209,12 @@
       "double-quote-split": "cat ~/.s\"s\"h/id_ed25519"
     },
     "ask": {
+      "bare-cd-then-glob": "cd && cat .{ssh,aws}/x",
+      "bare-cd-semicolon": "cd; cat .{ssh,aws}/x",
+      "bare-cd-or": "cd || cat .{ssh,aws}/x",
+      "bare-pushd": "pushd && cat .{ssh,aws}/x",
+      "variable-glued-before-ssh": "cat ~/$x.ssh/id_ed25519",
+      "variable-glued-before-aws": "cat ~/$x.aws/credentials",
       "brace-expansion": "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}",
       "glob-fragment": "cat ~/.ss*/id_ed25519",
       "glob-fragment-bare": "cat ~/.ss*",
@@ -190,6 +227,7 @@
     },
     "pass": {
       "read-readme": "cat README.md",
+      "variable-with-extension": "cat $FILE.json",
       "aws-cli": "aws s3 ls s3://bucket/prefix",
       "cluster-query": "kubectl get pods -n default",
       "glob-in-dir": "rg -n TODO src/*.ts",

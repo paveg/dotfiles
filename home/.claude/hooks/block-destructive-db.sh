@@ -39,12 +39,13 @@ guard_rule truncate deny "truncate${name_end}"
 # Shape rules. The verb need not survive for the command to reach a database:
 # `drop` next to any expansion (`echo {DROP,DATABASE} x | psql`) cannot be
 # read, and the whole statement can arrive in a variable (`psql -c "$SQL"`) or
-# hide behind a comment. `table` or `database` on its own appears in ordinary
+# hide behind a comment (`--`, or MySQL's `#`, which the flattened newline
+# leaves running to the end of the command). `table` or `database` on its own appears in ordinary
 # commands, so only the verb is watched. The cost is that an ordinary `select *`
 # and any `--flag` on a client are asked about too; measured in
 # docs/verification.md.
 client='(psql|mysql|mariadb|sqlite3|prisma|drizzle-kit|pg_restore|db:)'
-client_construct='([$`*?[{]|--)'
+client_construct='([$`*?[{#]|--)'
 # The verb may follow the expansion directly (`{drop,database}`), where the one
 # character cannot be both the expansion and the character before the verb.
 guard_rule drop-expansion ask "${guard_name_start}drop.*${guard_expansion}"

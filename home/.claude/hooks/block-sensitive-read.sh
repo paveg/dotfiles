@@ -15,8 +15,14 @@ name_end='([^[:alnum:]_-]|$)'
 # `./../.ssh` all reach the same files. This repository's own tracked copies,
 # home/.ssh/config and home/.config/ghtkn/, are therefore denied in Bash too;
 # the Read tool reaches them, and the deny reason names the override.
+glued_names=
 guard_protect() { # <id> <ERE for the name>
   guard_rule "name-$1" deny "${guard_name_start}$2${name_end}"
+  # A name that holds a dot-prefixed segment of its own is already asked about
+  # by the fragment rule, so a glued variable before it needs no rule.
+  if [[ $2 == '[.]'* && $2 != *'/[.]'* ]]; then
+    glued_names+="${glued_names:+|}$2"
+  fi
 }
 
 guard_protect ssh '[.]ssh'
@@ -43,13 +49,22 @@ guard_protect dotenv '[.]env'
 fragment="${guard_name_start}[.][[:alnum:]_-]+"
 guard_rule_both_orders fragment-expansion ask "$fragment" "$guard_expansion"
 guard_rule slash-dot-expansion ask "/[.]${guard_expansion}"
+
+# An unbraced variable runs into the name that follows it (`~/$x.ssh`), so the
+# character before the dot is a name character and no name rule sees a name.
+guard_rule glued-variable-name ask "[$][[:alnum:]_]+(${glued_names})"
+
 guard_rule kubeconfig-expansion ask "${guard_name_start}kubeconfig.*${guard_expansion}"
 guard_rule kubeconfig-expansion-reversed ask "${guard_expansion}(.*[^[:alnum:]_-])?kubeconfig"
 
 # `cd ~` counts as naming the home directory, because what follows it needs no
 # path at all (`cd ~ && cat .{ssh,aws}/x`).
-home_cd='cd[[:space:]]+(~|[$][{]?home[}]?)([^[:alnum:]_/-]|$)'
+home_cd='cd[[:space:]]+(~|[$][{]?home[}]?)/?([^[:alnum:]_/-]|$)'
 guard_rule_both_orders home-cd-expansion ask "$home_cd" "$guard_expansion"
+
+# A `cd` or `pushd` with no argument goes home too.
+bare_cd="${guard_name_start}(cd|pushd)[[:space:]]*([;&|]|\$)"
+guard_rule_both_orders bare-cd-expansion ask "$bare_cd" "$guard_expansion"
 
 # Committed templates, exempt where the token stands alone.
 guard_exempt_tokens=(
