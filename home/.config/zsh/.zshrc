@@ -1,6 +1,6 @@
 # History stays in memory so that atuin is the only history on disk.
 SAVEHIST=0
-HISTSIZE=10000
+HISTSIZE=100000
 unset HISTFILE
 
 mkdir -p $XDG_CACHE_HOME/zsh
