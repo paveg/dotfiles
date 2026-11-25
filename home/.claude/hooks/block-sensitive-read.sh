@@ -4,41 +4,48 @@
 
 guard_subject='The sensitive-read guard'
 
-# A credential name counts wherever it stands as a path segment, because no
-# regex can require a path to be home-rooted: `~user/.ssh`, `//Users/x/.ssh`
-# and `./../.ssh` all reach the same files. This repository's own tracked
-# copies, home/.ssh/config and home/.config/ghtkn/, are therefore denied in
-# Bash too; the Read tool reaches them, and the deny reason names the override.
-name_end='([^[:alnum:]_.-]|$)'
-
-# ERE has no negative lookahead, so ".env with a suffix other than a committed
-# template" is spelled as a mismatch against each exempt word. The three start
-# with different letters, so one branch each covers it. A suffix that only
-# begins with one (.env.examples) is exempt, and a truncated one (.env.e)
-# passes; both are template names rather than places a secret is kept.
-other_suffix='([^est]'
-other_suffix+='|e([^x]|x([^a]|a([^m]|m([^p]|p([^l]|l[^e])))))'
-other_suffix+='|s([^a]|a([^m]|m([^p]|p([^l]|l[^e]))))'
-other_suffix+='|t([^e]|e([^m]|m([^p]|p([^l]|l([^a]|a([^t]|t[^e])))))))'
-
-guard_patterns=(
-  "${guard_name_start}[.]ssh${name_end}"
-  "${guard_name_start}[.]aws${name_end}"
-  "${guard_name_start}[.]kube${name_end}"
-  "${guard_name_start}kubeconfig${name_end}"
-  "${guard_name_start}[.]config/gcloud${name_end}"
-  "${guard_name_start}[.]config/(1password|op|keeper|ksm|ghtkn)${name_end}"
-  "${guard_name_start}[.](1password|keeper|ghtkn)${name_end}"
-  "${guard_name_start}[.]local/share/(ghtkn|atuin)${name_end}"
-  "${guard_name_start}[.]atuin${name_end}"
-  "${guard_name_start}[.]claude/[.]credentials[.]json"
-  "${guard_name_start}[.]codex/auth[.]json"
-  "${guard_name_start}[.]env${name_end}"
-  "${guard_name_start}[.]env[.]${other_suffix}"
+# One list of protected names, which every pattern below is built from, so that
+# a name added here cannot be missed by one of them. A name counts wherever it
+# stands as a path segment, because no regex can require a path to be
+# home-rooted: `~user/.ssh`,
+# `//Users/x/.ssh` and `./../.ssh` all reach the same files. This repository's
+# own tracked copies, home/.ssh/config and home/.config/ghtkn/, are therefore
+# denied in Bash too; the Read tool reaches them, and the deny reason names the
+# override.
+protected_names=(
+  '[.]ssh'
+  '[.]aws'
+  '[.]kube'
+  'kubeconfig'
+  '[.]config/gcloud'
+  '[.]config/(1password|op|keeper|ksm|ghtkn)'
+  '[.](1password|keeper|ghtkn)'
+  '[.]local/share/(ghtkn|atuin)'
+  '[.]atuin'
+  '[.]claude/[.]credentials[.]json'
+  '[.]codex/auth[.]json'
+  '[.]env'
 )
 
-guard_watch_unresolvable \
-  "${guard_name_start}(ssh|aws|kube|atuin|ghtkn|keeper|1password|gcloud|credentials|[.]env)"
+name_end='([^[:alnum:]_-]|$)'
+
+guard_patterns=()
+for protected_name in "${protected_names[@]}"; do
+  guard_patterns+=("${guard_name_start}${protected_name}${name_end}")
+done
+
+# An expansion character inside a dot-prefixed path segment, as in `~/.ss*` or
+# `"$HOME"/.{ssh,aws}`: there is no name left to compare, and expanding one
+# needs a shell. Globbing inside a directory (src/*.ts, .github/workflows/*.yml)
+# is untouched, because the character has to follow the dot's own name.
+guard_patterns+=("${guard_name_start}[.][[:alnum:]_-]*${guard_unresolvable}")
+
+# Committed templates, compared as whole tokens so that .env.exam stays denied.
+guard_exempt_suffixes=(
+  '.env.example'
+  '.env.sample'
+  '.env.template'
+)
 
 guard_advice='These paths hold credentials, cluster access, or shell history that must not reach an agent transcript. Take the value from its vault at run time instead: op run, ksm exec, or ghtkn exec.'
 

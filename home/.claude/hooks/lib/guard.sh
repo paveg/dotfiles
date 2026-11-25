@@ -13,6 +13,10 @@ shopt -s inherit_errexit
 
 guard_finished=0
 
+# Tokens a guard treats as safe whole words, such as a committed .env template.
+# A guard that has none leaves this empty.
+guard_exempt_suffixes=()
+
 guard_override_advice='If this is deliberate, run the command in your own shell (the guard only sees tool-invoked Bash), or add a narrow per-project rule to .claude/settings.json permissions.allow.'
 
 # Only exit 0 with a deny decision blocks the call without `onFailure: "block"`,
@@ -56,15 +60,31 @@ guard_name_start='(^|[^[:alnum:]_-])'
 # glob, a brace, a substitution or a SQL comment can still hold a protected
 # name apart, and expanding one needs a shell rather than a matcher. A guard
 # therefore also denies when such a construct shares a whitespace-delimited
-# word with one of its protected names: a command it cannot resolve statically
-# is a command it cannot clear. Each guard adds the pair with its own names.
+# word with something it protects: a command it cannot resolve statically is a
+# command it cannot clear. Each guard writes that pattern with this group, which
+# is also how guard_main tells such a match from a plain one.
 guard_unresolvable='([$]|`|--|/\*|\*/|\*|\?|\[|\{)'
 
-guard_watch_unresolvable() { # <name alternation>
-  guard_patterns+=(
-    "${1}[^[:space:]]*${guard_unresolvable}"
-    "${guard_unresolvable}[^[:space:]]*${1}"
-  )
+# A word that ends in one of the guard's exempt tokens leaves the scan before
+# any pattern runs. Matching "every name but these" in one regex needs a
+# negative lookahead ERE does not have, and spelling it out by hand let a
+# strict prefix (.env.exam) through. Comparing whole tokens cannot.
+guard_drop_exempt_words() { # <normalized-command>
+  local -a words
+  local word suffix kept=
+  read -ra words <<<"$1"
+  for word in "${words[@]}"; do
+    for suffix in "${guard_exempt_suffixes[@]}"; do
+      if [[ $word == *"$suffix" ]]; then
+        word=
+        break
+      fi
+    done
+    if [[ -n $word ]]; then
+      kept+="$word "
+    fi
+  done
+  printf '%s' "$kept"
 }
 
 # Drop quote and backslash concatenation so that token splitting cannot hide an
@@ -119,6 +139,7 @@ $guard_override_advice"
   fi
 
   scan=$(guard_normalize "$command")
+  scan=$(guard_drop_exempt_words "$scan")
   verdict=$(guard_classify "$scan")
 
   case $verdict in

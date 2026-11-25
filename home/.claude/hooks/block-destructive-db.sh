@@ -26,10 +26,11 @@ guard_patterns=(
   'truncate([[:space:]]+table)?([^[:alnum:]_]|$)'
 )
 
-# A SQL comment or a shell construct between the keywords (DROP/**/DATABASE)
-# defeats the patterns above, and resolving one needs a shell. Only the verbs
-# are listed: `table` or `database` on its own appears in ordinary commands.
-guard_watch_unresolvable "${guard_name_start}(drop|truncate|dropdb|db:)"
+# Every pattern above spans two words, which a SQL comment or a shell construct
+# can glue into one (DROP/**/DATABASE), and resolving that needs a shell. Only
+# the verbs are watched: `table` or `database` alone appears in ordinary
+# commands, and the construct has to sit in the verb's own word.
+guard_patterns+=("${guard_name_start}(drop|truncate|dropdb|db:)[^[:space:]]*${guard_unresolvable}")
 
 guard_advice='These operations wipe data unconditionally, and a test-environment marker does not prove which datasource the client reaches. A transient schema error is environment noise, not a reason to reset: report the failing command instead.'
 

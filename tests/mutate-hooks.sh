@@ -71,47 +71,53 @@ expect_caught 'db-deny-sql-drop-db db-deny-quote-split db-deny-multiline db-deny
   'the pattern for dropping a database, a schema or a table is gone' \
   "$db" $'  \'drop[[:space:]]+(database|schema|table)([^[:alnum:]_]|$)\'\n' ''
 
-expect_caught sensitive-deny-remote-login-dir 'the SSH directory pattern is gone' \
-  "$sensitive" $'  "${guard_name_start}[.]ssh${name_end}"\n' ''
-
-expect_caught sensitive-deny-dotenv 'the .env pattern is gone' \
-  "$sensitive" $'  "${guard_name_start}[.]env${name_end}"\n' ''
-
-expect_caught sensitive-pass-dotenv-template \
-  'every .env suffix is denied, so the committed templates are denied too' \
-  "$sensitive" "other_suffix='([^est]'" "other_suffix='([[:alnum:]]'"
+expect_caught 'sensitive-deny-remote-login-dir sensitive-deny-other-user-home sensitive-deny-relative-parent sensitive-deny-repo-copy' \
+  'the SSH directory is not a protected name' \
+  "$sensitive" $'  \'[.]ssh\'\n' ''
 
 expect_caught 'sensitive-deny-other-user-home sensitive-deny-relative-parent sensitive-deny-repo-copy' \
   'the SSH directory counts only when the path is rooted at the home directory' \
-  "$sensitive" $'  "${guard_name_start}[.]ssh${name_end}"\n' \
-  $'  "${guard_name_start}(~/|/users/[^/[:space:]]+/|/home/[^/[:space:]]+/)[.]ssh${name_end}"\n'
+  "$sensitive" $'  \'[.]ssh\'\n' \
+  $'  \'(~/|/users/[^/[:space:]]+/|/home/[^/[:space:]]+/)[.]ssh\'\n'
+
+expect_caught 'sensitive-deny-dotenv sensitive-deny-dotenv-variant sensitive-deny-dotenv-strict-prefix' \
+  '.env is not a protected name' \
+  "$sensitive" $'  \'[.]env\'\n' ''
+
+expect_caught 'sensitive-pass-dotenv-template sensitive-pass-dotenv-template-word' \
+  'no token is exempt, so the committed templates are denied too' \
+  "$sensitive" $'  \'.env.example\'\n  \'.env.sample\'\n  \'.env.template\'\n' ''
 
 expect_caught 'sensitive-deny-dotenv-unlisted-suffix sensitive-deny-dotenv-custom-suffix' \
-  'two more .env suffixes are treated as committed templates' \
-  "$sensitive" "other_suffix='([^est]'" "other_suffix='([^estcd]'"
+  'two more .env suffixes are exempt' \
+  "$sensitive" $'  \'.env.template\'\n' $'  \'.env.template\'\n  \'.env.ci\'\n  \'.env.docker\'\n'
+
+expect_caught 'sensitive-deny-glob-fragment sensitive-deny-brace-fragment' \
+  'an expansion character inside a dot-prefixed path segment is no longer denied' \
+  "$sensitive" \
+  $'guard_patterns+=("${guard_name_start}[.][[:alnum:]_-]*${guard_unresolvable}")\n' ''
 
 expect_caught db-deny-single-table 'dropping one table is no longer matched' \
   "$db" 'drop[[:space:]]+(database|schema|table)' 'drop[[:space:]]+(database|schema)'
 
 # A mutant that no longer builds is a harness error rather than a caught
-# mutant, so these two empty the watched names instead of dropping the call.
+# mutant, so this one empties the watched verbs instead of dropping the pattern.
 expect_caught 'db-deny-comment-split db-deny-dash-comment db-deny-brace-split' \
-  'the database guard watches no name for constructs it cannot resolve' \
-  "$db" '(drop|truncate|dropdb|db:)"' '(nosuchverb)"'
-
-expect_caught sensitive-deny-brace-expansion \
-  'the sensitive guard watches no name for constructs it cannot resolve' \
-  "$sensitive" '(ssh|aws|kube|atuin|ghtkn|keeper|1password|gcloud|credentials|[.]env)"' \
-  '(nosuchname)"'
+  'the database guard watches no verb for constructs it cannot resolve' \
+  "$db" '(drop|truncate|dropdb|db:)[^[:space:]]*' '(nosuchverb)[^[:space:]]*'
 
 expect_caught db-deny-dash-comment \
   'a SQL line comment no longer counts as a construct the guard cannot resolve' \
   "$guard" 'guard_unresolvable='"'"'([$]|`|--|/\*' \
   'guard_unresolvable='"'"'([$]|`|/\*'
 
-expect_caught sensitive-deny-brace-expansion \
-  'a construct standing before the protected name is no longer watched' \
-  "$guard" $'    "${guard_unresolvable}[^[:space:]]*${1}"\n' ''
+expect_caught 'sensitive-pass-dotenv-template sensitive-pass-dotenv-template-word' \
+  'an exempt token is dropped from no word at all' \
+  "$guard" $'        word=\n        break\n' $'        break\n'
+
+expect_caught sensitive-pass-dotenv-template-arg \
+  'an exempt token is compared as a prefix of the word instead of its end' \
+  "$guard" '[[ $word == *"$suffix" ]]' '[[ $word == "$suffix"* ]]'
 
 # The shared engine.
 expect_caught db-matcher-error-denies 'a matcher that errors reads as "no match"' \
