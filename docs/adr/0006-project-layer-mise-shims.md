@@ -24,7 +24,6 @@ Project tools (language runtimes, CLIs pinned per repository) were activated by 
 ## Alternatives considered
 
 - **TLA+ and Lean as global packages**: ready in every directory, but one version for every project and more global tools than the minimal set allows. Rejected in favour of the templates.
-
 - **direnv / `mise activate`**: invisible to non-interactive shells. Rejected.
 - **Flake devShell as the default**: needs `nix develop` or a hook to enter. Kept for projects that already use it.
 - **aqua as the default**: PATH-based like shims, but oriented to CLI binaries rather than language runtimes. Kept for repositories that already pin with it.

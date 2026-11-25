@@ -532,6 +532,8 @@ Each Nix network path reads certificates from a different place (checked against
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
 - Templates: each flake template is instantiated and checked (see Project layer).
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
+- Weekly: `DeterminateSystems/update-flake-lock` opens a pull request that updates `flake.lock`. A pull request opened with the default `GITHUB_TOKEN` does not trigger CI (the action's README), so the workflow mints a token with `actions/create-github-app-token` from a GitHub App made for this job alone: installed only on this repository, with Contents and Pull requests write and no other permission. Its App ID and private key are repository secrets. The private key is long-lived, but it can mint tokens only for this repository and only with those two permissions.
+- Dependabot updates GitHub Actions versions (`github-actions` ecosystem only).
 
 ## Acceptance criteria
 
@@ -577,7 +579,7 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Rollout
 
-1. Create this repository with the minimum: flake, `.zshenv`, `.zshrc`, git, ssh, `~/.claude`. Create the personal GitHub App for ghtkn.
+1. Create this repository with the minimum: flake, `.zshenv`, `.zshrc`, git, ssh, `~/.claude`. Create the personal GitHub App for ghtkn. Create the lock-update GitHub App described in CI and store its secrets.
 2. Switch `personal-mac`. It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point.
 3. Run it for one to two weeks; pull in from the old repository only what is missed, judged by P6.
 4. Roll out to WSL2 (enable systemd first).

@@ -173,3 +173,4 @@ Injection counts are `hook_additional_context` attachments grouped by hook event
 | `k9s` and `stern` are nixpkgs attributes | Holds | Measured: `nix eval --raw nixpkgs#k9s.name` printed `k9s-0.51.0`, `nixpkgs#stern.name` printed `stern-1.35.0` (upstream Nix 2.33.0 on this Mac, registry `nixpkgs`) |
 | nixpkgs has `tlaplus18` (tlaplus-1.8.0), `tlaplus` (1.7.4), `lean4` (4.35.0), and `elan` (4.3.0) | Holds | Measured: `nix eval --raw nixpkgs#<attr>.name` on this Mac |
 | `tlaplus18` installs `tlc`, `tlasany`, `pcal`, `tlatex`, and `tlarepl` as wrappers around `tla2tools.jar` | Holds | Source: nixpkgs `pkgs/by-name/tl/tlaplus18/package.nix` (`makeWrapper … $out/bin/<name>`), read with `gh api` |
+| `actions/create-github-app-token` scopes the token to the current repository when `owner` and `repositories` are empty, and the token inherits all of the installation's permissions | Holds | Source (by a review agent): actions/create-github-app-token README |
