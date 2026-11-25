@@ -36,6 +36,10 @@ jobs:
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/packages.sh
+      - name: Check that the per-user profile checks fail on a broken copy
+        env:
+          DOTFILES_HOST: ${{ matrix.host }}
+        run: tests/mutate-packages.sh per-user
 
   wsl:
     runs-on: ubuntu-latest
@@ -52,5 +56,5 @@ jobs:
         run: nix build --no-link ".#homeConfigurations.\"$(nix eval --raw --file hosts/wsl.nix user)@wsl\".activationPackage"
       - name: Check what the wsl profile gives the host
         run: tests/packages.sh
-      - name: Check that each package check fails on a broken copy
-        run: tests/mutate-packages.sh
+      - name: Check that the host-independent package checks fail on a broken copy
+        run: tests/mutate-packages.sh common
