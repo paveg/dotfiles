@@ -46,7 +46,7 @@ guard_protect dotenv '[.]env'
 # of a hidden name. The cost is that a glob after a hidden directory
 # (`ls .github/workflows/*.yml`) is asked about too; measured in
 # docs/verification.md.
-fragment="${guard_name_start}[.][[:alnum:]_-]+"
+fragment="${guard_name_start}[.][[:alnum:]_-]"
 guard_rule_both_orders fragment-expansion ask "$fragment" "$guard_expansion"
 guard_rule slash-dot-expansion ask "/[.]${guard_expansion}"
 

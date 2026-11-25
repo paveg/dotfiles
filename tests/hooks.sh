@@ -125,8 +125,8 @@ expect_deny() { # <check> <hook> <input-file> [reason-substring]
   expect_decision "$1" "$2" "$3" deny "${4:-}"
 }
 
-expect_ask() { # <check> <hook> <input-file> [reason-substring]
-  expect_decision "$1" "$2" "$3" ask "${4:-}"
+expect_ask() { # <check> <hook> <input-file>
+  expect_decision "$1" "$2" "$3" ask 'What looked unresolvable:'
 }
 
 expect_silent() { # <check> <hook> <input-file>
@@ -155,14 +155,16 @@ committed=$(new_tree committed)
 # inside the classification fail, so those paths are reached by building a
 # guard with the fault injected. All live in the shared engine, so injecting
 # into one guard exercises them for both.
+prepend_to_db_guard() { # <tree> <line>
+  local file=$1/home/.claude/hooks/block-destructive-db.sh
+  { printf '%s\n' "$2" && cat "$file"; } >"$file.new" && mv "$file.new" "$file"
+}
 matcher_error_deny=$(new_tree matcher-error-deny)
-mutate "$matcher_error_deny/home/.claude/hooks/block-destructive-db.sh" \
-  $'guard_rule truncate deny "truncate${name_end}"\n' \
-  $'guard_rule truncate deny "truncate${name_end}"\nguard_rule broken deny \'a[\'\n'
+prepend_to_db_guard "$matcher_error_deny" "guard_rule broken deny 'a['"
 matcher_error_ask=$(new_tree matcher-error-ask)
-mutate "$matcher_error_ask/home/.claude/hooks/block-destructive-db.sh" \
-  $'guard_rule drop-expansion ask' \
-  $'guard_rule broken ask \'a[\'\nguard_rule drop-expansion ask'
+prepend_to_db_guard "$matcher_error_ask" "guard_rule broken ask 'a['"
+bad_tier=$(new_tree bad-tier)
+prepend_to_db_guard "$bad_tier" "guard_rule typo warn 'zzz'"
 internal_error=$(new_tree internal-error)
 mutate "$internal_error/home/.claude/hooks/lib/guard.sh" \
   $'  local scan=$1 tier index rc\n' $'  local scan=$1 tier index rc\n  false\n'
@@ -172,6 +174,7 @@ hook_sensitive=$(build_hook "$committed" block-sensitive-read)
 hook_db_matcher_error_deny=$(build_hook "$matcher_error_deny" block-destructive-db)
 hook_db_matcher_error_ask=$(build_hook "$matcher_error_ask" block-destructive-db)
 hook_db_internal_error=$(build_hook "$internal_error" block-destructive-db)
+hook_db_bad_tier=$(build_hook "$bad_tier" block-destructive-db)
 
 hook_for() { # <guard key>
   case $1 in
@@ -257,6 +260,9 @@ without_rule() { # <id>
 }
 
 case $mode in
+texts)
+  printf '%s\n%s\n' "$guard_advice" "$guard_ask_why"
+  ;;
 list)
   for index in "${!guard_rule_ids[@]}"; do
     printf '%s\t%s\n' "${guard_rule_ids[index]}" "${guard_rule_tiers[index]}"
@@ -266,9 +272,9 @@ without) # <manifest> <guard key>
   manifest=$4
   key=$5
   for id in "${guard_rule_ids[@]}"; do
-    count=$(jq -r --arg g "$key" --arg id "$id" '(.[$g].rules[$id] // []) | length' "$manifest")
+    count=$(jq -r --arg g "$key" --arg id "$id" '(.[$g].rules[$id].fixtures // []) | length' "$manifest")
     for ((n = 0; n < count; n++)); do
-      fixture=$(jq -j --arg g "$key" --arg id "$id" --argjson n "$n" '.[$g].rules[$id][$n]' "$manifest")
+      fixture=$(jq -j --arg g "$key" --arg id "$id" --argjson n "$n" '.[$g].rules[$id].fixtures[$n]' "$manifest")
       verdict=$(
         without_rule "$id"
         guard_decide "$fixture"
@@ -292,6 +298,8 @@ for guard in db sensitive; do
   rules=$work_dir/$guard-rules.tsv
   verdicts=$work_dir/$guard-verdicts.tsv
   run_harness "$guard" list >"$rules" || die "listing the $guard rules failed"
+  advice=$(run_harness "$guard" texts | sed -n 1p)
+  ask_why=$(run_harness "$guard" texts | sed -n 2p)
   run_harness "$guard" without "$manifest" "$guard" >"$verdicts" ||
     die "deciding the $guard fixtures without their rules failed"
 
@@ -310,16 +318,40 @@ for guard in db sensitive; do
     fail "$guard-fixtures-name-known-rules" "no such rule: $unknown"
   fi
 
-  while IFS=$'\t' read -r id tier; do
-    count=$(jq -r --arg g "$guard" --arg id "$id" '(.[$g].rules[$id] // []) | length' "$manifest")
+  while IFS=$'\t' read -r id table_tier; do
+    count=$(jq -r --arg g "$guard" --arg id "$id" '(.[$g].rules[$id].fixtures // []) | length' "$manifest")
     if ((count == 0)); then
       fail "$guard-rule-$id-has-fixture" "no fixture in $manifest; a rule nothing proves can be broken unseen"
       continue
     fi
+    # The fixture file states the tier, so a rule that changes tier in the table
+    # alone cannot pass by agreeing with itself.
+    tier=$(jq -r --arg g "$guard" --arg id "$id" '.[$g].rules[$id].tier' "$manifest")
+    if [[ $table_tier == "$tier" ]]; then
+      ok "$guard-rule-$id-tier"
+    else
+      fail "$guard-rule-$id-tier" "the table says $table_tier, the fixtures say $tier"
+    fi
     for ((n = 0; n < count; n++)); do
       input=$(hook_input "$(jq -j --arg g "$guard" --arg id "$id" --argjson n "$n" \
-        '.[$g].rules[$id][$n]' "$manifest")")
+        '.[$g].rules[$id].fixtures[$n]' "$manifest")")
       expect_decision "$guard-rule-$id-fires-$n" "$hook" "$input" "$tier" "Rule: $id"$'\n'
+      reason=$(field_of .hookSpecificOutput.permissionDecisionReason "$hook_out")
+      fixture=$(jq -j --arg g "$guard" --arg id "$id" --argjson n "$n" \
+        '.[$g].rules[$id].fixtures[$n]' "$manifest")
+      if [[ $reason != *"Command: $fixture"* ]]; then
+        fail "$guard-rule-$id-reason-$n" "the reason does not quote the command"
+      elif [[ $reason != *"$advice"* ]]; then
+        fail "$guard-rule-$id-reason-$n" "the reason does not carry the guard's advice"
+      elif [[ $tier == ask && $reason != *"$ask_why"* ]]; then
+        fail "$guard-rule-$id-reason-$n" "the ask reason does not say what looked unresolvable"
+      elif [[ $tier == ask && $reason != *"write the path or statement out literally"* ]]; then
+        fail "$guard-rule-$id-reason-$n" "the ask reason does not tell an agent what to do"
+      elif [[ $tier == deny && $reason != *"run the command in your own shell"* ]]; then
+        fail "$guard-rule-$id-reason-$n" "the deny reason does not name the override"
+      else
+        ok "$guard-rule-$id-reason-$n"
+      fi
       without=$(awk -F'\t' -v id="$id" -v n="$n" '$1 == id && $2 == n { print $3 }' "$verdicts")
       if [[ ${without%% *} != "$tier" ]]; then
         ok "$guard-rule-$id-alone-$n"
@@ -354,13 +386,21 @@ done
 
 # A command that matches a shape rule and an exact rule is denied, not asked.
 expect_deny db-deny-beats-ask "$hook_db" \
-  "$(hook_input "psql -d app_dev -c 'DROP TABLE users' --echo-all")" "Rule: drop-table"
+  "$(hook_input "psql -d app_dev -c 'DROP TABLE users' --echo-all")" "Rule: drop-table"$'\n'
 expect_deny sensitive-deny-beats-ask "$hook_sensitive" \
-  "$(hook_input 'cat ~/.s* ~/.ssh/id_ed25519')" "Rule: name-ssh"
+  "$(hook_input 'cat ~/.s* ~/.ssh/id_ed25519')" "Rule: name-ssh"$'\n'
 
 harmless=$(hook_input 'ls -la')
-expect_deny db-matcher-error-denies "$hook_db_matcher_error_deny" "$harmless" grep-exit-2
-expect_deny db-matcher-error-in-ask-rule-denies "$hook_db_matcher_error_ask" "$harmless" grep-exit-2
+expect_deny db-matcher-error-denies "$hook_db_matcher_error_deny" \
+  "$(hook_input 'dropdb app_dev')" 'matcher failed (error broken grep-exit-2)'
+if [[ $(field_of .hookSpecificOutput.permissionDecisionReason "$hook_out") == *'Command: dropdb app_dev'* ]]; then
+  ok db-matcher-error-quotes-command
+else
+  fail db-matcher-error-quotes-command "the reason does not quote the command"
+fi
+expect_deny db-matcher-error-in-ask-rule-denies "$hook_db_matcher_error_ask" \
+  "$(hook_input 'psql -d app_dev -c "$SQL"')" 'matcher failed (error broken grep-exit-2)'
+expect_deny db-unknown-tier-denies "$hook_db_bad_tier" "$harmless" "internal error"
 expect_deny db-internal-error-denies "$hook_db_internal_error" "$harmless" "internal error"
 
 if grep -qE '"permissionDecision": ?"allow"' <<<"$all_output"; then

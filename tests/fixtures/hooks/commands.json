@@ -1,61 +1,151 @@
 {
   "db": {
     "rules": {
-      "prisma-migrate-reset": ["npx prisma migrate reset --force"],
-      "prisma-push-force-reset": ["npx prisma db push --force-reset"],
-      "drizzle-push-force": ["pnpm drizzle-kit push --force"],
-      "rails-db-setup": ["bin/rails db:setup", "bundle exec rake db:schema:load"],
-      "django-flush": [
-        "python manage.py flush",
-        "python manage.py reset_db",
-        "python manage.py sqlflush"
-      ],
-      "sequelize-undo-all": ["npx sequelize db:migrate:undo:all"],
-      "typeorm-schema-drop": ["npx typeorm schema:drop"],
-      "knex-rollback-all": ["npx knex migrate:rollback --all"],
-      "script-db-wipe": [
-        "pnpm run db:reset",
-        "npx sequelize db:drop",
-        "pnpm run db:nuke",
-        "pnpm run db:wipe",
-        "pnpm run db:clear"
-      ],
-      "dropdb": ["dropdb app_dev"],
-      "mysqladmin-drop": ["mysqladmin drop app", "mysqladmin -u root drop app"],
-      "drop-database": [
-        "psql -c \"DROP DATABASE app_dev\"",
-        "psql -d app_dev -c 'dro\"p data\"base app_dev'",
-        "psql -d app_dev -c \"DROP\nDATABASE app_dev\"",
-        "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
-        "pgcli -c 'DROP--wipe\n  DATABASE app_dev'"
-      ],
-      "drop-schema": ["psql -d app_dev -c 'DROP SCHEMA public'"],
-      "drop-table": ["psql -d app_dev -c 'DROP TABLE users'"],
-      "truncate": ["psql -d app_dev -c 'TRUNCATE TABLE users'", "truncate -s 0 app.log"],
-      "drop-expansion": ["pgcli -c \"DROP${IFS}DATABASE app_dev\""],
-      "drop-expansion-reversed": ["echo {DROP,DATABASE} app_dev"],
-      "client-construct": [
-        "psql -d app_dev -c \"$SQL\"",
-        "mysql -e `cat query.sql`",
-        "mariadb -e 'select * from users'",
-        "sqlite3 app.db .t?bles",
-        "prisma validate sch[1]ema.cfg",
-        "drizzle-kit studio {a,b}",
-        "pg_restore --list dump.tar",
-        "pnpm run db:migrate -- --verbose",
-        "mysql -e 'DROP # c\nDATABASE app'"
-      ],
-      "client-construct-reversed": [
-        "echo '# header' | mysql -D app",
-        "echo \"$SQL\" | psql -d app_dev",
-        "echo `cat query.sql` | mysql -D app",
-        "cat query* | mariadb app",
-        "echo ? | sqlite3 app.db",
-        "echo [x] | prisma validate",
-        "echo {a,b} | drizzle-kit studio",
-        "echo -- | pg_restore -d app",
-        "echo $x && pnpm run db:migrate"
-      ]
+      "prisma-migrate-reset": {
+        "tier": "deny",
+        "fixtures": [
+          "npx prisma migrate reset --force",
+          "npx prisma migrate  reset"
+        ]
+      },
+      "prisma-push-force-reset": {
+        "tier": "deny",
+        "fixtures": [
+          "npx prisma db push --force-reset",
+          "npx prisma db  push --force-reset"
+        ]
+      },
+      "drizzle-push-force": {
+        "tier": "deny",
+        "fixtures": [
+          "pnpm drizzle-kit push --force"
+        ]
+      },
+      "rails-db-setup": {
+        "tier": "deny",
+        "fixtures": [
+          "bin/rails db:setup",
+          "bundle exec rake db:schema:load"
+        ]
+      },
+      "django-flush": {
+        "tier": "deny",
+        "fixtures": [
+          "python manage.py flush",
+          "python manage.py reset_db"
+        ]
+      },
+      "sequelize-undo-all": {
+        "tier": "deny",
+        "fixtures": [
+          "npx sequelize db:migrate:undo:all"
+        ]
+      },
+      "typeorm-schema-drop": {
+        "tier": "deny",
+        "fixtures": [
+          "npx typeorm schema:drop"
+        ]
+      },
+      "knex-rollback-all": {
+        "tier": "deny",
+        "fixtures": [
+          "npx knex migrate:rollback --all"
+        ]
+      },
+      "script-db-wipe": {
+        "tier": "deny",
+        "fixtures": [
+          "pnpm run db:reset",
+          "npx sequelize db:drop",
+          "pnpm run db:nuke",
+          "pnpm run db:wipe",
+          "pnpm run db:clear"
+        ]
+      },
+      "dropdb": {
+        "tier": "deny",
+        "fixtures": [
+          "dropdb app_dev",
+          "sudo -u postgres dropdb app"
+        ]
+      },
+      "mysqladmin-drop": {
+        "tier": "deny",
+        "fixtures": [
+          "mysqladmin drop app",
+          "mysqladmin -u root drop app"
+        ]
+      },
+      "drop-database": {
+        "tier": "deny",
+        "fixtures": [
+          "psql -c \"DROP DATABASE app_dev\"",
+          "psql -d app_dev -c 'dro\"p data\"base app_dev'",
+          "psql -d app_dev -c \"DROP\nDATABASE app_dev\"",
+          "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
+          "pgcli -c 'DROP--wipe\n  DATABASE app_dev'"
+        ]
+      },
+      "drop-schema": {
+        "tier": "deny",
+        "fixtures": [
+          "psql -d app_dev -c 'DROP SCHEMA public'"
+        ]
+      },
+      "drop-table": {
+        "tier": "deny",
+        "fixtures": [
+          "psql -d app_dev -c 'DROP TABLE users'"
+        ]
+      },
+      "truncate": {
+        "tier": "deny",
+        "fixtures": [
+          "psql -d app_dev -c 'TRUNCATE TABLE users'",
+          "truncate -s 0 app.log"
+        ]
+      },
+      "drop-expansion": {
+        "tier": "ask",
+        "fixtures": [
+          "pgcli -c \"DROP${IFS}DATABASE app_dev\""
+        ]
+      },
+      "drop-expansion-reversed": {
+        "tier": "ask",
+        "fixtures": [
+          "echo {DROP,DATABASE} app_dev"
+        ]
+      },
+      "client-construct": {
+        "tier": "ask",
+        "fixtures": [
+          "psql -d app_dev -c \"$SQL\"",
+          "mysql -e `cat query.sql`",
+          "mariadb -e 'select * from users'",
+          "sqlite3 app.db .t?bles",
+          "prisma validate sch[1]ema.cfg",
+          "drizzle-kit studio {a,b}",
+          "pg_restore --list dump.tar",
+          "pnpm run db:migrate -- --verbose",
+          "mysql -e 'DROP # c\nDATABASE app'"
+        ]
+      },
+      "client-construct-reversed": {
+        "tier": "ask",
+        "fixtures": [
+          "echo '# header' | mysql -D app",
+          "echo \"$SQL\" | psql -d app_dev",
+          "echo `cat query.sql` | mysql -D app",
+          "cat query* | mariadb app",
+          "echo ? | sqlite3 app.db",
+          "echo [x] | prisma validate",
+          "echo {a,b} | drizzle-kit studio",
+          "echo -- | pg_restore -d app",
+          "echo $x && pnpm run db:migrate"
+        ]
+      }
     },
     "deny": {
       "prisma-reset": "npx prisma migrate reset --force",
@@ -95,91 +185,192 @@
   },
   "sensitive": {
     "rules": {
-      "name-ssh": ["cat ~/.ssh/id_ed25519"],
-      "name-aws": ["cat ~/.aws/credentials"],
-      "name-kube": ["sed -n '1,40p' ~/.kube/config"],
-      "name-kubeconfig": ["cat ~/work/kubeconfig"],
-      "name-gcloud": ["cat ~/.config/gcloud/credentials.db"],
-      "name-config-vault": [
-        "ls ~/.config/1password",
-        "ls ~/.config/op",
-        "ls ~/.config/keeper",
-        "ls ~/.config/ksm",
-        "tar -czf /tmp/state.tgz ~/.config/ghtkn"
-      ],
-      "name-dot-vault": ["cat ~/.1password/x", "cat ~/.keeper/x", "cat ~/.ghtkn/x"],
-      "name-share-vault": [
-        "sqlite3 ~/.local/share/atuin/history.db .dump",
-        "cat ~/.local/share/ghtkn/token"
-      ],
-      "name-atuin": ["cat ~/.atuin/config"],
-      "name-claude-credentials": ["cat ~/.claude/.credentials.json"],
-      "name-codex-auth": ["cat ~/.codex/auth.json"],
-      "name-dotenv": ["cat .env", "rg -n PASSWORD .env.production"],
-      "fragment-expansion": [
-        "x=.ss; cat ~/${x}h/id_ed25519",
-        "cat ~/.s`echo sh`/id_ed25519",
-        "cat ~/.ss*/id_ed25519",
-        "sed -n '1,5p' ~/.aw?/credentials",
-        "cat ~/.s[s]h/id_ed25519",
-        "cat ~/.s{s,x}h/id_ed25519"
-      ],
-      "fragment-expansion-reversed": [
-        "cat $(echo ~/.s)sh/id_ed25519",
-        "cat `echo x`.ss",
-        "ls * .ss",
-        "ls ? .ss",
-        "ls [a] .ss",
-        "ls {a,b} .ss"
-      ],
-      "slash-dot-expansion": [
-        "ls ~/.$x",
-        "ls ~/.`echo x`",
-        "ls ~/.*",
-        "ls ~/.?",
-        "ls ~/.[a]sh",
-        "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}"
-      ],
-      "glued-variable-name": [
-        "cat ~/$x.ssh/id_ed25519",
-        "cat ~/$x.aws/credentials",
-        "cat ~/$x.kube/config",
-        "cat ~/$x.config/gcloud/credentials.db",
-        "cat ~/$x.config/1password/x",
-        "cat ~/$x.config/op/x",
-        "cat ~/$x.config/keeper/x",
-        "cat ~/$x.config/ksm/x",
-        "cat ~/$x.config/ghtkn/x",
-        "cat ~/$x.1password/x",
-        "cat ~/$x.keeper/x",
-        "cat ~/$x.ghtkn/x",
-        "cat ~/$x.local/share/ghtkn/token",
-        "cat ~/$x.local/share/atuin/history.db",
-        "cat ~/$x.atuin/config",
-        "cat ~/$x.codex/auth.json",
-        "cat ~/$x.env"
-      ],
-      "bare-cd-expansion": [
-        "cd && cat .{ssh,aws}/x",
-        "cd; cat .{ssh,aws}/x",
-        "cd || cat .{ssh,aws}/x",
-        "pushd && cat .{ssh,aws}/x"
-      ],
-      "bare-cd-expansion-reversed": ["echo {a,b}; cd", "echo {a,b}; pushd"],
-      "kubeconfig-expansion": ["cat kubeconfig-p*"],
-      "kubeconfig-expansion-reversed": ["cat $DIR/kubeconfig-prod"],
-      "home-cd-expansion": [
-        "cd ~ && cat .{ssh,aws}/credentials",
-        "cd $HOME && cat .{ssh,aws}/credentials",
-        "cd ${HOME} && cat .{ssh,aws}/credentials",
-        "cd ~/ && cat .{ssh,aws}/credentials"
-      ],
-      "home-cd-expansion-reversed": [
-        "echo {a,b}; cd ~",
-        "echo {a,b}; cd $HOME",
-        "echo {a,b}; cd ${HOME}",
-        "echo {a,b}; cd ~/"
-      ]
+      "name-ssh": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/.ssh/id_ed25519",
+          "cat ~dev/.ssh/id_ed25519",
+          "cat ./../.ssh/id_ed25519"
+        ]
+      },
+      "name-aws": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/.aws/credentials"
+        ]
+      },
+      "name-kube": {
+        "tier": "deny",
+        "fixtures": [
+          "sed -n '1,40p' ~/.kube/config"
+        ]
+      },
+      "name-kubeconfig": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/work/kubeconfig"
+        ]
+      },
+      "name-gcloud": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/.config/gcloud/credentials.db"
+        ]
+      },
+      "name-config-vault": {
+        "tier": "deny",
+        "fixtures": [
+          "ls ~/.config/1password",
+          "ls ~/.config/op",
+          "ls ~/.config/keeper",
+          "ls ~/.config/ksm",
+          "tar -czf /tmp/state.tgz ~/.config/ghtkn"
+        ]
+      },
+      "name-dot-vault": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/.1password/x",
+          "cat ~/.keeper/x",
+          "cat ~/.ghtkn/x"
+        ]
+      },
+      "name-share-vault": {
+        "tier": "deny",
+        "fixtures": [
+          "sqlite3 ~/.local/share/atuin/history.db .dump",
+          "cat ~/.local/share/ghtkn/token"
+        ]
+      },
+      "name-atuin": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/.atuin/config"
+        ]
+      },
+      "name-claude-credentials": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/.claude/.credentials.json"
+        ]
+      },
+      "name-codex-auth": {
+        "tier": "deny",
+        "fixtures": [
+          "cat ~/.codex/auth.json"
+        ]
+      },
+      "name-dotenv": {
+        "tier": "deny",
+        "fixtures": [
+          "cat .env",
+          "rg -n PASSWORD .env.production"
+        ]
+      },
+      "fragment-expansion": {
+        "tier": "ask",
+        "fixtures": [
+          "x=.ss; cat ~/${x}h/id_ed25519",
+          "cat ~/.s`echo sh`/id_ed25519",
+          "cat ~/.ss*/id_ed25519",
+          "sed -n '1,5p' ~/.aw?/credentials",
+          "cat ~/.s[s]h/id_ed25519",
+          "cat ~/.s{s,x}h/id_ed25519"
+        ]
+      },
+      "fragment-expansion-reversed": {
+        "tier": "ask",
+        "fixtures": [
+          "cat $(echo ~/.s)sh/id_ed25519",
+          "cat `echo x`.ss",
+          "ls * .ss",
+          "ls ? .ss",
+          "ls [a] .ss",
+          "ls {a,b} .ss"
+        ]
+      },
+      "slash-dot-expansion": {
+        "tier": "ask",
+        "fixtures": [
+          "ls ~/.$x",
+          "ls ~/.`echo x`",
+          "ls ~/.*",
+          "ls ~/.?",
+          "ls ~/.[a]sh",
+          "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}"
+        ]
+      },
+      "glued-variable-name": {
+        "tier": "ask",
+        "fixtures": [
+          "cat ~/$x.ssh/id_ed25519",
+          "cat ~/$x.aws/credentials",
+          "cat ~/$x.kube/config",
+          "cat ~/$x.config/gcloud/credentials.db",
+          "cat ~/$x.config/1password/x",
+          "cat ~/$x.config/op/x",
+          "cat ~/$x.config/keeper/x",
+          "cat ~/$x.config/ksm/x",
+          "cat ~/$x.config/ghtkn/x",
+          "cat ~/$x.1password/x",
+          "cat ~/$x.keeper/x",
+          "cat ~/$x.ghtkn/x",
+          "cat ~/$x.local/share/ghtkn/token",
+          "cat ~/$x.local/share/atuin/history.db",
+          "cat ~/$x.atuin/config",
+          "cat ~/$x.codex/auth.json",
+          "cat ~/$x.env",
+          "cat ~/$base.ssh/id_ed25519"
+        ]
+      },
+      "bare-cd-expansion": {
+        "tier": "ask",
+        "fixtures": [
+          "cd && cat .{ssh,aws}/x",
+          "cd; cat .{ssh,aws}/x",
+          "cd || cat .{ssh,aws}/x",
+          "pushd && cat .{ssh,aws}/x"
+        ]
+      },
+      "bare-cd-expansion-reversed": {
+        "tier": "ask",
+        "fixtures": [
+          "echo {a,b}; cd",
+          "echo {a,b}; pushd"
+        ]
+      },
+      "kubeconfig-expansion": {
+        "tier": "ask",
+        "fixtures": [
+          "cat kubeconfig-p*"
+        ]
+      },
+      "kubeconfig-expansion-reversed": {
+        "tier": "ask",
+        "fixtures": [
+          "cat $DIR/kubeconfig-prod",
+          "echo {kubeconfig-a,b}"
+        ]
+      },
+      "home-cd-expansion": {
+        "tier": "ask",
+        "fixtures": [
+          "cd ~ && cat .{ssh,aws}/credentials",
+          "cd $HOME && cat .{ssh,aws}/credentials",
+          "cd ${HOME} && cat .{ssh,aws}/credentials",
+          "cd ~/ && cat .{ssh,aws}/credentials",
+          "cd  ~ && cat .{ssh,aws}/credentials"
+        ]
+      },
+      "home-cd-expansion-reversed": {
+        "tier": "ask",
+        "fixtures": [
+          "echo {a,b}; cd ~",
+          "echo {a,b}; cd $HOME",
+          "echo {a,b}; cd ${HOME}",
+          "echo {a,b}; cd ~/"
+        ]
+      }
     },
     "deny": {
       "remote-login-dir": "cat ~/.ssh/id_ed25519",
@@ -250,7 +441,8 @@
       "vault-exec": "ksm exec -- gh pr list",
       "ghtkn-exec": "ghtkn exec -- gh pr list",
       "remote-login": "ssh personal-mac uptime",
-      "list-files": "ls -la"
+      "list-files": "ls -la",
+      "dotenv-template-at-start": ".env.example"
     }
   },
   "ordinary": [

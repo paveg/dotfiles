@@ -20,17 +20,17 @@ name_end='([^[:alnum:]_]|$)'
 gap='([[:space:]]|/\*[^*]*\*/|--[^[:space:]]*[[:space:]])+'
 
 # Exact rules: a literal command, written as the tool spells it.
-guard_rule prisma-migrate-reset deny "prisma[[:space:]]+.*migrate[[:space:]]+reset${name_end}"
-guard_rule prisma-push-force-reset deny "prisma[[:space:]]+.*db[[:space:]]+push[[:space:]]+.*--force-reset${name_end}"
-guard_rule drizzle-push-force deny "drizzle-kit[[:space:]]+.*push([[:space:]]|\$).*--force${name_end}"
-guard_rule rails-db-setup deny "(rails|rake)[[:space:]]+.*db:(setup|schema:load)${name_end}"
-guard_rule django-flush deny "manage\\.py[[:space:]]+.*(flush|reset_db|sqlflush)${name_end}"
-guard_rule sequelize-undo-all deny "sequelize[[:space:]]+.*db:migrate:undo:all${name_end}"
-guard_rule typeorm-schema-drop deny "typeorm[[:space:]]+.*schema:drop${name_end}"
-guard_rule knex-rollback-all deny "knex[[:space:]]+.*migrate:rollback[[:space:]]+.*--all${name_end}"
+guard_rule prisma-migrate-reset deny "prisma[[:space:]].*migrate[[:space:]]+reset${name_end}"
+guard_rule prisma-push-force-reset deny "prisma[[:space:]].*db[[:space:]]+push[[:space:]].*--force-reset${name_end}"
+guard_rule drizzle-push-force deny "drizzle-kit[[:space:]].*push[[:space:]].*--force${name_end}"
+guard_rule rails-db-setup deny "(rails|rake)[[:space:]].*db:(setup|schema:load)${name_end}"
+guard_rule django-flush deny "manage\\.py[[:space:]].*(flush|reset_db)${name_end}"
+guard_rule sequelize-undo-all deny "sequelize[[:space:]].*db:migrate:undo:all${name_end}"
+guard_rule typeorm-schema-drop deny "typeorm[[:space:]].*schema:drop${name_end}"
+guard_rule knex-rollback-all deny "knex[[:space:]].*migrate:rollback[[:space:]].*--all${name_end}"
 guard_rule script-db-wipe deny "db:(reset|drop|nuke|wipe|clear)${name_end}"
 guard_rule dropdb deny "(^|[^[:alnum:]_])dropdb${name_end}"
-guard_rule mysqladmin-drop deny "mysqladmin[[:space:]]+(.*[[:space:]])?drop${name_end}"
+guard_rule mysqladmin-drop deny "mysqladmin[[:space:]](.*[[:space:]])?drop${name_end}"
 guard_rule drop-database deny "drop${gap}database${name_end}"
 guard_rule drop-schema deny "drop${gap}schema${name_end}"
 guard_rule drop-table deny "drop${gap}table${name_end}"
@@ -40,10 +40,10 @@ guard_rule truncate deny "truncate${name_end}"
 # `drop` next to any expansion (`echo {DROP,DATABASE} x | psql`) cannot be
 # read, and the whole statement can arrive in a variable (`psql -c "$SQL"`) or
 # hide behind a comment (`--`, or MySQL's `#`, which the flattened newline
-# leaves running to the end of the command). `table` or `database` on its own appears in ordinary
-# commands, so only the verb is watched. The cost is that an ordinary `select *`
-# and any `--flag` on a client are asked about too; measured in
-# docs/verification.md.
+# leaves running to the end of the command). `table` or `database` on its own
+# appears in ordinary commands, so only the verb is watched. The cost is that an
+# ordinary `select *` and any `--flag` on a client are asked about too;
+# measured in docs/verification.md.
 client='(psql|mysql|mariadb|sqlite3|prisma|drizzle-kit|pg_restore|db:)'
 client_construct='([$`*?[{#]|--)'
 # The verb may follow the expansion directly (`{drop,database}`), where the one
