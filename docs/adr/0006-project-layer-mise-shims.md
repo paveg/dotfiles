@@ -13,6 +13,7 @@ Project tools (language runtimes, CLIs pinned per repository) were activated by 
 - `$ZDOTDIR/.zshenv` puts `$XDG_DATA_HOME/mise/shims` on PATH (mise uses `MISE_DATA_DIR`, else `$XDG_DATA_HOME/mise`). Nothing calls `mise activate`, and direnv is not used.
 - Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `$ZDOTDIR/.zshenv` also puts on PATH.
 - Existing projects on devbox or a flake devShell keep them; their CLAUDE.md tells agents to run commands through `devbox run` / `nix develop -c`.
+- Formal-methods tools (TLA+, Lean) are not global packages either. The flake ships `templates.tlaplus` and `templates.lean`, so a project that wants them starts with `nix flake init -t`, with versions pinned in that project. Lean's template uses `elan` and a `lean-toolchain` file, the way Lean projects pin their compiler.
 
 ## Consequences
 
@@ -21,6 +22,8 @@ Project tools (language runtimes, CLIs pinned per repository) were activated by 
 - Shims add a small dispatch cost per invocation.
 
 ## Alternatives considered
+
+- **TLA+ and Lean as global packages**: ready in every directory, but one version for every project and more global tools than the minimal set allows. Rejected in favour of the templates.
 
 - **direnv / `mise activate`**: invisible to non-interactive shells. Rejected.
 - **Flake devShell as the default**: needs `nix develop` or a hook to enter. Kept for projects that already use it.

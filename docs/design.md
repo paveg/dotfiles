@@ -87,6 +87,10 @@ Host names are placeholders. Only `work-mac` carries the work profile and sits b
 - Hook-activated environments (direnv, `mise activate`) are not used, because a plain `zsh -c` never sees them.
 - Existing projects keep what they use (devbox, a flake devShell). Agents then run commands through `devbox run` / `nix develop -c`, which the project's own CLAUDE.md states.
 - Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `.zshenv` also puts on PATH.
+- Formal-methods tools are project tools, not global packages: their versions belong to the project that uses them. The flake ships `templates` so that a new project gets them in one command ([ADR 0006](adr/0006-project-layer-mise-shims.md)):
+  - `nix flake init -t github:paveg/dotfiles#tlaplus`: a flake with a devShell holding nixpkgs' `tlaplus18` (TLA+ tools 1.8.0, which installs `tlc`, `tlasany`, `pcal`, and `tlatex`), a small specification with its model config, a CI workflow that runs `nix develop -c tlc` on it, and an `AGENTS.md` that tells agents to run the checker that way.
+  - `nix flake init -t github:paveg/dotfiles#lean`: a flake with a devShell holding `elan`, plus a `lean-toolchain` file and a minimal Lake project. Lean projects pin their toolchain in `lean-toolchain`, and libraries such as Mathlib follow it, so `elan` installs the toolchain the file names rather than nixpkgs' single `lean4` version. The devShell sets `ELAN_HOME` to `${XDG_DATA_HOME:-$HOME/.local/share}/elan` in its `shellHook`, because elan's default is `~/.elan`. Whether `nix develop -c` runs `shellHook` is **Unverified**; the template test below decides it.
+  - CI instantiates each template in a temporary directory and runs its own check (`tlc` on the sample specification, `lake build` on the sample project), so a template that no longer works fails here, not in a new project.
 
 ### Rejected
 
@@ -134,6 +138,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 ├── profiles/work.example/    # shape of the work profile, empty values, used by CI
 ├── tests/
 ├── scripts/{bootstrap.sh,work-sync.sh}
+├── templates/{tlaplus,lean}/  # flake templates for formal-methods projects
 ├── docs/
 ├── .github/workflows/
 ├── justfile
@@ -525,6 +530,7 @@ Each Nix network path reads certificates from a different place (checked against
     - `$HOME` gains no entry outside the allowlist: on Linux by listing the new user's home, on macOS by diffing the runner's home before and after.
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
+- Templates: each flake template is instantiated and checked (see Project layer).
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 
 ## Acceptance criteria
