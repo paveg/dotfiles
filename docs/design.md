@@ -473,6 +473,7 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
 9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
 10. Install the repository's git hooks (`lefthook install`).
+
 Work and personal are kept apart by the host, never by guessing:
 
 - The host is a required argument. The script does not infer it from the hostname, the hardware, or a network.
@@ -546,7 +547,7 @@ Each Nix network path reads certificates from a different place (checked against
     - a login shell after the real switch resolves `git` from Nix;
     - `$HOME` gains no entry outside the allowlist: on Linux by listing the new user's home, on macOS by diffing the runner's home before and after.
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
-- Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
+- Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and real WSL2 (its systemd and Windows PATH). The monthly run covers the bootstrap; `scripts/unattended-setup.sh` and Tailscale are covered only by the manual acceptance criterion for the unattended host.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 
 ## Acceptance criteria
@@ -569,6 +570,7 @@ Each Nix network path reads certificates from a different place (checked against
 - [ ] On `work-mac`, `zsh -c 'echo $AQUA_GHTKN_ENABLED'` prints `true`
 - [ ] `~/.claude/settings.json` on `work-mac` contains the work plugins and internal endpoint; on `personal-mac` it does not
 - [ ] With 1Password locked, an SSH `git fetch` and a signed commit go through with Touch ID alone
+- [ ] On `personal-mac`, after `scripts/unattended-setup.sh`: with the phone off the home LAN and on the tailnet, Orca Mobile reaches the host, Tailscale SSH opens a shell on it, and running the script again changes nothing
 - [ ] Run 5 agents in parallel in Orca for an hour and record how many 1Password prompts appear (input to ADR 0005)
 - [ ] Opening a new terminal raises no prompt during shell start-up
 - [ ] On `work-mac`, `nix flake update` followed by a switch passes with no CA error
