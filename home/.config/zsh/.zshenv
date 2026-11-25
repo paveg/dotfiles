@@ -14,6 +14,6 @@ path=($_dots_path $path)
 export EDITOR=nvim
 export ATUIN_HOME=$XDG_DATA_HOME/atuin
 
-if [[ -r $XDG_CONFIG_HOME/dots-work/env/static.env ]]; then
-  source $XDG_CONFIG_HOME/dots-work/env/static.env
+if [[ -r $HOME/.config/dots-work/env/static.env ]]; then
+  source $HOME/.config/dots-work/env/static.env
 fi
