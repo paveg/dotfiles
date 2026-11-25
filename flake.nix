@@ -16,6 +16,12 @@
   outputs =
     { nixpkgs, nix-darwin, home-manager, ... }:
     let
+      # Unfree by name, never wholesale. It lives here rather than in
+      # nix/packages.nix because the macOS modules bring unfree packages of
+      # their own.
+      nixpkgsConfig = {
+        allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "claude-code" ];
+      };
       darwinHost =
         name:
         let
@@ -24,6 +30,7 @@
         nix-darwin.lib.darwinSystem {
           specialArgs = { inherit host; };
           modules = [
+            { nixpkgs.config = nixpkgsConfig; }
             ./nix/darwin.nix
             home-manager.darwinModules.home-manager
           ];
@@ -39,7 +46,9 @@
       darwinConfigurations = nixpkgs.lib.genAttrs [ "personal-mac" "work-mac" ] darwinHost;
 
       homeConfigurations."${wsl.user}@wsl" = home-manager.lib.homeManagerConfiguration {
-        pkgs = nixpkgs.legacyPackages.${wsl.system};
+        # Not legacyPackages: a standalone home-manager takes its nixpkgs
+        # configuration from the pkgs it is handed.
+        pkgs = import nixpkgs { system = wsl.system; config = nixpkgsConfig; };
         extraSpecialArgs = { host = wsl; };
         modules = [ ./nix/home.nix ];
       };
