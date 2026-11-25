@@ -74,6 +74,17 @@ expect_caught bootstrap 'Temporal properties were violated' \
   '/\ recorded = "work-mac" /\ workProfile = "absent" /\ ~keeperUp' \
   '/\ FALSE'
 
+expect_pass settings_writers
+
+expect_caught settings_writers 'Invariant GuardsInEffect is violated' \
+  'settings.json is written while the guard drop-in is missing (the first design)' \
+  '/\ managedGuard            \* the drop-in is written first' \
+  ''
+expect_caught settings_writers 'Action property SwitchKeepsOrca is violated' \
+  "the generator carries Orca's entries over from the file it read" \
+  "/\\ file' = {\"guard\", \"orca\"}" \
+  "/\\ file' = {\"guard\"} \\cup (genBuf \\cap {\"orca\"})"
+
 if ((failures > 0)); then
   echo "$failures check(s) failed"
   exit 1

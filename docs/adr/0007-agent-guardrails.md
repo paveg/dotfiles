@@ -32,13 +32,15 @@ Triage of the previous hooks:
 | Comment-rot check | Checker | Kept (its value is feedback at write time), rewritten from Python; fails open |
 | PR, browser, and Japanese-writing context | Injector | Kept |
 | Unaddressed-request check (`type: "agent"`) | Checker | Kept as a prompt in the common settings; nothing to build |
-| herdr and Orca entries | — | Not owned here. The settings generator carries them over (ADR 0003); herdr's only if herdr is adopted |
+| Orca entries | — | Not owned here. The settings generator writes them itself (ADR 0003) |
+| herdr entry | — | Not owned here. The settings generator carries it over from the current file (ADR 0003), only if herdr is adopted |
 
 Every remaining script hook is built with Nix's `writeShellApplication`:
 
 - Dependencies (`jq`, coreutils, grep) are pinned through `runtimeInputs`, and `inheritPath = false` stops the default from appending the caller's PATH, so nothing is resolved from it.
 - shellcheck runs at build time, and `errexit` / `nounset` / `pipefail` are on by default.
 - `settings.json` refers to each hook by its store path, written by the generator in ADR 0003.
+- On macOS the guards and `permissions.deny` are written twice: into a root-owned managed-settings drop-in, `managed-settings.d/50-dotfiles.json`, which no other tool is assumed to write, and then into `settings.json`. Claude Code merges hooks and lists across settings levels, and when the same handler is in both files it runs it once. `wsl` has no drop-in.
 - Guards set `onFailure: "block"`, print `deny` on a match and nothing otherwise (never `allow`, which would skip the permission prompt), set `shopt -s inherit_errexit`, treat a matcher's error exit code as a failure rather than as "no match", and return `deny` on malformed input. Checkers and injectors keep the default `onFailure: "continue"`.
 - Each guard has a test that is shown to fail when the guard is deliberately broken.
 
@@ -50,6 +52,7 @@ Every remaining script hook is built with Nix's `writeShellApplication`:
 - Regular-expression matching in shell still has blind spots (for example `bash -c` wrapping). If closing them becomes necessary, move the database guard to a Go binary built with `buildGoModule` that parses commands into a syntax tree (`mvdan.cc/sh`).
 - The sandbox is not yet enabled. The 1Password SSH agent socket, the ghtkn agent, the Nix daemon socket, and `op` / `ksm` network calls cross its boundary. On macOS an unset `allowUnixSockets` blocks every Unix socket, so each must be listed; on Linux and WSL2 only the all-or-nothing `allowAllUnixSockets` applies. `failIfUnavailable: true` is needed, or Claude Code silently runs unsandboxed when the sandbox cannot start. Enable it only after measuring these on each host.
 - A running guard is a store path, so an edit to its source takes effect only at the next switch, which a human runs. `settings.json` is a regular file the agent could edit to repoint a hook; an `Edit` deny rule on it prevents accidents, not intent.
+- A stale write by Orca or Claude Code can drop the guards from `settings.json`; the managed copy keeps them in effect (`spec/settings_writers.tla`). The managed copy is ignored when a higher managed source exists (server-managed settings or an MDM profile, possible on `work-mac`). On `wsl` the guards live only in `settings.json`: Claude Code's docs call `/etc/claude-code` user-writable there, so a drop-in would not keep the agent out.
 
 ## Alternatives considered
 
