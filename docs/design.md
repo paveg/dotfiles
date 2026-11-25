@@ -302,7 +302,7 @@ Hooks come in three kinds, decided by what a failure of the hook should do:
 | Hook | Event (matcher) | Kind | Fate |
 |---|---|---|---|
 | Destructive-database guard | PreToolUse (Bash) | Guard | Kept, rebuilt with `writeShellApplication`. 14 of the 70 active repositories carry drizzle configs or SQL migrations |
-| Credential-read guard (`block-sensitive-read.sh`, under a name AGENTS.md lets a tracked file carry) | PreToolUse (Bash) | Guard | Kept until the sandbox's `denyRead` is enabled and measured on the host, then removed. `Read(...)` deny rules alone miss Bash reads they do not recognize (`grep -r`, a script that opens files itself) |
+| Credential-read guard (`block-sensitive-read.sh`, under a name AGENTS.md lets a tracked file carry) | PreToolUse (Bash) | Guard | Kept until the sandbox's `denyRead` is enabled and measured on the host, then removed. `Read(...)` deny rules alone miss Bash reads they do not recognize (`grep -r`, a script that opens files itself). It matches a credential name wherever it stands as a path segment, so a Bash read of this repository's own `home/.ssh/config` is denied too |
 | Unsigned-commit guard | PreToolUse (Bash) | — | Removed. Replaced by deny rules for `--no-gpg-sign`, `-c commit.gpgsign=false`, and `git config … commit.gpgsign`, plus GitHub's "require signed commits". Revisited with the unattended-signing question |
 | Comment-rot check | PreToolUse (Write, Edit, MultiEdit, Bash) | Checker | Kept, rewritten from Python |
 | PR-body, browser, and Japanese-writing context | PreToolUse (Bash; `mcp__claude-in-chrome__*`; Write, Edit) | Injector | Kept |
