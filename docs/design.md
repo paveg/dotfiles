@@ -87,6 +87,10 @@ Host names are placeholders. Only `work-mac` carries the work profile and sits b
 - Hook-activated environments (direnv, `mise activate`) are not used, because a plain `zsh -c` never sees them.
 - Existing projects keep what they use (devbox, a flake devShell). Agents then run commands through `devbox run` / `nix develop -c`, which the project's own CLAUDE.md states.
 - Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `.zshenv` also puts on PATH.
+- Formal-methods tools are project tools, not global packages: their versions belong to the project that uses them. The flake ships `templates` so that a new project gets them in one command ([ADR 0006](adr/0006-project-layer-mise-shims.md)):
+  - `nix flake init -t github:paveg/dotfiles#tlaplus`: a flake with a devShell holding nixpkgs' `tlaplus18` (TLA+ tools 1.8.0, which installs `tlc`, `tlasany`, `pcal`, `tlatex`, and `tlarepl`), a small specification `Spec.tla` with its model config `Spec.cfg` (TLC picks up `<Module>.cfg` beside the module, measured), a CI workflow that runs `nix develop -c tlc Spec.tla` on it, and an `AGENTS.md` that tells agents to run the checker that way.
+  - `nix flake init -t github:paveg/dotfiles#lean`: a flake with a devShell holding `elan`, plus a `lean-toolchain` file and a minimal Lake project. Lean projects pin their toolchain in `lean-toolchain`, and libraries such as Mathlib follow it, so `elan` installs the toolchain the file names rather than nixpkgs' single `lean4` version. The devShell sets `ELAN_HOME` to `${XDG_DATA_HOME:-$HOME/.local/share}/elan` in its `shellHook`, because elan's default is `~/.elan` (elan reads `ELAN_HOME`, `src/elan-utils/src/utils.rs`). `nix develop -c` runs `shellHook` on upstream Nix 2.33.0 (measured by a review agent); on Determinate Nix the template test decides it. On Linux, nixpkgs' elan patches each toolchain it downloads to use the store's dynamic linker, shell, and C compiler (`0001-dynamically-patchelf-binaries.patch`). Those toolchains live outside the store and are not garbage-collection roots, so a `nix store gc` after a `flake.lock` update may break an installed toolchain; reinstalling it with `elan` repairs it. This is inferred from the source, not run.
+  - CI instantiates each template in a temporary directory and runs its own check (`tlc` on the sample specification, `lake build` on the sample project), so a template that no longer works fails here, not in a new project.
 
 ### Rejected
 
@@ -134,6 +138,8 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 ├── profiles/work.example/    # shape of the work profile, empty values, used by CI
 ├── tests/
 ├── scripts/{bootstrap.sh,work-sync.sh,unattended-setup.sh}
+├── templates/{tlaplus,lean}/  # flake templates for formal-methods projects
+├── spec/                     # TLA+ models of the bootstrap and of settings.json writers
 ├── docs/
 ├── .github/workflows/
 ├── justfile
@@ -432,7 +438,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 
 ### Packages
 
-- `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` (unfree, so the flake allows that one package by name), `ghtkn` (in nixpkgs), `mise`, `atuin`.
+- `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` (unfree, so the flake allows that one package by name), `ghtkn` (in nixpkgs), `mise`, `atuin`.
 - Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca has no Homebrew cask and is installed by hand (Unattended host).
 - `hosts/work-mac.nix`: Keeper Secrets Manager CLI, aqua, internal tools. The KSM CLI is not in nixpkgs, and Keychain storage needs its pip `keyring` extra; without it the config falls back to a plain `keeper.ini`. Packaging it (a local derivation or another installer) is **Unverified**.
 - No other language runtimes.
@@ -449,6 +455,24 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 | ghtkn work apps, app name for `gh` | `~/.config/dots-work/ghtkn/` (Keeper) |
 | Internal tokens | Keeper (`keeper://`) |
 | CA certificates | See below |
+
+### Formal models (TLA+)
+
+Two parts of this design fail through combinations of state that reviews kept missing: the bootstrap's reruns and skips (an unpushed work-profile edit overwritten on rerun, a step that could never finish when Keeper is unavailable), and several programs writing one `settings.json`. Both are modelled in TLA+ under `spec/` and checked with TLC in CI, using the devShell from this repository's own `tlaplus` template. Lean is not used: nothing here needs a proof beyond what tests show.
+
+- `spec/bootstrap.tla` models the steps of the Bootstrap section as actions over: the recorded host, whether Nix, the checkout, and each switch are present, each human step's check, whether `~/.config/dots-work/` exists and holds unpushed edits, and whether Keeper Secrets Manager is available. A run may stop after any action and be started again. Invariants and properties:
+  - a personal host never calls `ksm` and never creates `~/.config/dots-work/`;
+  - a host argument that is missing or differs from the recorded one changes nothing;
+  - `work-mac` never reaches the end without its work profile;
+  - unpushed work-profile edits survive every rerun;
+  - from any stopped state, rerunning with the human steps done eventually finishes. This liveness property holds only if the person does not stop the run forever: under weak fairness alone, a behaviour that stops and restarts endlessly violates it (TLC counterexample, reproduced). The model therefore states two assumptions: each step has strong fairness (`SF_vars`), so a step enabled again and again is eventually taken, and the restart has weak fairness (`WF_vars(EnvRestart)`), so a stopped run is eventually started again. Strong fairness on the steps alone is not enough: a run that stops and is never restarted violates the property (TLC counterexample, by a review agent).
+- `spec/settings_writers.tla` models three writers of `~/.claude/settings.json`: the switch's generator, Orca merging its hook entries at app start, and Claude Code adding a plugin. Each reads the file and writes it back, in any interleaving. Properties:
+  - after the writers settle, Orca's entries and this repository's guard hooks are both present;
+  - the generator never drops an entry another writer added that it is meant to carry over.
+  If TLC finds an interleaving that loses an entry, the design changes (for example, the generator re-reads the file immediately before writing, or the switch restarts Orca), not the model.
+- The model is not the bash script. Each state and transition the model checks becomes a case in the bootstrap tests (CI), so the tests and the model cover the same states.
+- The model has two kinds of actions. Step actions correspond to the numbered steps of the Bootstrap section, including host-specific ones, and each is a function of the same name in `scripts/bootstrap.sh`. Environment actions have no function: a stop, a restart, a person finishing a human step, Keeper becoming unavailable, an edit to the work profile, and the final `EnvDone`. Their names start with `Env`. CI compares the script's step functions with the model's actions minus the `Env` ones, so a step added to one side only fails CI.
+- TLC runs with each model's `<Module>.cfg`. A finished run is a final state, which TLC reports as a deadlock, so the model ends with a stuttering `EnvDone` action instead of turning deadlock checking off.
 
 ## Bootstrap
 
@@ -548,7 +572,11 @@ Each Nix network path reads certificates from a different place (checked against
     - `$HOME` gains no entry outside the allowlist: on Linux by listing the new user's home, on macOS by diffing the runner's home before and after.
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and real WSL2 (its systemd and Windows PATH). The monthly run covers the bootstrap; `scripts/unattended-setup.sh` and Tailscale are covered only by the manual acceptance criterion for the unattended host.
+- Templates: each flake template is instantiated and checked (see Project layer).
+- TLC checks `spec/bootstrap.tla` and `spec/settings_writers.tla` (see Formal models). Like every other test, each model is shown to fail when one of its invariants is deliberately broken in the model.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
+- Weekly: `DeterminateSystems/update-flake-lock` opens a pull request that updates `flake.lock`. A pull request opened with the default `GITHUB_TOKEN` does not trigger CI (the action's README), while one opened with a GitHub App token triggers `push` and `pull_request` workflows (peter-evans/create-pull-request, which the action uses), so the workflow mints a token with `actions/create-github-app-token` from a GitHub App made for this job alone: installed only on this repository, with Contents and Pull requests write and nothing else beyond the Metadata read that every App has. Its App ID and private key are repository secrets. The private key is long-lived, but it can mint tokens only for this repository and only with those two permissions.
+- Dependabot updates GitHub Actions versions (`github-actions` ecosystem only).
 
 ## Acceptance criteria
 
@@ -594,7 +622,7 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Rollout
 
-1. Create this repository with the minimum: flake, `.zshenv`, `.zshrc`, git, ssh, `~/.claude`. Create the personal GitHub App for ghtkn.
+1. Create this repository with the minimum: flake, `.zshenv`, `.zshrc`, git, ssh, `~/.claude`. Create the personal GitHub App for ghtkn. Create the lock-update GitHub App described in CI and store its secrets.
 2. Switch `personal-mac`. Remove the Tailscale GUI app first (it is installed today), so that the only `tailscaled` is the open-source one nix-darwin runs (ADR 0010). It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point.
 3. Run it for one to two weeks; pull in from the old repository only what is missed, judged by P6.
 4. Roll out to WSL2 (enable systemd first).
