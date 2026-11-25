@@ -30,7 +30,7 @@ Three properties of the previous setup work against that:
 ## Non-goals
 
 - Rewriting config file contents in the Nix language (no `programs.*` generation).
-- Managing the Windows side (`%USERPROFILE%`) of WSL2 hosts.
+- Managing the Windows side (`%USERPROFILE%`) of WSL2 hosts, apart from the Windows apps listed under Packages (1Password, its CLI, Raycast, the font), which are installed by hand on Windows.
 - Maximum shell start-up speed.
 - Human-oriented shortcuts (aliases, functions).
 - Exhaustive macOS defaults: start empty, add only what is missed.
@@ -46,6 +46,7 @@ Three properties of the previous setup work against that:
 | P5 | Agent config is a first-class asset | `~/.claude/` and `~/.codex/` are covered by tests and CI. |
 | P6 | Two questions before adding anything | Does it reach a process without an interactive shell? Does it remove a human interruption? If neither, leave it out. |
 | P7 | Secrets come from a vault | Secret values never live in this repository. `op://` references for the personal profile may (they are pointers that need the account to resolve). Anything identifying the company, including `keeper://` references and org names, lives only in the work profile. gitleaks guards against leaks. |
+| P8 | Nix first | A tool comes from the first source that has it: a nix-darwin or home-manager module, then a nixpkgs package, then a Homebrew cask through nix-homebrew, then a manual install. Each tool on a later rung names why the earlier ones do not work. |
 
 ## Hosts
 
@@ -79,6 +80,7 @@ Host names are placeholders. Only `work-mac` carries the work profile and sits b
 
 - `mkOutOfStoreSymlink` takes the checkout's **absolute path as a string**. A flake-relative path such as `./home/.zshrc` evaluates to the flake's copy in the store, so the link points there and edits do not show up.
 - With absolute paths, edits to existing files apply immediately. Adding, removing, or renaming a linked file needs a switch.
+- `~/.config/karabiner` is linked as a whole directory, not file by file, and without home-manager's `recursive` option (default `false`), which would turn `karabiner.json` itself into a symlink. Karabiner-Elements' docs say to link the directory, not `karabiner.json`, because Karabiner fails to detect changes and reload when the file itself is a symlink. Karabiner writes `automatic_backups/` into that directory, so the repository ignores it. Changes made in Karabiner's GUI land in the checkout and show up in `git diff`. Where Karabiner is already running when the link is created (Rollout step 2 on this Mac), its docs require restarting its console user server once: `launchctl kickstart -k gui/$(id -u)/org.pqrs.service.agent.Karabiner-Console-User-Server`.
 
 ### Project layer
 
@@ -131,6 +133,8 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 │   ├── .config/ghtkn/{ghtkn.personal.yaml.tpl,gh-app.personal}
 │   ├── .config/1Password/ssh/agent.toml
 │   ├── .config/{nvim,ghostty}/
+│   ├── .config/karabiner/        # linked as a directory; automatic_backups/ ignored
+│   ├── .config/raycast/scripts/  # Raycast Script Commands
 │   ├── .ssh/config
 │   ├── .claude/              # CLAUDE.md, rules/, agents/, references/, hooks/ (sources), settings.{common,personal}.json
 │   ├── .codex/               # config.toml source (written as a regular file at activation)
@@ -438,11 +442,26 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 
 ### Packages
 
-- `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` (unfree, so the flake allows that one package by name), `ghtkn` (in nixpkgs), `mise`, `atuin`.
-- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca from its own tap: `homebrew.taps = [ "stablyai/orca" ]` and the cask `stablyai/orca/orca`, which Orca's install docs give (`brew install --cask stablyai/orca/orca`). Homebrew's core `orca` cask is an unrelated, disabled app.
+- `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` on `wsl` only (unfree, so the flake allows it by name; on macOS it comes from the module below), `ghtkn` (in nixpkgs), `mise`, `atuin`.
+- macOS apps, by P8's order. nix-darwin copies nixpkgs apps into `/Applications/Nix Apps` with rsync (`modules/system/applications.nix`), so their paths stay the same across rebuilds:
+  - nix-darwin modules: 1Password (`programs._1password-gui`, which installs `/Applications/1Password.app`; the app must exist before any `op` step), the 1Password CLI (`programs._1password`, which installs `/usr/local/bin/op`: the module notes that the app integration works only with the CLI at that path), Karabiner-Elements (`services.karabiner-elements`, which copies its driver into `/Applications` because, per the module, the driver cannot be a symlink), Tailscale (ADR 0010).
+  - nixpkgs packages: Raycast (`raycast`, unfree, allowed by name), Ghostty (`ghostty-bin`; nixpkgs' `ghostty` builds for Linux only), and the font (`udev-gothic-nf` through `fonts.packages`).
+  - Homebrew casks, only where nixpkgs has nothing: Orca from its own tap (`homebrew.taps = [ "stablyai/orca" ]`, cask `stablyai/orca/orca`, as Orca's install docs give; nixpkgs' `orca` is the GNOME screen reader, and Homebrew's core `orca` cask is an unrelated, disabled app).
+  - The cost of P8 here: nixpkgs lags the vendors (measured: nixpkgs `raycast` 2.10.1.0 against cask 2.13.1.0, `karabiner-elements` 15.7.0 against 16.3.0), and an app copied from the store cannot update itself, so updates arrive with `flake.lock` updates. Whether macOS keeps the Accessibility and other privacy approvals of an app in `/Applications/Nix Apps` across rebuilds, and whether nix-darwin's Karabiner module works with the driver shipped in 15.7.0, are **Unverified** and checked on `personal-mac` before `work-mac`.
+- Karabiner-Elements and Raycast are desk tools the owner asked for: neither reaches a process without an interactive shell, so they are a stated exception to P6.
+- Karabiner-Elements needs four approvals after install, per its docs: background services, Accessibility, Input Monitoring (normally granted with Accessibility), and its driver extension. They are made once, at the desk. On `work-mac`, whether the company's device management allows the driver extension is **Unverified**.
+- Raycast keeps its settings in its own database, not in a file (`~/Library/Application Support/com.raycast.macos/`). The free plan has no Cloud Sync, which needs Pro. So:
+  - Script Commands are plain scripts in `home/.config/raycast/scripts/`, which is added once in Raycast's settings as a script directory.
+  - Settings, aliases, hotkeys, and extensions are exported with **Export Settings & Data** to an encrypted `.rayconfig` file, stored as a document in 1Password with its passphrase, and imported by hand on a new machine. It never enters this repository: the repository is public, and snippet and quicklink exports are not encrypted.
 - `hosts/work-mac.nix`: Keeper Secrets Manager CLI, aqua, internal tools. The KSM CLI is not in nixpkgs, and Keychain storage needs its pip `keyring` extra; without it the config falls back to a plain `keeper.ini`. Packaging it (a local derivation or another installer) is **Unverified**.
 - No other language runtimes.
-- Font (UDEV Gothic NF): cask on macOS; installed by hand on the Windows side for WSL2.
+- Font (UDEV Gothic NF): `udev-gothic-nf` from nixpkgs on macOS; installed by hand on the Windows side for WSL2.
+- Windows side of `wsl`, installed by hand before the bootstrap's step 6, because WSL reaches 1Password only through the Windows app:
+  - 1Password: `winget install --id AgileBits.1Password -e`.
+  - 1Password CLI: `winget install --id AgileBits.1Password.CLI -e`. WSL calls the Windows `op.exe`; 1Password's docs say the Linux `op` inside WSL cannot use the desktop app integration and recommend calling `op.exe` from the WSL shell.
+  - This relies on WSL's interop staying at its defaults (`[interop] enabled = true`, `appendWindowsPath = true` in `/etc/wsl.conf`): with `enabled` off, WSL cannot start `ssh.exe`, `op.exe`, or 1Password's signer, and with `appendWindowsPath` off, `op.exe` must be called by its full path.
+  - Commit signing from WSL needs Git 2.34.0 or later and a 64-bit Windows 10 or later on x64: 1Password's docs say Arm-powered Windows devices are not supported.
+- Raycast on every machine. On `wsl` it runs on the Windows side, installed by hand with `winget install raycast` (Raycast's Windows page; Windows 10 21H2+ or Windows 11). Raycast has no manifest in the winget community repository (measured), so that command presumably resolves through the Microsoft Store source. Its settings come from the same `.rayconfig` in 1Password: Raycast's manual says the files are cross-platform. The Script Commands in this repository are macOS shell scripts; Raycast on Windows runs scripts with whatever interpreter is on the Windows PATH, so they are not offered there until a script is written for it.
 
 ### Work / personal differences
 
@@ -489,7 +508,7 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 2. Install Determinate Nix if `nix` is missing, then load its profile into the running script. On WSL2 without systemd, stop and say how to enable it. On a Mac with upstream Nix, stop and point to Determinate's macOS package (below).
 3. Record `<host>` in `${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/host`. The XDG variables are not set yet (`~/.zshenv` arrives with the first switch), so the script uses the spec default. `just switch` reads this file, so later switches never take a host name again.
 4. Clone over HTTPS with git and ghq from nixpkgs (no SSH key yet; no git is assumed on the host): `GHQ_ROOT=~/repos nix shell nixpkgs#git nixpkgs#ghq -c ghq get https://github.com/paveg/dotfiles`, then work from `~/repos/github.com/paveg/dotfiles`. On an existing checkout `ghq get` prints `exists` and exits 0 without running git (measured).
-5. First switch: installs packages, Homebrew (nix-homebrew), casks including 1Password, and the ksm CLI on work-mac. macOS: `sudo nix run nix-darwin -- switch --flake .#<host>`; WSL2: `nix run home-manager -- switch --flake .#<user>@wsl`. The script then prepends the profile's bin directories (`/etc/profiles/per-user/$USER/bin` on macOS, `~/.nix-profile/bin` on WSL2) to its own PATH, so the tools the switch installed are found in later steps.
+5. First switch: installs packages and apps, including 1Password, Homebrew (nix-homebrew) for the remaining casks, and the ksm CLI on work-mac. macOS: `sudo nix run nix-darwin -- switch --flake .#<host>`; WSL2: `nix run home-manager -- switch --flake .#<user>@wsl`. The script then prepends the profile's bin directories (`/etc/profiles/per-user/$USER/bin` on macOS, `~/.nix-profile/bin` on WSL2) to its own PATH, so the tools the switch installed are found in later steps.
 6. Human: sign in to the 1Password app; enable the SSH agent and CLI integration.
 7. work-mac only, skipped when `~/.config/dots-work/` already exists, so a rerun never overwrites unpushed work-profile edits:
    - If Keeper Secrets Manager is available: human, `ksm profile init <one-time token>`, skipped when a KSM profile already exists; the script then runs `scripts/work-sync.sh pull`.
@@ -497,6 +516,7 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
 9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
 10. Install the repository's git hooks (`lefthook install`).
+    On macOS the script then prints a checklist of one-time GUI steps: Karabiner's approvals, adding Raycast's script directory, and importing the `.rayconfig` from 1Password (skipped on a first machine that has no export yet). On `wsl` the checklist names the Windows-side steps instead: `winget install raycast` in Windows and the same `.rayconfig` import. 1Password and its CLI are not on the checklist: they are prerequisites, and step 6's check (a stub `ssh-add.exe` in CI, the real one otherwise) fails until they are installed. They are a checklist rather than human steps that wait for Enter, because nothing in the bootstrap depends on them, so they need no check and the run can finish without them.
 
 Work and personal are kept apart by the host, never by guessing:
 
@@ -580,7 +600,7 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Acceptance criteria
 
-- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication excepted; `personal-mac`'s unattended setup is a separate, manual step)
+- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication, Karabiner's approvals, Raycast's script directory, the Windows-side 1Password, 1Password CLI, and Raycast installs for `wsl`, and the Raycast import excepted; `personal-mac`'s unattended setup is a separate, manual step)
 - [ ] The bootstrap without a host, or with a host other than the recorded one, exits non-zero and changes nothing
 - [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
 - [ ] Running the bootstrap again after it stopped at a human step resumes and finishes
