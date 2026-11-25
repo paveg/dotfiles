@@ -57,7 +57,7 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
 | [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system and login name, and the nix-darwin and home-manager modules |
-| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh so far |
+| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh and the reply-language hook so far |
 | [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
 | [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME` and `mutate.sh` breaks one condition at a time to show each check fails |
 | [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell tests on Linux and macOS, `nix.yml` builds every host |

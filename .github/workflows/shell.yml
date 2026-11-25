@@ -32,3 +32,7 @@ jobs:
         run: tests/shell.sh
       - name: Check that each shell test fails on a broken copy
         run: tests/mutate.sh
+      - name: Check the reply-language hook and that each of its tests fails on a broken copy
+        run: |
+          tests/reply-language.sh
+          tests/mutate-reply-language.sh
