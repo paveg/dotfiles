@@ -148,6 +148,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 ├── .github/workflows/
 ├── justfile
 ├── lefthook.yml
+├── .gitattributes            # *.md conflict-marker-size=32 (ADR 0008)
 ├── AGENTS.md
 ├── CLAUDE.md                 # imports AGENTS.md
 └── README.md
@@ -598,11 +599,12 @@ Each Nix network path reads certificates from a different place (checked against
     - a second complete run changes nothing;
     - a login shell after the real switch resolves `git` from Nix;
     - `$HOME` gains no entry outside the allowlist: on Linux by listing the new user's home, on macOS by diffing the runner's home before and after.
+- `git diff --check origin/main...HEAD`, the same check lefthook runs before a commit, so a commit made without lefthook installed still cannot merge leftover conflict markers.
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
-- Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and real WSL2 (its systemd and Windows PATH). The monthly run covers the bootstrap; `scripts/unattended-setup.sh` and Tailscale are covered only by the manual acceptance criterion for the unattended host.
+- Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, `scripts/unattended-setup.sh` and Tailscale, the corporate proxy, and a real user's WSL2 setup (the Windows-side apps and the Windows PATH of that machine); the `windows-2025` job covers WSL2 itself only as far as stated above. The monthly run covers the bootstrap; `scripts/unattended-setup.sh` and Tailscale are covered only by the manual acceptance criterion for the unattended host.
 - Templates: each flake template is instantiated and checked (see Project layer).
 - TLC checks `spec/bootstrap.tla` and `spec/settings_writers.tla` (see Formal models). Like every other test, each model is shown to fail when one of its invariants is deliberately broken in the model.
-- Windows runner: the `wsl` bootstrap test also runs on `windows-2025`, whose image lists "Windows Subsystem for Linux (Default, WSLv2)" (`windows-2022` lists only WSLv1), inside a distro installed by `Vampire/setup-wsl`, since the image has none. This tests the real WSL2 rather than a Linux runner standing in for it. It also checks that WSL can start `ssh.exe` through interop. Whether systemd runs in that WSL2 is **Unverified**; until it is, the step that needs it is expected to stop with the "waiting for a person" status. The image's software list has no winget, so the Windows-side installs are not tested in CI.
+- Windows runner: the `wsl` bootstrap test also runs on `windows-2025`, whose image lists "Windows Subsystem for Linux (Default, WSLv2)", in an Ubuntu distro installed by `Vampire/setup-wsl` (the image has no distro; the action defaults to WSL 2 and its `wsl-conf` input writes `/etc/wsl.conf`, which is used to set `[boot] systemd=true`). If systemd is still not running, step 2 stops as the Bootstrap section says, and the job fails: that is a defect in the job to fix, not an expected stop. A separate step runs `ssh.exe -V` from the distro to check interop, because the bootstrap reaches `ssh.exe` only at step 6, where CI stubs it. Whether the `wsl-conf` route brings up systemd on a hosted runner, and whether the image ships an `ssh.exe`, are **Unverified**. The image's software list has no winget, so the Windows-side installs are not tested in CI.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 - Weekly: `DeterminateSystems/update-flake-lock` opens a pull request that updates `flake.lock`. A pull request opened with the default `GITHUB_TOKEN` does not trigger CI (the action's README), while one opened with a GitHub App token triggers `push` and `pull_request` workflows (peter-evans/create-pull-request, which the action uses), so the workflow mints a token with `actions/create-github-app-token` from a GitHub App made for this job alone: installed only on this repository, with Contents and Pull requests write and nothing else beyond the Metadata read that every App has. Its App ID and private key are repository secrets. The private key is long-lived, but it can mint tokens only for this repository and only with those two permissions.
 - Dependabot updates GitHub Actions versions (`github-actions` ecosystem only).
