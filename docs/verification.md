@@ -163,6 +163,16 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | Orca has a second writer of `settings.json`, its theme sync: it re-reads after its last await, then writes back what it read plus `theme`, under a lock only Orca takes | Holds | Source (by a review agent): Orca `v1.4.273`, `src/main/claude/theme-sync/claude-code-theme-sync.ts:117-124` (re-read, write), `claude-code-theme-ownership.ts:74` (Orca's lock); whether theme sync is on by default is not checked |
 | Writing `settings.json` before the drop-in lets the guards drop out during the first switch; writing the drop-in first does not | Holds | Measured (by a review agent): TLC on a variant of the committed model where the switch writes `settings.json` and then the drop-in violates `GuardsInEffect` mid-switch; the committed order passes. The `check.sh` mutant (the `managedGuard` precondition of `GenWrite` removed) shows the first design, a switch that never writes the drop-in |
 
+## Claude Code install
+
+| Statement | Result | Evidence |
+|---|---|---|
+| The native installer is the recommended method and updates in the background; Homebrew, WinGet, apt, dnf, and apk installs do not by default | Holds | Source (by a fetch agent and a review agent): code.claude.com/docs/en/setup ("Install Claude Code", "Update Claude Code") |
+| The `stable` channel is "typically about one week old, skipping releases with major regressions", and setting it downgrades a newer install | Holds | Source (by a review agent): code.claude.com/docs/en/setup ("Configure release channel": "a native installation updates to the stable version even when that version is older than yours") |
+| On 2026-11-25, `stable` was 2.1.326, `latest` 2.1.332, and nixpkgs' `claude-code` 2.1.330 | Holds | Measured (by a review agent): `downloads.claude.ai/claude-code-releases/stable` and `/latest`. Measured: `nix eval nixpkgs#claude-code.version` (nixpkgs-unstable rev 619c39f6eac5) |
+| nixpkgs' wrapper sets `DISABLE_AUTOUPDATER=1` and `CLAUDE_CODE_CERT_STORE=system`, passes `NIX_SSL_CERT_FILE` as `NODE_EXTRA_CA_CERTS` on macOS, and puts `procps`, `ripgrep`, `bubblewrap`, and `socat` on PATH | Holds | Source: `pkgs/by-name/cl/claude-code/package.nix:56-57` in that revision; the CA and PATH lines by a review agent (`:61`, `:66-67`, `:76-84`) |
+| The `orca serve` LaunchAgent's PATH does not include `~/.local/bin` | Holds | design.md, Unattended host: the PATH under which `orca serve service install` is run |
+
 ## Hook need across repositories
 
 Collected 2026-11-25. Repositories: `gh repo list paveg` returned 131, of which 70 are neither archived nor forks; each of the 70 file trees was read through the GitHub API (no errors). Past sessions: 693 transcripts under `~/.claude/projects`, excluding the session that wrote this table. Deny counts are transcript lines carrying the hook's deny text, so they are a rough order of magnitude, not exact firings.

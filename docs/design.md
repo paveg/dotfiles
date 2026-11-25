@@ -450,7 +450,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 
 ### Packages
 
-- `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `ghtkn` (in nixpkgs), `mise`, `atuin`.
+- `nix/packages.nix`: `claude-code` ([ADR 0011](adr/0011-claude-code-from-nixpkgs.md)), `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `ghtkn` (in nixpkgs), `mise`, `atuin`.
 - The 1Password CLI is not a nixpkgs package on any host: on macOS it comes from the module below, and on `wsl` the Windows `op.exe` is used, because the Linux `op` inside WSL cannot use the desktop app integration. Every `op` call on `wsl` (step 8's `op inject` included) means `op.exe`.
 - Unfree packages are allowed by name only: `_1password-gui`, `_1password-cli` (both evaluated by the macOS modules), and `raycast`.
 - macOS apps, by P8's order. nix-darwin copies nixpkgs apps into `/Applications/Nix Apps` with rsync (`modules/system/applications.nix`), so their paths stay the same across rebuilds:
