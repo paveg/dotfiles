@@ -80,7 +80,7 @@ expect_caught settings_writers 'Invariant GuardsInEffect is violated' \
   'settings.json is written while the guard drop-in is missing (the first design, or the reverse order)' \
   '/\ managedGuard            \* the drop-in is written first' \
   ''
-expect_caught settings_writers 'Action property OnlyClaudeCodeDropsOrca is violated' \
+expect_caught settings_writers 'Action property SwitchKeepsOrca is violated' \
   "the generator carries Orca's entries over from the file it read" \
   "/\\ file' = {\"guard\", \"orca\"}" \
   "/\\ file' = {\"guard\"} \\cup (genBuf \\cap {\"orca\"})"
