@@ -11,6 +11,8 @@ Project tools (language runtimes, CLIs pinned per repository) were activated by 
 
 - New projects declare their tools in `mise.toml`.
 - `$ZDOTDIR/.zshenv` puts `$XDG_DATA_HOME/mise/shims` on PATH (mise uses `MISE_DATA_DIR`, else `$XDG_DATA_HOME/mise`). Nothing calls `mise activate`, and direnv is not used.
+- Where a tool is available from several mise backends, prefer `aqua:`: mise verifies what the aqua registry declares for the tool (checksums, Cosign, Minisign, SLSA, GitHub attestations), each on by default. asdf plugins are not used: they are shell scripts that run with the user's permissions and nothing verifies them.
+- Projects commit `mise.lock` (`lockfile = true` in the project's `[settings]`, or `mise lock`), which records exact versions, download URLs, and checksums. mise does not create one by default.
 - Repositories that pin tools in `.aqua.yaml` use aqua, whose bin directory `$ZDOTDIR/.zshenv` also puts on PATH.
 - Existing projects on devbox or a flake devShell keep them; their CLAUDE.md tells agents to run commands through `devbox run` / `nix develop -c`.
 - Formal-methods tools (TLA+, Lean) are not global packages either. The flake ships `templates.tlaplus` and `templates.lean`, so a project that wants them starts with `nix flake init -t`, with versions pinned in that project. Lean's template uses `elan` and a `lean-toolchain` file, the way Lean projects pin their compiler.
@@ -20,6 +22,8 @@ Project tools (language runtimes, CLIs pinned per repository) were activated by 
 - Every shell, interactive or not, resolves the same project tool. Measured: with only the shims directory on PATH, a non-interactive `zsh -c` ran a tool declared in a project's `mise.toml`.
 - Environment variables that a hook would have set per directory (not only tools) are not applied. Projects that need them set them in their task runner or `mise.toml` tasks.
 - Shims add a small dispatch cost per invocation.
+- A verified lockfile pins what mise downloads, not what is already on disk. Verification also proves only who published an artifact, not that it is safe.
+- aqua's own checksum verification is off by default (`checksum.enabled` or `AQUA_ENFORCE_CHECKSUM` turns it on), so repositories that keep `.aqua.yaml` should enable it in that file.
 
 ## Alternatives considered
 
