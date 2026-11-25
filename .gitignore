@@ -6,3 +6,4 @@
 *.excalidraw
 *_TTrace_*.tla
 *_TTrace_*.bin
+home/.config/zsh/.zshrc.local
