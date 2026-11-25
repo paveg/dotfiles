@@ -18,7 +18,7 @@ The company provides Keeper; the personal vault is 1Password.
 - Run-time forms (`op run`, `ksm exec`) are preferred. A secret is rendered to a file only for a tool that cannot read it from the environment; the file is mode 0600, untracked, and listed in the design.
 - `op://` references for the personal profile may be committed: they are pointers that need the account to resolve. Anything that identifies the company, including `keeper://` references, internal endpoints, and org names, lives only in the work profile.
 - Non-secret work variables that every shell needs live in `~/.config/dots-work/env/static.env`, which `.zshenv` sources when present.
-- gitleaks runs as a pre-commit hook and in CI.
+- gitleaks runs in this repository's lefthook pre-commit hook and in CI (ADR 0008).
 
 ## Consequences
 

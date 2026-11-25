@@ -101,7 +101,7 @@ Host names are placeholders. Only `work-mac` carries the work profile and sits b
 | Auto-starting tmux on SSH | Gets in the way of agents connecting over SSH. |
 | `gh` as a shell function | Invisible to non-interactive shells. It becomes an executable wrapper. |
 | Plain-text `~/.env.local` with secrets | Secrets come from a vault. |
-| A private git repository for company config | Puts company information on a personal GitHub account. Keeper, which the company provides, holds it instead. See [ADR 0002](adr/0002-secrets-and-work-profile.md). |
+| A private git repository for company config | Puts company information on a personal GitHub account. Keeper, which the company provides, holds it instead. See [ADR 0002](adr/0002-vaults-and-work-profile.md). |
 | apm (Agent Package Manager) | Pre-1.0, and key preconditions (several user-scope manifests) are unverified. Revisit if third-party plugins grow enough to need version pinning. |
 
 ## Repository layout
@@ -118,7 +118,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 │   ├── home.nix              # packages, symlinks
 │   ├── packages.nix
 │   ├── agents.nix            # ~/.claude and ~/.codex wiring, hook builds
-│   └── secrets.nix           # 1Password, Keeper, ghtkn wiring
+│   └── vaults.nix            # 1Password, Keeper, ghtkn wiring
 ├── home/
 │   ├── .zshenv               # sets ZDOTDIR and sources the real one
 │   ├── .config/zsh/{.zshenv,.zshrc}
@@ -290,7 +290,7 @@ Entries owned by other tools are not in this repository. The generator carries t
 
 ### Secrets
 
-See [ADR 0002](adr/0002-secrets-and-work-profile.md).
+See [ADR 0002](adr/0002-vaults-and-work-profile.md).
 
 | Use | Personal | Work |
 |---|---|---|
@@ -464,6 +464,7 @@ Each Nix network path reads certificates from a different place (checked against
 - Generate and check `settings.json` (work side from `profiles/work.example/`).
 - Tests for hooks, skills, and scripts.
 - gitleaks.
+- No tracked path matches a `Read(...)` deny pattern in the common settings, so every file stays readable to the agents that maintain it. The check reads the patterns from the settings rather than a copied list.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 
 ## Acceptance criteria
