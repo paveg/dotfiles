@@ -142,10 +142,9 @@ expect_caught sensitive-pass-direnv-file \
   'a stem denies on its own, without an expansion anywhere in the command' \
   "$guard" $'  1) return 0 ;;\n' $'  1) ;;\n'
 
-expect_caught sensitive-deny-dotenv-template-lookalike \
-  'an exempt token is removed wherever it appears, not only where it stands alone' \
-  "$guard" 'pattern="(^|[^[:alnum:]_.-])${token//./[.]}([^[:alnum:]_.-]|$)"' \
-  'pattern="${token//./[.]}"'
+expect_caught 'sensitive-deny-dotenv-template-lookalike sensitive-pass-dotenv-template-arg' \
+  'an exempt token may run into a longer name and still be removed' \
+  "$guard" '([^[:alnum:]_.-]|$)"' '([^[:space:]]|$)"'
 
 # The shared engine.
 expect_caught db-matcher-error-denies 'a matcher that errors reads as "no match"' \
