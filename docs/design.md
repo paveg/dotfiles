@@ -357,7 +357,7 @@ Goal 9 means no class 3 step on the unattended path. With the design as it stand
 | Signed commit | 3, at least once per approval (`op-ssh-sign`; whether each signature prompts is **Unverified**) | 3: blocks |
 | `op run` / `op inject` | 3: an authorization lasts per terminal until 10 minutes of inactivity, 12 hours at most (by a review agent); without a TTY, **Unverified** | 3: blocks |
 | `ksm exec` | 1 | 1 if the KSM config in the Keychain stays readable with the screen locked (**Unverified**) |
-| Switch (`sudo`) | 2. Rendering the personal `ghtkn.yaml` through `op inject` is 3, so the switch renders it only when the file is missing or its template changed (a hash of the template is stored beside it), and only when 1Password is signed in; otherwise it skips with a warning. At bootstrap step 3 1Password is not signed in yet, so the first render happens at step 6, at the desk | 2, unless the template changed. How the switch detects "signed in" without itself raising a prompt is **Unverified** |
+| Switch (`sudo`) | 2. Rendering the personal `ghtkn.yaml` through `op inject` is 3, so the switch renders it only when the file is missing or its template changed (a hash of the template is stored beside it), and only when 1Password is signed in; otherwise it skips with a warning. At bootstrap step 5 1Password is not signed in yet, so the first render happens at step 8, at the desk | 2, unless the template changed. How the switch detects "signed in" without itself raising a prompt is **Unverified** |
 
 - 1Password has a "Lock when device locks or sleeps" setting (its default is not documented). A locked 1Password prompts on the Mac; its docs say nothing about answering from another device.
 - The two acceptance criteria that involve 1Password prompts assume someone at the Mac; they do not cover this scenario.
@@ -410,25 +410,41 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 
 ## Bootstrap
 
+One command on a fresh machine, with the host named explicitly:
+
 ```bash
-# 1. Install Determinate Nix (on WSL2, enable systemd first)
-# 2. Clone over HTTPS with git and ghq from nixpkgs (no SSH key yet; no git is assumed on the host)
-GHQ_ROOT=~/repos nix shell nixpkgs#git nixpkgs#ghq -c ghq get https://github.com/paveg/dotfiles
-cd ~/repos/github.com/paveg/dotfiles
-# 3. First switch: installs packages, Homebrew (nix-homebrew), casks including 1Password, and the ksm CLI on work-mac
-#    macOS: sudo nix run nix-darwin -- switch --flake .#<host>
-#    WSL2:  nix run home-manager -- switch --flake .#<user>@wsl
-# 4. Sign in to the 1Password app; enable the SSH agent and CLI integration
-# 5. work-mac only: ksm profile init <one-time token>, then scripts/work-sync.sh pull
-# 6. Second switch: links the work profile and renders the personal ghtkn.yaml
-# 7. Authenticate each ghtkn app once (ghtkn auth), then unlock the agent (ghtkn agent unlock --enable-refresh)
-# 8. Install the repository's git hooks (lefthook install)
+curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstrap.sh | sh -s -- <host>
+# <host> is one of personal-mac, work-mac, wsl. There is no default.
 ```
 
-- `scripts/bootstrap.sh` only dispatches the steps above by OS. It must be written so that every step except `ksm profile init`, which consumes a one-time token, is safe to rerun; that is a requirement on the script, not yet a tested property.
+`scripts/bootstrap.sh` runs these steps in order. It stops at each human step, says what to do, and continues after checking the result where a check exists (for example that the 1Password SSH agent socket exists); otherwise it waits for Enter.
+
+1. Check `<host>`: it must be one of the listed hosts and, on a rerun, match the host recorded in step 3. Otherwise exit non-zero before changing anything.
+2. Install Determinate Nix if `nix` is missing, then load its profile into the running script. On WSL2 without systemd, stop and say how to enable it. On a Mac with upstream Nix, stop and point to Determinate's macOS package (below).
+3. Record `<host>` in `$XDG_CONFIG_HOME/dotfiles/host`. `just switch` reads it, so later switches never take a host name again.
+4. Clone over HTTPS with git and ghq from nixpkgs (no SSH key yet; no git is assumed on the host): `GHQ_ROOT=~/repos nix shell nixpkgs#git nixpkgs#ghq -c ghq get https://github.com/paveg/dotfiles`.
+5. First switch: installs packages, Homebrew (nix-homebrew), casks including 1Password, and the ksm CLI on work-mac. macOS: `sudo nix run nix-darwin -- switch --flake .#<host>`; WSL2: `nix run home-manager -- switch --flake .#<user>@wsl`.
+6. Human: sign in to the 1Password app; enable the SSH agent and CLI integration.
+7. Human, work-mac only: `ksm profile init <one-time token>`; the script then runs `scripts/work-sync.sh pull`.
+8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
+9. Human: authenticate each ghtkn app once (`ghtkn auth`); the script then runs `ghtkn agent unlock --enable-refresh`.
+10. Install the repository's git hooks (`lefthook install`).
+
+Work and personal are kept apart by the host, never by guessing:
+
+- The host is a required argument. The script does not infer it from the hostname, the hardware, or a network.
+- Only `work-mac` runs step 7, and only `work-mac`'s configuration links `~/.config/dots-work/`. A personal host never calls `ksm` and never creates that directory.
+- On `work-mac` the script does not run the second switch until `~/.config/dots-work/` has been pulled, so the machine cannot finish half personal.
+- Changing a machine's host means deleting the recorded host by hand first; the script never overwrites it.
+
+Notes:
+
+- Every step except `ksm profile init`, which consumes a one-time token, must be safe to rerun, so a stopped run is resumed by running the same command again. This is a requirement on the script, not yet a tested property.
+- The first run executes `scripts/bootstrap.sh` from `main` without a prior review step, which is the same trust as the clone in step 4. Later runs use the checkout: `scripts/bootstrap.sh <host>`.
 - `GHQ_ROOT` overrides ghq's root before any git config exists (measured: `GHQ_ROOT=/tmp/x ghq root` printed `/tmp/x`).
 - An existing Mac that runs upstream Nix (this one does: `nix (Nix) 2.33.0`, no `determinate-nixd`, measured) switches with Determinate's macOS package. Determinate's docs do not say whether the existing `/nix/store` survives (**Unverified**), so everything installed through it, devbox global included, is treated as lost at that step.
-- Later runs: `darwin-rebuild switch --flake .#<host>` / `home-manager switch --flake .#<user>@wsl`.
+- Later switches: `just switch`, which runs `darwin-rebuild switch --flake .#<host>` or `home-manager switch --flake .#<user>@wsl` with the recorded host.
+- On `work-mac` the first `curl` and the Nix installer go through the corporate proxy before any Nix CA setting exists. Whether macOS' `curl` and Determinate's installer trust the corporate CA from the Keychain is **Unverified**; test it on the corporate network before relying on the one command there.
 - `justfile` defines exactly `switch`, `update`, and `check`.
 
 ## Corporate TLS interception
@@ -469,7 +485,10 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Acceptance criteria
 
-- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap run (first-time 1Password, Keeper, and ghtkn authentication excepted)
+- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication excepted)
+- [ ] The bootstrap without a host, or with a host other than the recorded one, exits non-zero and changes nothing
+- [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
+- [ ] Running the bootstrap again after it stopped at a human step resumes and finishes
 - [ ] `env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -c 'command -v gh ghq fzf rg'` succeeds on every host, and each path it prints is under a Nix profile (today it passes only through devbox global, measured)
 - [ ] A project tool installed with the project layer's default resolves from `zsh -c` inside that project
 - [ ] Orca sees `gh` and can show PRs; record whether Orca starts zsh
