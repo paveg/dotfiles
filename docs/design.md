@@ -296,7 +296,7 @@ This repository manages only hooks whose need spans repositories. A hook that co
 
 Hooks come in three kinds, decided by what a failure of the hook should do:
 
-- **Guard**: protects data or credentials. It fails closed (`onFailure: "block"`, explicit `deny` on malformed input).
+- **Guard**: protects data or credentials. It fails closed (`onFailure: "block"`, explicit `deny` on malformed input). Its rules are a table of exact `deny` rules and shape `ask` rules, and it never prints `allow`.
 - **Checker**: enforces a writing or code-quality rule. It denies on a match with a reason the agent can act on, but fails open: a bug in a style check must not halt an unattended agent loop.
 - **Injector**: adds context. It never blocks and fails open.
 
@@ -317,16 +317,17 @@ Entries owned by other tools, as listed in `nix/agents.nix`:
 | Orca | 16 hooks (agent status, `PreToolUse` and `PermissionRequest` decisions by Orca) | `agent-hooks/claude-hook` | Writes them itself (see Generated `settings.json`) |
 | herdr | 1 `SessionStart` hook, kept only if herdr is adopted (see Open questions) | `herdr-agent-state.sh` | Carries it over from the current file, which a concurrent write can lose |
 
-- `onFailure` does not cover a guard that exits 0 with no output: plain stdout is not a failure, so the call proceeds. It proceeds through the normal permission flow; exit 0 with no output is not an approval. A guard must never print `allow`, because `allow` skips the permission prompt. So a guard prints `deny` on a match and nothing otherwise, and the risk to close is a guard that errors before reaching its `deny`. Shell error handling does not close it in general (measured): `errexit` (on by default in `writeShellApplication`) is suspended inside `if`, `&&`, `||`, and `!`, and inside `$(…)` unless `shopt -s inherit_errexit` is set, which `writeShellApplication` does not do. What the guard design guarantees, and what it does not:
+- `onFailure` does not cover a guard that exits 0 with no output: plain stdout is not a failure, so the call proceeds. It proceeds through the normal permission flow; exit 0 with no output is not an approval. A guard must never print `allow`, because `allow` skips the permission prompt. So a guard prints `deny` for an exact rule, `ask` for a shape rule (when a command names something protected and uses an expansion, a comment, or a `cd` home that no matcher can read; see ADR 0007), and nothing otherwise, and the risk to close is a guard that errors before reaching its `deny`. Shell error handling does not close it in general (measured): `errexit` (on by default in `writeShellApplication`) is suspended inside `if`, `&&`, `||`, and `!`, and inside `$(…)` unless `shopt -s inherit_errexit` is set, which `writeShellApplication` does not do. What the guard design guarantees, and what it does not:
   - Guaranteed: a dependency cannot be missing (pinned, `inheritPath = false`); a guard that aborts prints a fixed `deny` from an `EXIT` trap, so stopping the call does not depend on `onFailure`; and a guard that cannot start at all is blocked by `onFailure: "block"`.
   - Narrowed, not guaranteed: an internal error that the script reads as "no match" lets the call through to the normal permission flow. A matcher that errors inside `if grep …` is the measured case. Guards set `shopt -s inherit_errexit`, and check matcher exit codes explicitly (`grep` returns 1 for no match and 2 for an error; only 1 counts as no match).
   - The remaining gap is why guards are tripwires rather than a boundary, and why the upgrade condition below exists.
+- What an `ask` does, from Claude Code's hooks page (code.claude.com/docs/en/hooks; read, not run here): `"ask"` prompts the user to confirm, and the reason is shown in the prompt. In auto mode a PreToolUse hook's `"ask"` normally goes to the permission prompt and the classifier does not decide it. In a `claude -p` run where nobody can answer a prompt, a call that would prompt is denied, and Claude reads the reason in the tool result. Among PreToolUse hooks the precedence is `deny` > `defer` > `ask` > `allow`. The docs do not say whether a matching `permissions.allow` rule suppresses a hook's `ask` (**Unverified**: measure it on a real session before relying on an ask to stop a command that an allow rule also covers).
 - Every script hook is built with `writeShellApplication` with `inheritPath = false`: `runtimeInputs` pins `jq`, coreutils, and grep, so nothing is resolved from the caller's PATH, and shellcheck runs at build time. The default, `inheritPath = true`, appends the caller's PATH. The generated `settings.json` refers to hooks by store path.
 - A running guard is a store path, so editing its source in this repository changes nothing until the next switch, which a human runs. An `Edit` deny rule on `~/.claude/settings.json` stops the agent from repointing hooks by accident. Neither stops a hostile agent. On `personal-mac`, and on `work-mac` when no higher managed source applies, the guards' managed copy is root-owned, so removing the copy in `settings.json` does not disable them. On `wsl` there is no managed copy (see Generated `settings.json`).
 - Sandbox: Claude Code's docs say that on macOS, with `allowUnixSockets` unset, the sandbox blocks every Unix socket. The 1Password SSH agent socket, the ghtkn agent, and the Nix daemon socket must be listed there. On Linux and WSL2 that list is ignored and only the all-or-nothing `allowAllUnixSockets` applies. Set `failIfUnavailable: true`, because by default Claude Code runs commands unsandboxed when the sandbox cannot start. Before enabling it with `allowUnsandboxedCommands: false`, measure on each host that those sockets and `op` / `ksm` still work.
 - Upgrade condition: if a concrete bypass of the database guard needs closing (for example through `bash -c`), rebuild that guard as a Go binary that parses commands into a syntax tree.
 
-**Safe updates.** Hooks, skills, and scripts ship with tests that run in CI. Each guard's test is shown to fail when the guard is deliberately broken. CI also generates `settings.json` and checks that it is valid JSON and contains the required hooks and Orca's entries, and that the macOS drop-in contains the guards, using `profiles/work.example/` for the work side.
+**Safe updates.** Hooks, skills, and scripts ship with tests that run in CI. Each guard's test is shown to fail when the guard is deliberately broken, and every rule in a guard's table is proved on its own: its fixtures get its decision from the built guard, and the decision changes when only that rule is removed. CI also generates `settings.json` and checks that it is valid JSON and contains the required hooks and Orca's entries, and that the macOS drop-in contains the guards, using `profiles/work.example/` for the work side.
 
 ### Secrets
 
@@ -648,7 +649,7 @@ Each Nix network path reads certificates from a different place (checked against
 - [ ] No plain-text token on disk outside the rendered files the design lists (gitleaks over `$HOME`'s managed and rendered files finds nothing)
 - [ ] A deliberately broken darwin or home configuration fails CI
 - [ ] Each guard hook still denies its target input when run with `env -i PATH=<empty dir>`
-- [ ] Breaking one condition of a guard makes its test fail
+- [ ] Breaking one condition of a guard makes its test fail, and so does removing one rule from its table
 - [ ] `.zshrc` defines at most 5 aliases
 
 ## Open questions
