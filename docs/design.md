@@ -139,6 +139,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 ├── tests/
 ├── scripts/{bootstrap.sh,work-sync.sh}
 ├── templates/{tlaplus,lean}/  # flake templates for formal-methods projects
+├── spec/                     # TLA+ models of the bootstrap and of settings.json writers
 ├── docs/
 ├── .github/workflows/
 ├── justfile
@@ -432,6 +433,24 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 | Internal tokens | Keeper (`keeper://`) |
 | CA certificates | See below |
 
+### Formal models (TLA+)
+
+Two parts of this design fail through combinations of state that reviews kept missing: the bootstrap's reruns and skips (an unpushed work-profile edit overwritten on rerun, a step that could never finish when Keeper is unavailable), and several programs writing one `settings.json`. Both are modelled in TLA+ under `spec/` and checked with TLC in CI, using the devShell from this repository's own `tlaplus` template. Lean is not used: nothing here needs a proof beyond what tests show.
+
+- `spec/bootstrap.tla` models the steps of the Bootstrap section as actions over: the recorded host, whether Nix, the checkout, and each switch are present, each human step's check, whether `~/.config/dots-work/` exists and holds unpushed edits, and whether Keeper Secrets Manager is available. A run may stop after any action and be started again. Invariants and properties:
+  - a personal host never calls `ksm` and never creates `~/.config/dots-work/`;
+  - a host argument that is missing or differs from the recorded one changes nothing;
+  - `work-mac` never reaches the end without its work profile;
+  - unpushed work-profile edits survive every rerun;
+  - from any stopped state, rerunning with the human steps done eventually finishes. This liveness property holds only if the person does not stop the run forever: under weak fairness alone, a behaviour that stops and restarts endlessly violates it (TLC counterexample, reproduced). The model therefore states two assumptions: each step has strong fairness (`SF_vars`), so a step enabled again and again is eventually taken, and the restart has weak fairness (`WF_vars(EnvRestart)`), so a stopped run is eventually started again. Strong fairness on the steps alone is not enough: a run that stops and is never restarted violates the property (TLC counterexample, by a review agent).
+- `spec/settings_writers.tla` models three writers of `~/.claude/settings.json`: the switch's generator, Orca merging its hook entries at app start, and Claude Code adding a plugin. Each reads the file and writes it back, in any interleaving. Properties:
+  - after the writers settle, Orca's entries and this repository's guard hooks are both present;
+  - the generator never drops an entry another writer added that it is meant to carry over.
+  If TLC finds an interleaving that loses an entry, the design changes (for example, the generator re-reads the file immediately before writing, or the switch restarts Orca), not the model.
+- The model is not the bash script. Each state and transition the model checks becomes a case in the bootstrap tests (CI), so the tests and the model cover the same states.
+- The model has two kinds of actions. Step actions correspond to the numbered steps of the Bootstrap section, including host-specific ones, and each is a function of the same name in `scripts/bootstrap.sh`. Environment actions have no function: a stop, a restart, a person finishing a human step, Keeper becoming unavailable, an edit to the work profile, and the final `EnvDone`. Their names start with `Env`. CI compares the script's step functions with the model's actions minus the `Env` ones, so a step added to one side only fails CI.
+- TLC runs with each model's `<Module>.cfg`. A finished run is a final state, which TLC reports as a deadlock, so the model ends with a stuttering `EnvDone` action instead of turning deadlock checking off.
+
 ## Bootstrap
 
 One command on a fresh machine, with the host named explicitly:
@@ -531,6 +550,7 @@ Each Nix network path reads certificates from a different place (checked against
 - Every test is shown to fail on a deliberately broken subject (for example, the `ZDOTDIR` line removed, or the host check skipped), and that mutation run is part of CI.
 - Not covered by CI: real 1Password, Keeper, and ghtkn authentication, Orca, the corporate proxy, and real WSL2 (its systemd and Windows PATH). These stay with the monthly run and the manual acceptance criteria.
 - Templates: each flake template is instantiated and checked (see Project layer).
+- TLC checks `spec/bootstrap.tla` and `spec/settings_writers.tla` (see Formal models). Like every other test, each model is shown to fail when one of its invariants is deliberately broken in the model.
 - Monthly: run the bootstrap on a fresh macOS user account or Linux VM.
 - Weekly: `DeterminateSystems/update-flake-lock` opens a pull request that updates `flake.lock`. A pull request opened with the default `GITHUB_TOKEN` does not trigger CI (the action's README), while one opened with a GitHub App token triggers `push` and `pull_request` workflows (peter-evans/create-pull-request, which the action uses), so the workflow mints a token with `actions/create-github-app-token` from a GitHub App made for this job alone: installed only on this repository, with Contents and Pull requests write and nothing else beyond the Metadata read that every App has. Its App ID and private key are repository secrets. The private key is long-lived, but it can mint tokens only for this repository and only with those two permissions.
 - Dependabot updates GitHub Actions versions (`github-actions` ecosystem only).
