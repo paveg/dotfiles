@@ -162,3 +162,15 @@ Injection counts are `hook_additional_context` attachments grouped by hook event
 | Statement | Result | Evidence |
 |---|---|---|
 | apm (microsoft/apm) is pre-1.0, supports Claude Code user scope, and is in nixpkgs | Holds | Source: microsoft/apm releases (v0.38.1), `docs/.../reference/targets-matrix.md`; nixpkgs `pkgs/by-name/ap/apm-cli/package.nix` |
+| `orca serve` accepts clients from localhost, LAN, and Tailscale (100.64/10, fd7a:115c:a1e0::/48) addresses; public addresses only with `--allow-public` or listed conditions | Holds | Measured: `orca serve --help` (installed Orca CLI) |
+| On a packaged macOS app, `orca serve` runs Electron, which needs a desktop login; `ORCA_SERVE_RUNTIME=orcad` runs a Node server without one | Holds | Measured: `orca serve --help` |
+| `orca serve service install` writes a LaunchAgent on macOS (a systemd user unit on Linux) | Holds | Source (by a review agent): orca.dev/docs/remote-servers; subcommands `install`, `status`, `uninstall` present in the installed CLI |
+| FileVault is active on this Mac | Holds | Measured: `fdesetup isactive` printed `true` |
+| nix-darwin has `services.tailscale` and `power.sleep.computer` (accepts `"never"`) | Holds | Source (by a review agent): nix-darwin `modules/services/tailscale.nix`, `modules/power/sleep.nix` |
+| Tailscale's default key expiry is 180 days and can be disabled per device; Tailscale SSH's server needs the open-source `tailscaled` on macOS; the free plan covers this use | Holds | Source (by a review agent): tailscale.com/kb/1028/key-expiry, tailscale.com/kb/1193/tailscale-ssh, tailscale.com/pricing |
+| `update-flake-lock` pull requests opened with the default token do not trigger CI; a token with Contents and Pull requests write access does | Holds | Source (by a review agent): github.com/DeterminateSystems/update-flake-lock README |
+| `orca serve service status` prints "… is not installed" and exits 0 when no service exists | Holds | Measured on this Mac |
+| The LaunchAgent written by `orca serve service install` runs `orca serve --supervise --no-pairing` and stores the installing shell's PATH | Holds | Measured: `orca serve service install --dry-run` |
+| `orca pair --mobile --address <host>` makes the phone dial that address, for example a Tailscale one | Holds | Measured: `orca pair --help` |
+| Homebrew's `orca` cask is plotly's Orca, disabled; Orca the IDE has no cask under that name | Holds | Measured: `brew info --cask orca`, `brew search --cask orca` |
+| This Mac's `/usr/local/bin/tailscale` wraps the Tailscale GUI app | Holds | Measured: the wrapper runs `/Applications/Tailscale.app/Contents/MacOS/Tailscale` |

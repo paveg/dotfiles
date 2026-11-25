@@ -306,7 +306,8 @@ See [ADR 0002](adr/0002-vaults-and-work-profile.md).
 - Credentials that tools keep on disk by their own design, and that this repository does not try to move into a vault:
   - the 1Password and Keeper Secrets Manager device configs (with keyring support, the KSM CLI stores its config in the macOS Keychain);
   - agent CLI logins (`~/.claude/.credentials.json` where Claude Code does not use the Keychain, `~/.codex/auth.json`);
-  - cloud and cluster CLI credentials used for SRE work (for example `gcloud` and kubeconfig tokens). `permissions.deny` `Read(...)` rules cover their paths.
+  - cloud and cluster CLI credentials used for SRE work (for example `gcloud` and kubeconfig tokens). `permissions.deny` `Read(...)` rules cover their paths;
+  - Tailscale's node key, in `tailscaled`'s state on `personal-mac` (ADR 0010).
 - gitleaks runs as a pre-commit hook through lefthook and in CI ([ADR 0008](adr/0008-repo-checks-lefthook-treefmt.md)).
 - Prerequisite: whether Keeper Secrets Manager needs admin enablement or an extra license is not covered by Keeper's docs; ask company IT. If it is unavailable, the work profile stays local to `work-mac` and is recreated by hand on a new machine.
 
@@ -364,6 +365,20 @@ Goal 9 means no class 3 step on the unattended path. With the design as it stand
 - Using HTTPS with `ghtkn git-credential` for every GitHub repository, as work repositories already do, removes the personal fetch/push row. SSH stays for hosts other than GitHub.
 - Signed commits and `op` are open (see Open questions).
 
+**The unattended host** is `personal-mac` itself ([ADR 0010](adr/0010-unattended-host-reachability.md)):
+
+- `orca serve service install` keeps Orca's server running as a LaunchAgent, independent of the desktop app. Orca writes that LaunchAgent itself, so nix-darwin does not own it; bootstrap step 11 runs the install command, and `orca serve service status` is how the design checks it. Orca's help says a packaged macOS app's server runs Electron, which needs a desktop login, and that `ORCA_SERVE_RUNTIME=orcad` runs a Node server instead when nobody is logged in (measured: `orca serve --help`).
+- nix-darwin's `power.sleep.computer = "never"` keeps the Mac awake. How a laptop behaves with the lid closed or on battery under this setting is **Unverified**.
+- Tailscale, through nix-darwin's `services.tailscale` on `personal-mac` only, makes the host reachable from the phone outside the LAN. `orca serve` already accepts Tailscale addresses (100.64/10 and fd7a:115c:a1e0::/48) without `--allow-public` (measured: `orca serve --help`). Tailscale SSH is the way back into the host when Orca itself is stuck. Key expiry is disabled for this device only; otherwise re-authentication becomes a class 3 step every 180 days (Tailscale's default, by a review agent). `work-mac` gets no Tailscale: a personal VPN on a company machine is not this repository's decision. `wsl` gets none until it runs agents unattended.
+- FileVault is on (measured: `fdesetup isactive` printed `true`). After an unplanned restart the Mac stops at the FileVault unlock screen, so it is unreachable until someone is at the desk. That is class 3 and no setting here removes it. A planned restart uses `sudo fdesetup authrestart`, which asks for the password in the terminal, so starting it from the phone is class 2; whether Orca comes back without a login is not yet known (table below).
+
+| Host event | Away, 1Password locked |
+|---|---|
+| Orca's server crashes | 1: the LaunchAgent restarts it, until 6 failures in 15 minutes, after which it gives up (`orca serve --help`) |
+| Orca is stuck | 2: Tailscale SSH, then `orca serve service` commands |
+| Planned restart | 2 or 3: `sudo fdesetup authrestart` unlocks FileVault, but the Orca service is a per-user LaunchAgent and Electron needs a desktop login; whether the restarted Mac runs it before someone logs in is **Unverified** |
+| Unplanned restart (power loss, panic) | 3: FileVault unlock at the Mac |
+
 ### GitHub authentication (ghtkn)
 
 See [ADR 0004](adr/0004-github-auth-ghtkn.md).
@@ -391,7 +406,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 ### Packages
 
 - `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`; nixpkgs' `helm` is an unrelated synthesizer), `_1password-cli` (unfree, so the flake allows that one package by name), `ghtkn` (in nixpkgs), `mise`.
-- Casks on every macOS host: 1Password (the app must exist before any `op` step).
+- Casks on every macOS host: 1Password (the app must exist before any `op` step). Orca has no Homebrew cask and is installed by hand (bootstrap step 11).
 - `hosts/work-mac.nix`: Keeper Secrets Manager CLI, aqua, internal tools. The KSM CLI is not in nixpkgs, and Keychain storage needs its pip `keyring` extra; without it the config falls back to a plain `keeper.ini`. Packaging it (a local derivation or another installer) is **Unverified**.
 - No other language runtimes.
 - Font (UDEV Gothic NF): cask on macOS; installed by hand on the Windows side for WSL2.
@@ -431,6 +446,12 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
 9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
 10. Install the repository's git hooks (`lefthook install`).
+11. `personal-mac` only, the unattended host (ADR 0010). Every `tailscale` call uses `/run/current-system/sw/bin/tailscale`, the open-source build nix-darwin installs, never the GUI app's wrapper in `/usr/local/bin`:
+    - Human: install Orca from its website. Homebrew's `orca` cask is an unrelated, disabled app (measured: `brew info --cask orca`).
+    - Human: `sudo /run/current-system/sw/bin/tailscale up --ssh`, sign in in the browser, then disable key expiry for this device in Tailscale's admin console. `--ssh` makes the host a Tailscale SSH server.
+    - The script runs `orca serve service install` with PATH set to the fixed list `/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin`. The LaunchAgent stores the installing shell's PATH (measured: `orca serve service install --dry-run`), and these paths are stable symlinks, so later switches need no reinstall.
+    - Human: `orca pair --mobile --address <the host's Tailscale IPv4>` and scan the QR code with Orca Mobile, so the phone dials the Tailscale address rather than the LAN one.
+    - Skipped parts on a rerun: Tailscale when `tailscale status --json` reports `BackendState` `Running`; the service when `orca serve service status` does not print "is not installed". Its exit status is 0 either way (measured).
 
 Work and personal are kept apart by the host, never by guessing:
 
@@ -487,7 +508,7 @@ Each Nix network path reads certificates from a different place (checked against
 
 ## Acceptance criteria
 
-- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, and ghtkn authentication excepted)
+- [ ] A fresh macOS / WSL2 machine is ready after one bootstrap command (first-time 1Password, Keeper, ghtkn, and Tailscale sign-in, the Orca install, and mobile pairing excepted)
 - [ ] The bootstrap without a host, or with a host other than the recorded one, exits non-zero and changes nothing
 - [ ] On `personal-mac` and `wsl`, the bootstrap never runs `ksm` and `~/.config/dots-work/` does not exist afterwards
 - [ ] Running the bootstrap again after it stopped at a human step resumes and finishes
@@ -516,7 +537,6 @@ Each Nix network path reads certificates from a different place (checked against
 
 - Commits made while the host is unattended start unsigned and are re-signed at the desk before a pull request (ADR 0005's fallback). If waiting for the desk becomes the bottleneck, the next step is a dedicated signing-only key in the Secure Enclave (Secretive), registered on GitHub as a signing key only (ADR 0005). Whether it signs while the screen is locked is **Unverified** and is measured before adopting it. Commits through GitHub's API are not pursued. GraphQL `createCommitOnBranch` is signed by GitHub "if supported" even under a user token, but it replaces `git commit`: the agent sends file contents to the API instead of committing locally, so local git hooks do not run (ADR 0005).
 - Secrets that agents need while the host is unattended: a 1Password service account (`OP_SERVICE_ACCOUNT_TOKEN`) reads only custom vaults, never Personal, Private, or Employee, and its token then lives on the host.
-- Which host runs agents when the user is away: this Mac kept awake with Orca open, or a headless `orca serve` host. The answer to the two questions above decides it.
 - Whether to enable the Bash sandbox by default, after measuring the sockets and network calls it must allow.
 - Whether to auto-start a terminal multiplexer (tmux / herdr) in interactive shells at all.
 - Whether Keeper Secrets Manager is available at work (ask IT).
@@ -527,7 +547,7 @@ Each Nix network path reads certificates from a different place (checked against
 ## Rollout
 
 1. Create this repository with the minimum: flake, `.zshenv`, `.zshrc`, git, ssh, `~/.claude`. Create the personal GitHub App for ghtkn.
-2. Switch `personal-mac`. It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point.
+2. Switch `personal-mac`. Remove the Tailscale GUI app first (it is installed today), so that the only `tailscaled` is the open-source one nix-darwin runs (ADR 0010). It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point.
 3. Run it for one to two weeks; pull in from the old repository only what is missed, judged by P6.
 4. Roll out to WSL2 (enable systemd first).
 5. Roll out to `work-mac`: set up KSM, pull the work profile, verify CA handling.
