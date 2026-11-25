@@ -23,7 +23,7 @@ Project tools (language runtimes, CLIs pinned per repository) were activated by 
 - Environment variables that a hook would have set per directory (not only tools) are not applied. Projects that need them set them in their task runner or `mise.toml` tasks.
 - Shims add a small dispatch cost per invocation.
 - A verified lockfile pins what mise downloads, not what is already on disk. Verification also proves only who published an artifact, not that it is safe.
-- aqua's own checksum verification is off by default (`checksum.enabled` turns it on, or `AQUA_ENFORCE_CHECKSUM` together with `AQUA_ENFORCE_REQUIRE_CHECKSUM` from aqua v2.27.0), so repositories that keep `.aqua.yaml` should enable it in that file.
+- aqua's own checksum verification is off by default (`checksum.enabled` turns it on, and from aqua v2.27.0 `AQUA_ENFORCE_CHECKSUM` forces it on whatever `aqua.yaml` says; `AQUA_ENFORCE_REQUIRE_CHECKSUM` separately forces `require_checksum`), so repositories that keep `.aqua.yaml` should enable it in that file.
 
 ## Alternatives considered
 
