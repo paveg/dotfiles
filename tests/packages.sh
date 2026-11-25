@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Check what the built configuration gives a host, with no Nix switch: every
-# global CLI tool is in the home-manager profile and wins over /usr/bin, the zsh
-# directory is a real directory of per-file links, and the global mise config
-# refuses the asdf backend.
+# global CLI tool is in the home-manager profile and wins over /usr/bin, the
+# profile that PATH names serves that same profile, the zsh directory is a real
+# directory of per-file links, and the global mise config refuses the asdf
+# backend.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -52,43 +53,55 @@ is() { # <name> <want> <got>
   if [[ $3 == "$2" ]]; then ok "$1"; else fail "$1" "want '$2', got '$3'"; fi
 }
 
-user=$("${nix_bin[@]}" eval --raw --file "$repo_dir/hosts/$host.nix" user) || user=
-if [[ -z $user ]]; then
-  fail host-user "hosts/$host.nix has no user"
+brief() { # <file>
+  tr '\n' ' ' <"$1" | cut -c1-300
+}
+
+summary() {
   echo "summary: $checks checks, $failures failed (host $host, repo $repo_dir)"
+}
+
+user=$("${nix_bin[@]}" eval --raw --file "$repo_dir/hosts/$host.nix" user 2>"$work_dir/user.err")
+if [[ -z $user ]]; then
+  fail host-user "hosts/$host.nix has no user: $(brief "$work_dir/user.err")"
+  summary
   exit 1
 fi
 ok host-user
 
-# path: rather than the directory on its own, so an uncommitted or copied tree
-# builds the same way a checkout does.
 if [[ $host == wsl ]]; then
   config_attr="homeConfigurations.\"$user@wsl\".config"
 else
   config_attr="darwinConfigurations.$host.config.home-manager.users.$user"
 fi
 
-build() { # <attribute>
-  "${nix_bin[@]}" build --no-link --print-out-paths "path:$repo_dir#$config_attr.$1" 2>"$work_dir/$1.err"
+# path: rather than the directory on its own, so a copied or uncommitted tree
+# builds the same way a checkout does.
+build_attr() { # <attribute> <log-name>
+  "${nix_bin[@]}" build --no-link --print-out-paths "path:$repo_dir#$1" 2>"$work_dir/$2.err"
 }
 
-profile=$(build home.path)
+profile=$(build_attr "$config_attr.home.path" profile)
 if [[ -z $profile ]]; then
-  fail build-profile "$(tr '\n' ' ' <"$work_dir/home.path.err" | cut -c1-300)"
-  echo "summary: $checks checks, $failures failed (host $host, repo $repo_dir)"
+  fail build-profile "$(brief "$work_dir/profile.err")"
+  summary
   exit 1
 fi
 ok build-profile
 
-home_files=$(build home-files)
+home_files=$(build_attr "$config_attr.home-files" home-files)
 if [[ -z $home_files ]]; then
-  fail build-home-files "$(tr '\n' ' ' <"$work_dir/home-files.err" | cut -c1-300)"
+  fail build-home-files "$(brief "$work_dir/home-files.err")"
 else
   ok build-home-files
 fi
 
 for cmd in "${commands[@]}"; do
-  if [[ -x $profile/bin/$cmd ]]; then ok "bin-$cmd"; else fail "bin-$cmd" "$profile/bin/$cmd is not executable"; fi
+  if [[ -x $profile/bin/$cmd ]]; then
+    ok "bin-$cmd"
+  else
+    fail "bin-$cmd" "$profile/bin/$cmd is not executable"
+  fi
 done
 
 # An empty HOME, so an already installed profile cannot stand in for the one
@@ -98,9 +111,34 @@ zsh_home=$work_dir/empty-home
 mkdir -p "$zsh_home"
 for cmd in "${commands[@]}"; do
   got=$(env -i HOME="$zsh_home" TERM=dumb PATH="$profile/bin:/usr/bin:/bin" \
-    "$zsh_bin" -c "command -v $cmd" 2>/dev/null)
-  is "zsh-$cmd" "$profile/bin/$cmd" "$got"
+    "$zsh_bin" -c "command -v $cmd" 2>"$work_dir/zsh.err")
+  if [[ $got == "$profile/bin/$cmd" ]]; then
+    ok "zsh-$cmd"
+  else
+    fail "zsh-$cmd" "want '$profile/bin/$cmd', got '$got', stderr: $(brief "$work_dir/zsh.err")"
+  fi
 done
+
+# PATH names a profile, not home.path itself: on macOS the per-user profile
+# nix-darwin builds, on wsl the one home-manager's generation installs.
+if [[ $host == wsl ]]; then
+  generation=$(build_attr "homeConfigurations.\"$user@wsl\".activationPackage" generation)
+  if [[ -z $generation ]]; then
+    fail build-generation "$(brief "$work_dir/generation.err")"
+  else
+    is generation-home-path "$profile" "$(readlink "$generation/home-path" 2>"$work_dir/readlink.err")"
+  fi
+else
+  system=$(build_attr "darwinConfigurations.$host.system" system)
+  if [[ -z $system ]]; then
+    fail build-system "$(brief "$work_dir/system.err")"
+  else
+    for cmd in "${commands[@]}"; do
+      per_user=$system/etc/profiles/per-user/$user/bin/$cmd
+      is "per-user-$cmd" "$profile/bin/$cmd" "$(readlink "$per_user" 2>>"$work_dir/readlink.err")"
+    done
+  fi
+fi
 
 if [[ -n $home_files ]]; then
   for dir in "${real_dirs[@]}"; do
@@ -114,10 +152,13 @@ if [[ -n $home_files ]]; then
   # checkout. The checkout exists only on the owner's machine, so follow the
   # links by name instead of asking the filesystem.
   for path in "${linked_files[@]}"; do
-    target=$(readlink "$home_files/$path" 2>/dev/null)
-    target=$(readlink "$target" 2>/dev/null)
+    target=$(readlink "$home_files/$path" 2>>"$work_dir/readlink.err")
+    target=$(readlink "$target" 2>>"$work_dir/readlink.err")
     is "link-$path" "home/$path" "${target#*/dotfiles/}"
   done
+  if [[ -s $work_dir/readlink.err && $failures -gt 0 ]]; then
+    echo "readlink stderr: $(brief "$work_dir/readlink.err")"
+  fi
 fi
 
 # The global mise config refuses an asdf tool before it resolves anything, so
@@ -133,5 +174,5 @@ else
   fail mise-refuses-asdf "$(tr '\n' ' ' <<<"$mise_out" | cut -c1-300)"
 fi
 
-echo "summary: $checks checks, $failures failed (host $host, repo $repo_dir)"
+summary
 if ((failures > 0)); then exit 1; fi
