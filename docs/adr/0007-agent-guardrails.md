@@ -40,7 +40,7 @@ Every remaining script hook is built with Nix's `writeShellApplication`:
 - Dependencies (`jq`, coreutils, grep) are pinned through `runtimeInputs`, and `inheritPath = false` stops the default from appending the caller's PATH, so nothing is resolved from it.
 - shellcheck runs at build time, and `errexit` / `nounset` / `pipefail` are on by default.
 - `settings.json` refers to each hook by its store path, written by the generator in ADR 0003.
-- On macOS the guards and `permissions.deny` are written twice: into a root-owned managed-settings drop-in, `managed-settings.d/50-dotfiles.json`, which no other tool writes, and then into `settings.json`. Claude Code merges hooks and lists across settings levels, and when the same handler is in both files it runs it once. `wsl` has no drop-in.
+- On macOS the guards and `permissions.deny` are written twice: into a root-owned managed-settings drop-in, `managed-settings.d/50-dotfiles.json`, which no other tool is assumed to write, and then into `settings.json`. Claude Code merges hooks and lists across settings levels, and when the same handler is in both files it runs it once. `wsl` has no drop-in.
 - Guards set `onFailure: "block"`, print `deny` on a match and nothing otherwise (never `allow`, which would skip the permission prompt), set `shopt -s inherit_errexit`, treat a matcher's error exit code as a failure rather than as "no match", and return `deny` on malformed input. Checkers and injectors keep the default `onFailure: "continue"`.
 - Each guard has a test that is shown to fail when the guard is deliberately broken.
 
