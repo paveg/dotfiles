@@ -135,7 +135,10 @@ ran_and_quiet() { # <label> <out-file> <log>
   else
     fail "$1-ran" "no probe output; log: $(tr '\n' ' ' <"$3" | cut -c1-200)"
   fi
-  is "$1-log-quiet" "" "$(error_lines "$3" | tr '\n' ' ')"
+  # Lines a shell with no zsh files also prints come from the platform (for
+  # example "can't open terminal" on a runner without a tty), not from home/.
+  is "$1-log-quiet" "" "$(LC_ALL=C comm -23 <(error_lines "$3" | LC_ALL=C sort -u) \
+    <(error_lines "$bare_log" | LC_ALL=C sort -u) | tr '\n' ' ')"
 }
 
 path_index() { # <dir> <path-value>; 0 when absent
@@ -236,6 +239,14 @@ is home-tree-unchanged-by-noninteractive "" \
 
 probe=$work_dir/interactive.vars
 log=$work_dir/interactive.log
+# A shell with no zsh files at all: the baseline for what the platform prints
+# and defines on its own.
+bare_home=$work_dir/bare
+mkdir -p "$bare_home"
+bare_probe=$work_dir/bare.vars
+bare_log=$work_dir/bare.log
+run_interactive "$bare_home" "$bare_probe" "$bare_log"
+
 run_interactive "$home" "$probe" "$log"
 ran_and_quiet interactive-shell "$probe" "$log"
 probe_text=$(cat "$probe" 2>/dev/null) || true
@@ -261,10 +272,6 @@ esac
 
 # "Aliases: none by default": compare with a HOME that has no zsh files at all,
 # so zsh's own aliases and anything /etc adds are not counted.
-bare_home=$work_dir/bare
-mkdir -p "$bare_home"
-bare_probe=$work_dir/bare.vars
-run_interactive "$bare_home" "$bare_probe" "$work_dir/bare.log"
 is interactive-no-aliases-added "" \
   "$(LC_ALL=C comm -13 \
     <(grep '^ALIAS ' "$bare_probe" 2>/dev/null | LC_ALL=C sort) \
