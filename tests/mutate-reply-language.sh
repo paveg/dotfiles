@@ -32,4 +32,5 @@ expect_caught 'a second stop is blocked again' '[[ $(jq -r '"'"'.stop_hook_activ
 expect_caught 'a Japanese user message is not recognised' '| prose | jp) >= 5)' '| prose | jp) >= 500)'
 expect_caught 'only the user message is read, not the reply after it' '$entries[$u + 1:]' '$entries[$u:$u + 1]'
 expect_caught 'a short reply is judged too' '($j + $l) >= 20' '($j + $l) >= 0'
+expect_caught 'the reply is read from the transcript even when Claude Code sends it' '(if $last_reply != "" then $last_reply' '(if false then $last_reply'
 ((failures == 0)) && echo "every mutant is caught"

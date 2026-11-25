@@ -7,9 +7,12 @@ input=$(cat)
 transcript=$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null) || exit 0
 [[ -r $transcript ]] || exit 0
 [[ $(jq -r '.stop_hook_active // false' <<<"$input") == true ]] && exit 0
+# The transcript may not hold the final reply yet at Stop time (hooks docs), so
+# the reply comes from last_assistant_message when Claude Code sends it.
+last_reply=$(jq -r '.last_assistant_message // empty' <<<"$input")
 
 # Only the tail is read: a long session's transcript runs to tens of megabytes.
-tail -n 400 "$transcript" | jq -rs '
+tail -n 400 "$transcript" | jq -rs --arg last_reply "$last_reply" '
   def text_of: if type == "string" then . else [.[]? | select(.type == "text") | .text] | join("\n") end;
   def jp: [scan("[\\p{Hiragana}\\p{Katakana}\\p{Han}]")] | length;
   def latin: [scan("[A-Za-z]+")] | length;
@@ -21,7 +24,9 @@ tail -n 400 "$transcript" | jq -rs '
       | select((.value.message.content | text_of | prose | jp) >= 5)
       | .key] | last) as $u
   | if $u == null then empty else
-      ([$entries[$u + 1:][] | select(.type == "assistant") | .message.content | text_of] | join("\n") | prose) as $reply
+      (if $last_reply != "" then $last_reply
+       else [$entries[$u + 1:][] | select(.type == "assistant") | .message.content | text_of] | join("\n") end
+       | prose) as $reply
       | ($reply | jp) as $j | ($reply | latin) as $l
       | if ($j + $l) >= 20 and ($j * 3) < $l then
           {decision: "block",
