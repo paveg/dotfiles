@@ -17,6 +17,12 @@ Evidence behind the factual statements in [`design.md`](design.md), collected on
 | `useUserPackages = true` installs into `/etc/profiles/per-user/$USER/bin` | Holds | Source: home-manager `nixos/common.nix`; nix-darwin `modules/users/default.nix`; home-manager manual, nix-darwin installation |
 | Only shell initialization puts that directory on PATH | Holds | Source: nix-darwin `modules/environment/default.nix` (`set-environment`, sourced from `/etc/zshenv`, `/etc/bashrc`, fish) |
 | `launchctl config user path` applies to all users and needs a reboot | Holds | Measured: `launchctl help config` ("modifies the configuration for all user domains. You must reboot") |
+| In a login shell on macOS, `/etc/zprofile` runs `path_helper` after `~/.zshenv` and moves system directories ahead of entries `.zshenv` prepended | Holds | Measured on this Mac (no nix-darwin), temporary `HOME`: first PATH entry stayed the `.zshenv` one under `zsh -c`, became `/usr/local/bin` under `zsh -lc`; `/etc/zprofile` line 11 runs `path_helper -s` |
+| macOS's `/etc/zshrc` sets `HISTFILE` after `.zshenv` runs | Holds | `/etc/zshrc` line 16 on this Mac |
+| zsh does not create the parent directory of `HISTFILE`; without it zsh prints `locking failed for <path>: no such file or directory` at exit and saves nothing | Holds | Measured in a temporary `HOME`: no file without the directory (stderr shows the message), file written once the directory existed. An earlier row said "silently"; that measurement had discarded stderr |
+| atuin's default home is `~/.atuin` (overridable with `ATUIN_HOME`); `XDG_DATA_HOME/atuin` is used only as a fallback for older installs | Holds | Source: atuin main, `crates/atuin-common/src/dirs.rs` lines 48 and 68, read with `gh api` |
+| atuin's `secrets_filter` drops a matching command entirely, and a command starting with a space is not saved | Holds | Source: atuin main, `crates/atuin-client/src/history.rs` lines 797-802 (`should_save`) |
+| `zsh -c`, `zsh -lc`, and `zsh -ic` fire no `preexec` / `precmd` / `zshaddhistory` hooks and write no history; an interactive zsh fed commands on stdin does | Holds | Measured (by a review agent) in a temporary `HOME` |
 
 ## Git
 
@@ -162,3 +168,5 @@ Injection counts are `hook_additional_context` attachments grouped by hook event
 | Statement | Result | Evidence |
 |---|---|---|
 | apm (microsoft/apm) is pre-1.0, supports Claude Code user scope, and is in nixpkgs | Holds | Source: microsoft/apm releases (v0.38.1), `docs/.../reference/targets-matrix.md`; nixpkgs `pkgs/by-name/ap/apm-cli/package.nix` |
+| atuin's `secrets_filter` defaults to `true`; its patterns include GitHub PATs, `ghu_`, `ghs_`, GitHub refresh tokens, AWS key IDs, Slack, and Stripe | Holds | Source: atuin main, `crates/atuin-client/config.toml` (`# secrets_filter = true`) and `crates/atuin-common/src/secrets.rs` (pattern names), read with `gh api`. Same defaults in v18.24.8, the nixpkgs version (by a review agent) |
+| atuin's `auto_sync` defaults to `true`, with `https://api.atuin.sh` as `sync_address`; `history_filter` and `cwd_filter` take regular expressions | Holds | Source: atuin main, `crates/atuin-client/config.toml` |
