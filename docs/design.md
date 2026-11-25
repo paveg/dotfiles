@@ -451,6 +451,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 ### Packages
 
 - `nix/packages.nix`: `git`, `ghq`, `fzf`, `ripgrep`, `fd`, `jq`, `neovim`, `just`, `lazygit`, `lefthook`, `gitleaks`, kubectl tooling (`kubectl`, `kubernetes-helm`, `k9s`, `stern`; nixpkgs' `helm` is an unrelated synthesizer), `ghtkn` (in nixpkgs), `mise`, `atuin`.
+- Claude Code is not a Nix package: it comes from its native installer on the `stable` channel (`autoUpdatesChannel: "stable"` in `settings.common.json`), which updates itself, as a stated exception to P8 ([ADR 0011](adr/0011-claude-code-native-installer.md)). A home-manager activation step runs the installer only when `~/.local/bin/claude` is missing.
 - The 1Password CLI is not a nixpkgs package on any host: on macOS it comes from the module below, and on `wsl` the Windows `op.exe` is used, because the Linux `op` inside WSL cannot use the desktop app integration. Every `op` call on `wsl` (step 8's `op inject` included) means `op.exe`.
 - Unfree packages are allowed by name only: `_1password-gui`, `_1password-cli` (both evaluated by the macOS modules), and `raycast`.
 - macOS apps, by P8's order. nix-darwin copies nixpkgs apps into `/Applications/Nix Apps` with rsync (`modules/system/applications.nix`), so their paths stay the same across rebuilds:

@@ -163,6 +163,15 @@ Checked against Nix 2.33.0 and nixpkgs 26.05pre.
 | Orca has a second writer of `settings.json`, its theme sync: it re-reads after its last await, then writes back what it read plus `theme`, under a lock only Orca takes | Holds | Source (by a review agent): Orca `v1.4.273`, `src/main/claude/theme-sync/claude-code-theme-sync.ts:117-124` (re-read, write), `claude-code-theme-ownership.ts:74` (Orca's lock); whether theme sync is on by default is not checked |
 | Writing `settings.json` before the drop-in lets the guards drop out during the first switch; writing the drop-in first does not | Holds | Measured (by a review agent): TLC on a variant of the committed model where the switch writes `settings.json` and then the drop-in violates `GuardsInEffect` mid-switch; the committed order passes. The `check.sh` mutant (the `managedGuard` precondition of `GenWrite` removed) shows the first design, a switch that never writes the drop-in |
 
+## Claude Code install
+
+| Statement | Result | Evidence |
+|---|---|---|
+| The native installer is the recommended method; native installs update in the background, while Homebrew, WinGet, apt, dnf, and apk installs do not by default (`CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE=1` opts Homebrew and WinGet in) | Holds | Source (by a fetch agent): code.claude.com/docs/en/setup ("Install Claude Code", "Update Claude Code", "Auto-updates") |
+| The native installer puts versions in `~/.local/share/claude/versions/` and links `~/.local/bin/claude` | Holds | Source (by a fetch agent): code.claude.com/docs/en/setup ("Uninstall a native installation"). Measured: `~/.local/bin/claude -> ~/.local/share/claude/versions/2.1.332` on this Mac |
+| `autoUpdatesChannel` takes `latest` (default) or `stable` (typically about one week old, skipping releases with major regressions); the installer takes a channel or version (`bash -s stable`) | Holds | Source (by a fetch agent): code.claude.com/docs/en/setup ("Auto-updates", "Advanced installation options") |
+| nixpkgs' `claude-code` is 2.1.330 and its wrapper sets `DISABLE_AUTOUPDATER=1` | Holds | Measured: `nix eval nixpkgs#claude-code.version` (flake registry nixpkgs on 2026-11-25); `package.nix:56-57` in that source |
+
 ## Hook need across repositories
 
 Collected 2026-11-25. Repositories: `gh repo list paveg` returned 131, of which 70 are neither archived nor forks; each of the 70 file trees was read through the GitHub API (no errors). Past sessions: 693 transcripts under `~/.claude/projects`, excluding the session that wrote this table. Deny counts are transcript lines carrying the hook's deny text, so they are a rough order of magnitude, not exact firings.
