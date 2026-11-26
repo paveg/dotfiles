@@ -6,7 +6,7 @@ guard_subject='The sensitive-read guard'
 
 guard_ask_why='a hidden file or directory name next to a shell expansion, so the path that is read may be built at run time where no matcher can read it'
 
-guard_advice='These paths hold credentials, cluster access, or shell history that must not reach an agent transcript. Take the value from its vault at run time instead: op run, ksm exec, or ghtkn exec.'
+guard_advice='These paths hold credentials, cluster access, or shell history that must not reach an agent transcript. Take the value from its vault at run time instead: op run with an env file of op:// references that is not itself a protected name (a committed template such as .env.example, or config/local.env), ksm exec, or ghtkn exec.'
 
 name_end='([^[:alnum:]_-]|$)'
 
