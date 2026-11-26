@@ -6,6 +6,12 @@
         "fixtures": [
           "npx prisma migrate reset --force",
           "npx prisma migrate  reset"
+        ],
+        "near_miss": [
+          "npx prisma migrate resetx"
+        ],
+        "boundary": [
+          "npx prisma migrate reset;echo done"
         ]
       },
       "prisma-push-force-reset": {
@@ -13,12 +19,24 @@
         "fixtures": [
           "npx prisma db push --force-reset",
           "npx prisma db  push --force-reset"
+        ],
+        "near_miss": [
+          "npx prisma db push --force-resetx"
+        ],
+        "boundary": [
+          "npx prisma db push --force-reset;echo done"
         ]
       },
       "drizzle-push-force": {
         "tier": "deny",
         "fixtures": [
           "pnpm drizzle-kit push --force"
+        ],
+        "near_miss": [
+          "pnpm drizzle-kit push --forcex"
+        ],
+        "boundary": [
+          "pnpm drizzle-kit push --force;echo done"
         ]
       },
       "rails-db-setup": {
@@ -26,6 +44,12 @@
         "fixtures": [
           "bin/rails db:setup",
           "bundle exec rake db:schema:load"
+        ],
+        "near_miss": [
+          "bin/rails db:setupx"
+        ],
+        "boundary": [
+          "bin/rails db:setup;echo done"
         ]
       },
       "django-flush": {
@@ -33,24 +57,48 @@
         "fixtures": [
           "python manage.py flush",
           "python manage.py reset_db"
+        ],
+        "near_miss": [
+          "python manage.py flushed"
+        ],
+        "boundary": [
+          "python manage.py flush;echo done"
         ]
       },
       "sequelize-undo-all": {
         "tier": "deny",
         "fixtures": [
           "npx sequelize db:migrate:undo:all"
+        ],
+        "near_miss": [
+          "npx sequelize db:migrate:undo:allx"
+        ],
+        "boundary": [
+          "npx sequelize db:migrate:undo:all;echo done"
         ]
       },
       "typeorm-schema-drop": {
         "tier": "deny",
         "fixtures": [
           "npx typeorm schema:drop"
+        ],
+        "near_miss": [
+          "npx typeorm schema:dropx"
+        ],
+        "boundary": [
+          "npx typeorm schema:drop;echo done"
         ]
       },
       "knex-rollback-all": {
         "tier": "deny",
         "fixtures": [
           "npx knex migrate:rollback --all"
+        ],
+        "near_miss": [
+          "npx knex migrate:rollback --allx"
+        ],
+        "boundary": [
+          "npx knex migrate:rollback --all;echo done"
         ]
       },
       "script-db-wipe": {
@@ -61,6 +109,13 @@
           "pnpm run db:nuke",
           "pnpm run db:wipe",
           "pnpm run db:clear"
+        ],
+        "near_miss": [
+          "pnpm run db:resetx"
+        ],
+        "boundary": [
+          "pnpm run db:reset;echo done",
+          "pnpm run api:db:reset"
         ]
       },
       "dropdb": {
@@ -68,6 +123,14 @@
         "fixtures": [
           "dropdb app_dev",
           "sudo -u postgres dropdb app"
+        ],
+        "near_miss": [
+          "echo mydropdb",
+          "echo dropdbx"
+        ],
+        "boundary": [
+          "/usr/bin/dropdb app_dev",
+          "dropdb;echo done"
         ]
       },
       "mysqladmin-drop": {
@@ -75,6 +138,13 @@
         "fixtures": [
           "mysqladmin drop app",
           "mysqladmin -u root drop app"
+        ],
+        "near_miss": [
+          "mysqladmin dropx app",
+          "mysqladmin status"
+        ],
+        "boundary": [
+          "mysqladmin drop;echo done"
         ]
       },
       "drop-database": {
@@ -86,42 +156,80 @@
           "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
           "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
           "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\"",
-          "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\"",
+          "psql -d app_dev -c \"DROP\n\nDATABASE app_dev\"",
           "psql -d app_dev -c 'DROP\\\nDATABASE app_dev'",
           "psql -d app_dev <<'EOF'\nDROP\\\nDATABASE app_dev;\nEOF",
           "psql -d app_dev -c 'DROP\\\nDATABASE app_dev' -v x=\"$y\"",
           "pgcli -c 'DROP --\\\nDATABASE app_dev'"
+        ],
+        "near_miss": [
+          "psql -c \"DROP DATABASEX\""
+        ],
+        "boundary": [
+          "psql -c \"DROP DATABASE;\""
         ]
       },
       "drop-schema": {
         "tier": "deny",
         "fixtures": [
           "psql -d app_dev -c 'DROP SCHEMA public'"
+        ],
+        "near_miss": [
+          "psql -c \"DROP SCHEMAS\""
+        ],
+        "boundary": [
+          "psql -c \"DROP SCHEMA;\""
         ]
       },
       "drop-table": {
         "tier": "deny",
         "fixtures": [
           "psql -d app_dev -c 'DROP TABLE users'"
+        ],
+        "near_miss": [
+          "git commit -m \"drop tables of content\""
+        ],
+        "boundary": [
+          "psql -c \"DROP TABLE;\""
         ]
       },
       "truncate": {
         "tier": "deny",
         "fixtures": [
           "psql -d app_dev -c 'TRUNCATE TABLE users'",
-          "truncate -s 0 app.log"
+          "truncate -s 0 app.log",
+          "pgcli -c \"TRUN\\\nCATE users\""
+        ],
+        "near_miss": [
+          "echo truncated",
+          "git status"
+        ],
+        "boundary": [
+          "echo truncate;"
         ]
       },
       "drop-expansion": {
         "tier": "ask",
         "fixtures": [
           "pgcli -c \"DROP${IFS}DATABASE app_dev\""
+        ],
+        "near_miss": [
+          "echo mydrop*"
+        ],
+        "boundary": [
+          "echo /drop/$x"
         ]
       },
       "drop-expansion-reversed": {
         "tier": "ask",
         "fixtures": [
           "echo {DROP,DATABASE} app_dev"
+        ],
+        "near_miss": [
+          "echo $x mydrop"
+        ],
+        "boundary": [
+          "echo $x/drop"
         ]
       },
       "client-construct": {
@@ -136,6 +244,13 @@
           "pg_restore --list dump.tar",
           "pnpm run db:migrate -- --verbose",
           "mysql -e 'DROP # c\nDATABASE app'"
+        ],
+        "near_miss": [
+          "psql -d app_dev",
+          "echo mypsql $SQL"
+        ],
+        "boundary": [
+          "/usr/bin/psql -c \"$SQL\""
         ]
       },
       "client-construct-reversed": {
@@ -150,6 +265,12 @@
           "echo {a,b} | drizzle-kit studio",
           "echo -- | pg_restore -d app",
           "echo $x && pnpm run db:migrate"
+        ],
+        "near_miss": [
+          "echo $SQL | mypsql"
+        ],
+        "boundary": [
+          "echo $SQL|/usr/bin/psql"
         ]
       },
       "client-after-brace": {
@@ -163,6 +284,9 @@
           "echo {drizzle-kit,x}",
           "echo {pg_restore,x}",
           "pnpm run {db:res,x}et"
+        ],
+        "near_miss": [
+          "echo {x,psql}"
         ]
       }
     },
@@ -181,6 +305,7 @@
       "dash-comment": "psql -d app_dev -c 'DROP--wipe\n  DATABASE app_dev'",
       "unlisted-client-comment": "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
       "backslash-newline": "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\"",
+      "double-newline": "psql -d app_dev -c \"DROP\n\nDATABASE app_dev\"",
       "single-quoted-backslash-newline": "psql -d app_dev -c 'DROP\\\nDATABASE app_dev'",
       "heredoc-backslash-newline": "psql -d app_dev <<'EOF'\nDROP\\\nDATABASE app_dev;\nEOF",
       "ask-beside-backslash-newline": "psql -d app_dev -c 'DROP\\\nDATABASE app_dev' -v x=\"$y\"",
@@ -216,31 +341,66 @@
           "cat ~dev/.ssh/id_ed25519",
           "cat ./../.ssh/id_ed25519",
           "cat ~/.s\\\ns\\\nh/id_ed25519",
-          "cat ~/.s\\\ns\\\nh/id_ed25519"
+          "cat ~/.s\\s\\h/id_ed25519",
+          "cat .env.example .ssh/config"
+        ],
+        "near_miss": [
+          "cat ~/.sshx/id_ed25519",
+          "cat notes.ssh/x"
+        ],
+        "boundary": [
+          "scp host:.ssh/id_ed25519 /tmp/x",
+          "cat ~/.ssh|head -3"
         ]
       },
       "name-aws": {
         "tier": "deny",
         "fixtures": [
           "cat ~/.aws/credentials"
+        ],
+        "near_miss": [
+          "cat ~/.awsx/credentials"
+        ],
+        "boundary": [
+          "cat ~/.aws>/tmp/x"
         ]
       },
       "name-kube": {
         "tier": "deny",
         "fixtures": [
           "sed -n '1,40p' ~/.kube/config"
+        ],
+        "near_miss": [
+          "cat ~/.kubex/config"
+        ],
+        "boundary": [
+          "cat ~/.kube|head -3"
         ]
       },
       "name-kubeconfig": {
         "tier": "deny",
         "fixtures": [
           "cat ~/work/kubeconfig"
+        ],
+        "near_miss": [
+          "kubectl --kubeconfig=./dev.yaml get pods",
+          "cat mykubeconfig"
+        ],
+        "boundary": [
+          "cat ~/work/kubeconfig|head -3",
+          "cat a:kubeconfig"
         ]
       },
       "name-gcloud": {
         "tier": "deny",
         "fixtures": [
           "cat ~/.config/gcloud/credentials.db"
+        ],
+        "near_miss": [
+          "cat ~/.config/gcloudx/x"
+        ],
+        "boundary": [
+          "cat ~/.config/gcloud|head -3"
         ]
       },
       "name-config-vault": {
@@ -251,6 +411,12 @@
           "ls ~/.config/keeper",
           "ls ~/.config/ksm",
           "tar -czf /tmp/state.tgz ~/.config/ghtkn"
+        ],
+        "near_miss": [
+          "ls ~/.config/opx"
+        ],
+        "boundary": [
+          "ls ~/.config/op|head -3"
         ]
       },
       "name-dot-vault": {
@@ -259,6 +425,12 @@
           "cat ~/.1password/x",
           "cat ~/.keeper/x",
           "cat ~/.ghtkn/x"
+        ],
+        "near_miss": [
+          "ls ~/.keeperx"
+        ],
+        "boundary": [
+          "ls ~/.keeper|head -3"
         ]
       },
       "name-share-vault": {
@@ -266,31 +438,67 @@
         "fixtures": [
           "sqlite3 ~/.local/share/atuin/history.db .dump",
           "cat ~/.local/share/ghtkn/token"
+        ],
+        "near_miss": [
+          "ls ~/.local/share/atuinx"
+        ],
+        "boundary": [
+          "ls ~/.local/share/atuin|head -3"
         ]
       },
       "name-atuin": {
         "tier": "deny",
         "fixtures": [
           "cat ~/.atuin/config"
+        ],
+        "near_miss": [
+          "ls ~/.atuinx"
+        ],
+        "boundary": [
+          "ls ~/.atuin|head -3"
         ]
       },
       "name-claude-credentials": {
         "tier": "deny",
         "fixtures": [
           "cat ~/.claude/.credentials.json"
+        ],
+        "near_miss": [
+          "cat ~/.claude/.credentials.jsonl"
+        ],
+        "boundary": [
+          "cat ~/.claude/.credentials.json|head -3"
         ]
       },
       "name-codex-auth": {
         "tier": "deny",
         "fixtures": [
           "cat ~/.codex/auth.json"
+        ],
+        "near_miss": [
+          "cat ~/.codex/auth_json"
+        ],
+        "boundary": [
+          "cat ~/.codex/auth.json|head -3"
         ]
       },
       "name-dotenv": {
         "tier": "deny",
         "fixtures": [
           "cat .env",
-          "rg -n PASSWORD .env.production"
+          "rg -n PASSWORD .env.production",
+          "cat .env/example",
+          "cat .env.example.local",
+          "cat .env.example\"bak\"",
+          "cat .env.example .env.example .env"
+        ],
+        "near_miss": [
+          "cat .envrc",
+          "cat .env.example"
+        ],
+        "boundary": [
+          "cat .env|head -3",
+          "cat<.env"
         ]
       },
       "fragment-expansion": {
@@ -302,6 +510,14 @@
           "sed -n '1,5p' ~/.aw?/credentials",
           "cat ~/.s[s]h/id_ed25519",
           "cat ~/.s{s,x}h/id_ed25519"
+        ],
+        "near_miss": [
+          "rg -n TODO src/*.ts",
+          "grep -r ssh *.md"
+        ],
+        "boundary": [
+          "cat ~/.1pass*/x",
+          "echo FOO=.ss*"
         ]
       },
       "fragment-expansion-reversed": {
@@ -313,6 +529,12 @@
           "ls ? .ss",
           "ls [a] .ss",
           "ls {a,b} .ss"
+        ],
+        "near_miss": [
+          "ls * src.d"
+        ],
+        "boundary": [
+          "ls * FOO=.ss"
         ]
       },
       "slash-dot-expansion": {
@@ -324,6 +546,10 @@
           "ls ~/.?",
           "ls ~/.[a]sh",
           "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}"
+        ],
+        "near_miss": [
+          "ls ../*",
+          "ls ~/repos/paveg/*"
         ]
       },
       "word-dot-expansion": {
@@ -349,6 +575,23 @@
           "cat .$dir/x",
           "cat .`echo ssh`/x",
           "cat .?sh/id_ed25519"
+        ],
+        "boundary": [
+          "true;.{ssh,aws}/x",
+          "true&.{ssh,aws}/x",
+          "true|.{ssh,aws}/x",
+          "cat<.{ssh,aws}/x",
+          "echo x>.{ssh,aws}",
+          "tar -cf /tmp/x.tar --files-from=.{ssh,aws}",
+          "echo {.{ssh,aws},x}",
+          "echo {x,.{ssh,aws}}",
+          "true\t.{ssh,aws}/x"
+        ],
+        "near_miss": [
+          "jq '.[0]' list.json",
+          "rg -n 'import .* from' src/",
+          "sed -n 's/^.*=//p' notes.txt",
+          "prettier --check \"src/**/*.{ts,tsx}\""
         ]
       },
       "dot-paren-glob": {
@@ -358,6 +601,15 @@
           "cat ~/.a(w)s/credentials",
           "cat .e(n)v",
           "cat ~/.(ssh|aws)/config"
+        ],
+        "boundary": [
+          "cat x=.s(s)h/id_ed25519",
+          "cat<.s(s)h/id_ed25519"
+        ],
+        "near_miss": [
+          "git commit -m \"feat(hooks): add the guard\"",
+          "(cd .github && ls)",
+          "git add .claude/hooks && git commit -m \"feat(hooks): add the guard\""
         ]
       },
       "home-dot-glob": {
@@ -371,6 +623,17 @@
           "cd; cat .[s]sh/id_ed25519",
           "pushd && cat .*/credentials",
           "pushd ~ && cat .[a]ws/credentials"
+        ],
+        "boundary": [
+          "cd ~;cat .*/x",
+          "cd ~ && true;.*/x",
+          "cd ~ && cat --files-from=.*/x"
+        ],
+        "near_miss": [
+          "rg -n 'import .* from' src/",
+          "jq '.[0]' list.json",
+          "cd ~ && sed -n 's/^.*=//p' notes.txt",
+          "cd subdir && cat .*/x"
         ]
       },
       "glued-variable-name": {
@@ -393,13 +656,24 @@
           "cat ~/$x.atuin/config",
           "cat ~/$x.codex/auth.json",
           "cat ~/$x.env",
-          "cat ~/$base.ssh/id_ed25519"
+          "cat ~/$base.ssh/id_ed25519",
+          "cat ~/$x_1.ssh/id_ed25519"
+        ],
+        "near_miss": [
+          "cat $FILE.json"
         ]
       },
       "kubeconfig-expansion": {
         "tier": "ask",
         "fixtures": [
           "cat kubeconfig-p*"
+        ],
+        "near_miss": [
+          "cat kubeconfig-prod"
+        ],
+        "boundary": [
+          "cat ~/x/kubeconfig-p*",
+          "echo x=kubeconfig-p*"
         ]
       },
       "kubeconfig-expansion-reversed": {
@@ -407,6 +681,12 @@
         "fixtures": [
           "cat $DIR/kubeconfig-prod",
           "echo {kubeconfig-a,b}"
+        ],
+        "near_miss": [
+          "cat $DIR/mykubeconfig-prod"
+        ],
+        "boundary": [
+          "echo * :kubeconfig-a"
         ]
       }
     },
@@ -436,7 +716,12 @@
       "backslash-split": "cat ~/.s\\sh/id_ed25519",
       "single-quote-split": "cat ~/.s's'h/id_ed25519",
       "double-quote-split": "cat ~/.s\"s\"h/id_ed25519",
-      "backslash-newline": "cat ~/.s\\\ns\\\nh/id_ed25519"
+      "backslash-newline": "cat ~/.s\\\ns\\\nh/id_ed25519",
+      "double-backslash": "cat ~/.s\\s\\h/id_ed25519",
+      "template-then-other-name": "cat .env.example .ssh/config",
+      "template-slash": "cat .env/example",
+      "template-then-dot": "cat .env.example.local",
+      "template-then-quote": "cat .env.example\"bak\""
     },
     "ask": {
       "bare-cd-then-glob": "cd && cat .{ssh,aws}/x",
@@ -492,30 +777,185 @@
     }
   },
   "ordinary": [
-    "ls -la",
-    "git status",
-    "git log --oneline -5",
-    "git diff --stat",
-    "cat README.md",
-    "cat package.json",
-    "rg -n TODO src/*.ts",
-    "find . -name '*.ts'",
-    "grep -r foo src/",
-    "pnpm vitest run",
-    "npm run build -- --watch",
-    "cargo test -- --nocapture",
-    "just test",
-    "nix build .#foo",
-    "docker compose up -d",
-    "kubectl get pods -n default",
-    "aws s3 ls",
-    "tar -czf out.tgz dist/",
-    "echo $HOME",
-    "ls .github/workflows/*.yml",
-    "ls ~/.config/*",
-    "ls ~/.ssh",
-    "psql -c 'select * from users'",
-    "pnpm run db:migrate -- --verbose",
-    "rg -n 'drop' src/*.ts"
+    [
+      "ls -la",
+      "silent",
+      "silent"
+    ],
+    [
+      "git status",
+      "silent",
+      "silent"
+    ],
+    [
+      "git log --oneline -5",
+      "silent",
+      "silent"
+    ],
+    [
+      "git diff --stat",
+      "silent",
+      "silent"
+    ],
+    [
+      "cat README.md",
+      "silent",
+      "silent"
+    ],
+    [
+      "cat package.json",
+      "silent",
+      "silent"
+    ],
+    [
+      "rg -n TODO src/*.ts",
+      "silent",
+      "silent"
+    ],
+    [
+      "find . -name '*.ts'",
+      "silent",
+      "silent"
+    ],
+    [
+      "grep -r foo src/",
+      "silent",
+      "silent"
+    ],
+    [
+      "pnpm vitest run",
+      "silent",
+      "silent"
+    ],
+    [
+      "npm run build -- --watch",
+      "silent",
+      "silent"
+    ],
+    [
+      "cargo test -- --nocapture",
+      "silent",
+      "silent"
+    ],
+    [
+      "just test",
+      "silent",
+      "silent"
+    ],
+    [
+      "nix build .#foo",
+      "silent",
+      "silent"
+    ],
+    [
+      "docker compose up -d",
+      "silent",
+      "silent"
+    ],
+    [
+      "kubectl get pods -n default",
+      "silent",
+      "silent"
+    ],
+    [
+      "aws s3 ls",
+      "silent",
+      "silent"
+    ],
+    [
+      "tar -czf out.tgz dist/",
+      "silent",
+      "silent"
+    ],
+    [
+      "echo $HOME",
+      "silent",
+      "silent"
+    ],
+    [
+      "ls .github/workflows/*.yml",
+      "silent",
+      "ask"
+    ],
+    [
+      "ls ~/.config/*",
+      "silent",
+      "ask"
+    ],
+    [
+      "ls ~/.ssh",
+      "silent",
+      "deny"
+    ],
+    [
+      "psql -c 'select * from users'",
+      "ask",
+      "silent"
+    ],
+    [
+      "pnpm run db:migrate -- --verbose",
+      "ask",
+      "silent"
+    ],
+    [
+      "rg -n 'drop' src/*.ts",
+      "ask",
+      "silent"
+    ],
+    [
+      "git commit -m \"docs: drop table of contents\"",
+      "deny",
+      "silent"
+    ],
+    [
+      "KUBECONFIG=./dev.yaml kubectl get pods",
+      "silent",
+      "deny"
+    ],
+    [
+      "op run --env-file=.env -- just serve",
+      "silent",
+      "deny"
+    ],
+    [
+      "op run --env-file=.env.example -- just serve",
+      "silent",
+      "silent"
+    ],
+    [
+      "jq '.[0]' list.json",
+      "silent",
+      "silent"
+    ],
+    [
+      "jq '.[] | .name' package.json",
+      "silent",
+      "ask"
+    ],
+    [
+      "git add .claude/hooks && git commit -m \"feat(hooks): add the guard\"",
+      "silent",
+      "silent"
+    ],
+    [
+      "sed -E 's/([0-9]+)\\.([0-9]+)/\\1/' version.txt",
+      "silent",
+      "ask"
+    ],
+    [
+      "ls -d .?*",
+      "silent",
+      "ask"
+    ],
+    [
+      "cd ~ && ls",
+      "silent",
+      "silent"
+    ],
+    [
+      "cd ~ && git status",
+      "silent",
+      "silent"
+    ]
   ]
 }

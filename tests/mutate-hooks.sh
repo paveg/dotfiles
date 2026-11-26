@@ -229,10 +229,50 @@ expect_caught 'sensitive-rule-word-dot-expansion-fires-18:' 'a backtick straight
 expect_caught 'sensitive-rule-word-dot-expansion-fires-19:' 'a question mark straight after a leading dot is not an expansion' \
   "$sensitive" $'word_dot_expansion=\'[{$`?]\'' $'word_dot_expansion=\'[{$`]\''
 
+expect_caught 'sensitive-rule-word-dot-expansion-fires-20:' 'a semicolon is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:]&|<>={,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-21:' 'an ampersand is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:];|<>={,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-22:' 'a pipe is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:];&<>={,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-23:' 'a less-than sign is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:];&|>={,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-24:' 'a greater-than sign is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:];&|<={,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-25:' 'an equals sign is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:];&|<>{,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-26:' 'an opening brace is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:];&|<>=,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-27:' 'a comma is not a character a word starts after' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[[:space:];&|<>={])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-28:' 'only a space, not a tab, may stand before a leading dot' \
+  "$sensitive" '(^|[[:space:];&|<>={,])[.]' '(^|[ ;&|<>={,])[.]'
+
+expect_caught 'sensitive-rule-word-dot-expansion-near-miss-0 sensitive-rule-word-dot-expansion-near-miss-1' \
+  'a star and a bracket after a leading dot are expansions, so a regex and a jq filter are asked about' \
+  "$sensitive" $'word_dot_expansion=\'[{$`?]\'' $'word_dot_expansion=\'[{$`?*[]\''
+
 expect_caught 'sensitive-rule-dot-paren-glob-fires-3:' \
   'a parenthesis glob in a dot-word is no longer noticed' \
   "$sensitive" $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]*[(]"' \
   $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]+[(]"'
+
+expect_caught 'sensitive-rule-dot-paren-glob-near-miss-2:' \
+  'a parenthesis anywhere in a command that names a dot-file is asked about' \
+  "$sensitive" $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]*[(]"' \
+  $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-].*[(]"'
+
+expect_caught 'sensitive-rule-dot-paren-glob-fires-4: sensitive-rule-dot-paren-glob-fires-5:' \
+  'a dot-word after punctuation is not a dot-word' \
+  "$sensitive" $'guard_rule dot-paren-glob ask "${guard_name_start}[.]' $'guard_rule dot-paren-glob ask "(^|[[:space:]])[.]'
 
 # After a move home, `.*` and `.[` are a read of the hidden names there.
 expect_caught 'sensitive-rule-home-dot-glob-fires-0:' 'a star after a leading dot is not an expansion after a move home' \
@@ -252,6 +292,21 @@ expect_caught 'sensitive-rule-home-dot-glob-fires-6:' 'a pushd with no argument 
 
 expect_caught 'sensitive-rule-home-dot-glob-fires-7:' 'a pushd to the home directory is not noticed' \
   "$sensitive" "home_cd='(cd|pushd)" "home_cd='(cd)"
+
+expect_caught 'sensitive-rule-home-dot-glob-fires-8:' \
+  'a move home ends only at a space, not at a semicolon' \
+  "$sensitive" '([^[:alnum:]_/-]|$)' '([[:space:]]|$)'
+
+expect_caught 'sensitive-rule-home-dot-glob-fires-9: sensitive-rule-home-dot-glob-fires-10:' \
+  'a dot-star starts a word only after a space, not after a semicolon or an equals sign' \
+  "$sensitive" '.*[[:space:];&|<>={,][.][*[]"' '.*[[:space:]][.][*[]"'
+
+expect_caught 'sensitive-rule-home-dot-glob-near-miss-0: sensitive-rule-home-dot-glob-near-miss-1:' \
+  'a dot-star is asked about whether or not a move home came before it' \
+  "$sensitive" 'guard_rule home-dot-glob ask "(${home_cd}|${bare_cd}).*' 'guard_rule home-dot-glob ask "'
+
+expect_caught 'sensitive-rule-home-dot-glob-near-miss-3:' 'a move to any directory counts as a move home' \
+  "$sensitive" "home_cd='(cd|pushd)[[:space:]]+(~|" "home_cd='(cd|pushd)[[:space:]]+([^[:space:]]+|~|"
 
 expect_caught sensitive-rule-kubeconfig-expansion-reversed-fires-1 \
   'a name straight after the expansion is no longer noticed' \
@@ -326,7 +381,42 @@ expect_caught 'db-deny-sql-wipe-uppercase db-deny-sql-drop-db' \
 expect_caught db-deny-multiline-no-indent 'newlines are left in place, so grep matches one line at a time' \
   "$guard" $'  text=${text//$\'\\n\'/ }\n' ''
 
-# The engine on input where a backslash ends a line.
+# A rule that reaches past its target, and the edges of a pattern: each is
+# proved by a near miss or by a fixture that sits at a punctuation edge.
+expect_caught 'db-rule-truncate-near-miss-0:' 'a verb that continues into a longer word is still the verb' \
+  "$db" $'guard_rule truncate deny "truncate${name_end}"\n' $'guard_rule truncate deny "truncate"\n'
+
+expect_caught 'db-ordinary-1: db-rule-truncate-near-miss-1:' 'an unrelated command is denied beside the verb' \
+  "$db" $'guard_rule truncate deny "truncate${name_end}"\n' $'guard_rule truncate deny "(truncate|git)${name_end}"\n'
+
+expect_caught 'sensitive-rule-name-codex-auth-near-miss-0:' 'the dot in the auth file name matches any character' \
+  "$sensitive" "'[.]codex/auth[.]json'" "'[.]codex/auth.json'"
+
+expect_caught 'db-rule-script-db-wipe-fires-5: db-rule-prisma-migrate-reset-fires-2:' 'a name ends only at a space, not at a semicolon' \
+  "$db" "name_end='([^[:alnum:]_]|\$)'" "name_end='([[:space:]]|\$)'"
+
+expect_caught 'db-rule-dropdb-fires-2:' 'the wipe binary counts only after a space, not after a slash' \
+  "$db" '(^|[^[:alnum:]_])dropdb' '(^|[[:space:]])dropdb'
+
+expect_caught 'db-rule-script-db-wipe-fires-6:' 'a wipe script counts only after a space, not after a colon' \
+  "$db" 'guard_rule script-db-wipe deny "db:(' 'guard_rule script-db-wipe deny "(^|[[:space:]])db:('
+
+expect_caught 'db-rule-drop-expansion-reversed-fires-1:' 'a verb counts only straight after the expansion' \
+  "$db" '"${guard_expansion}(.*[^[:alnum:]_-])?drop"' '"${guard_expansion}drop"'
+
+expect_caught 'sensitive-rule-name-ssh-fires-6:' 'a name counts only after a space or a slash, not after a colon' \
+  "$guard" "guard_name_start='(^|[^[:alnum:]_-])'" "guard_name_start='(^|[^[:alnum:]_:-])'"
+
+expect_caught 'sensitive-rule-name-dotenv-fires-6:' 'a name ends only at a slash, a dot or a space, not at a pipe' \
+  "$sensitive" "name_end='([^[:alnum:]_-]|\$)'" "name_end='([/.[:space:]]|\$)'"
+
+expect_caught 'sensitive-rule-fragment-expansion-fires-6:' 'a name after a dot starts with a letter, not a digit' \
+  "$sensitive" 'fragment="${guard_name_start}[.][[:alnum:]_-]"' 'fragment="${guard_name_start}[.][[:alpha:]]"'
+
+expect_caught 'sensitive-rule-glued-variable-name-fires-18:' 'a variable name has letters only, no digit or underscore' \
+  "$sensitive" '"[$][[:alnum:]_]+(${glued_names})"' '"[$][[:alpha:]]+(${glued_names})"'
+
+# The engine on input that repeats what it removes.
 expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'a backslash and its newline are not removed as a pair' \
   "$guard" $'  text=${text//\\\\$\'\\n\'/$2}\n' ''
 
@@ -347,6 +437,34 @@ expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' \
 
 expect_caught 'db-deny-ask-beside-backslash-newline:' 'an ask outranks a deny when the two readings differ' \
   "$guard" $'  ask*) printf 1 ;;\n' $'  ask*) printf 5 ;;\n'
+
+expect_caught 'sensitive-deny-double-backslash:' 'only the first backslash is removed' \
+  "$guard" $'  text=${text//\\\\/}\n' $'  text=${text/\\\\/}\n'
+
+expect_caught 'db-deny-double-newline:' 'only the first newline is flattened' \
+  "$guard" $'  text=${text//$\'\\n\'/ }\n' $'  text=${text/$\'\\n\'/ }\n'
+
+expect_caught 'sensitive-deny-template-slash:' 'the dot of an exempt token matches any character' \
+  "$guard" '${token//./[.]}' '${token}'
+
+expect_caught 'sensitive-deny-template-then-dot:' 'an exempt token may run into a dot and still be removed' \
+  "$guard" '([^[:alnum:]_.-]|$)"' '([^[:alnum:]_-]|$)"'
+
+expect_caught 'sensitive-deny-template-then-other-name:' 'an exempt token takes the characters around it with it' \
+  "$guard" 'text=${text/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}${BASH_REMATCH[2]}"}' 'text=${text/"${BASH_REMATCH[0]}"/}'
+
+expect_caught 'sensitive-deny-template-then-quote:' 'the exempt tokens are removed before the quotes are' \
+  "$guard" $'    scan=$(guard_normalize "$1" "$joiner")\n    scan=$(guard_drop_exempt_tokens "$scan")\n' \
+  $'    scan=$(guard_drop_exempt_tokens "$1")\n    scan=$(guard_normalize "$scan" "$joiner")\n'
+
+# The checks that demand the proofs above.
+expect_caught 'db-rule-unproven-has-near-miss' 'a rule with no near miss and no reason is added' \
+  "$db" $'guard_rule truncate deny "truncate${name_end}"\n' \
+  $'guard_rule truncate deny "truncate${name_end}"\nguard_rule unproven deny "unproven-thing"\n'
+
+expect_caught 'db-rule-unbounded-has-boundary' 'a rule with a boundary class and no boundary fixture is added' \
+  "$db" $'guard_rule truncate deny "truncate${name_end}"\n' \
+  $'guard_rule truncate deny "truncate${name_end}"\nguard_rule unbounded deny "(^|[^[:alnum:]_])unbounded"\n'
 
 # The build.
 expect_caught 'db-pass-list-files sensitive-pass-read-readme' \

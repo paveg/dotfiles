@@ -21,6 +21,8 @@ src_dir=$(cd "${1:-$repo_dir}" && pwd)
 manifest=$repo_dir/tests/fixtures/hooks/commands.json
 malformed_dir=$repo_dir/tests/fixtures/hooks/malformed
 nix_flags=(--extra-experimental-features 'nix-command flakes')
+# What a rule proves itself with: its fixtures and its boundary fixtures.
+proving='((.fixtures // []) + (.boundary // []))'
 
 # The physical path: a `path:` flakeref refuses a directory reached through a
 # symlink, and macOS puts mktemp's directory under /var, a link to /private/var.
@@ -265,16 +267,17 @@ texts)
   ;;
 list)
   for index in "${!guard_rule_ids[@]}"; do
-    printf '%s\t%s\n' "${guard_rule_ids[index]}" "${guard_rule_tiers[index]}"
+    printf '%s\t%s\t%s\n' "${guard_rule_ids[index]}" "${guard_rule_tiers[index]}" "${guard_rule_regexes[index]}"
   done
   ;;
 without) # <manifest> <guard key>
   manifest=$4
   key=$5
+  proving=$6
   for id in "${guard_rule_ids[@]}"; do
-    count=$(jq -r --arg g "$key" --arg id "$id" '(.[$g].rules[$id].fixtures // []) | length' "$manifest")
+    count=$(jq -r --arg g "$key" --arg id "$id" "(.[\$g].rules[\$id] | $proving) | length" "$manifest")
     for ((n = 0; n < count; n++)); do
-      fixture=$(jq -j --arg g "$key" --arg id "$id" --argjson n "$n" '.[$g].rules[$id].fixtures[$n]' "$manifest")
+      fixture=$(jq -j --arg g "$key" --arg id "$id" --argjson n "$n" ".[\$g].rules[\$id] | $proving | .[\$n]" "$manifest")
       verdict=$(
         without_rule "$id"
         guard_decide "$fixture"
@@ -300,7 +303,7 @@ for guard in db sensitive; do
   run_harness "$guard" list >"$rules" || die "listing the $guard rules failed"
   advice=$(run_harness "$guard" texts | sed -n 1p)
   ask_why=$(run_harness "$guard" texts | sed -n 2p)
-  run_harness "$guard" without "$manifest" "$guard" >"$verdicts" ||
+  run_harness "$guard" without "$manifest" "$guard" "$proving" >"$verdicts" ||
     die "deciding the $guard fixtures without their rules failed"
 
   duplicates=$(cut -f1 "$rules" | sort | uniq -d | tr '\n' ' ')
@@ -318,8 +321,27 @@ for guard in db sensitive; do
     fail "$guard-fixtures-name-known-rules" "no such rule: $unknown"
   fi
 
-  while IFS=$'\t' read -r id table_tier; do
-    count=$(jq -r --arg g "$guard" --arg id "$id" '(.[$g].rules[$id].fixtures // []) | length' "$manifest")
+  while IFS=$'\t' read -r id table_tier regex; do
+    count=$(jq -r --arg g "$guard" --arg id "$id" ".[\$g].rules[\$id] | $proving | length" "$manifest")
+    near_misses=$(jq -r --arg g "$guard" --arg id "$id" '(.[$g].rules[$id].near_miss // []) | length' "$manifest")
+    # A rule that is too broad is invisible to fixtures that it should catch, so
+    # each rule also names a command beside its target that has to stay out of
+    # its reach. A rule with no such command says why.
+    if ((near_misses > 0)) ||
+      [[ -n $(jq -r --arg g "$guard" --arg id "$id" '.[$g].rules[$id].near_miss_none // empty' "$manifest") ]]; then
+      ok "$guard-rule-$id-has-near-miss"
+    else
+      fail "$guard-rule-$id-has-near-miss" "no near_miss fixture and no near_miss_none reason in $manifest"
+    fi
+    # A boundary class is a character set a pattern's edge accepts. A fixture
+    # whose edge is a space or a letter cannot tell a narrowed class from the
+    # real one, so a rule with such an edge needs a fixture at a punctuation edge.
+    if [[ $regex != *'[^[:alnum:]_'* && $regex != *'(^|[[:space:]'* ]] ||
+      [[ -n $(jq -r --arg g "$guard" --arg id "$id" '(.[$g].rules[$id].boundary // [])[0] // .[$g].rules[$id].boundary_none // empty' "$manifest") ]]; then
+      ok "$guard-rule-$id-has-boundary"
+    else
+      fail "$guard-rule-$id-has-boundary" "the pattern has a boundary class but $manifest has no boundary fixture and no boundary_none reason"
+    fi
     if ((count == 0)); then
       fail "$guard-rule-$id-has-fixture" "no fixture in $manifest; a rule nothing proves can be broken unseen"
       continue
@@ -334,11 +356,11 @@ for guard in db sensitive; do
     fi
     for ((n = 0; n < count; n++)); do
       input=$(hook_input "$(jq -j --arg g "$guard" --arg id "$id" --argjson n "$n" \
-        '.[$g].rules[$id].fixtures[$n]' "$manifest")")
+        ".[\$g].rules[\$id] | $proving | .[\$n]" "$manifest")")
       expect_decision "$guard-rule-$id-fires-$n" "$hook" "$input" "$tier" "Rule: $id"$'\n'
       reason=$(field_of .hookSpecificOutput.permissionDecisionReason "$hook_out")
       fixture=$(jq -j --arg g "$guard" --arg id "$id" --argjson n "$n" \
-        '.[$g].rules[$id].fixtures[$n]' "$manifest")
+        ".[\$g].rules[\$id] | $proving | .[\$n]" "$manifest")
       if [[ $reason != *"Command: $fixture"* ]]; then
         fail "$guard-rule-$id-reason-$n" "the reason does not quote the command"
       elif [[ $reason != *"$advice"* ]]; then
@@ -359,28 +381,44 @@ for guard in db sensitive; do
         fail "$guard-rule-$id-alone-$n" "still a $tier without the rule ($without), so another rule masks it"
       fi
     done
+    for ((n = 0; n < near_misses; n++)); do
+      input=$(hook_input "$(jq -j --arg g "$guard" --arg id "$id" --argjson n "$n" \
+        '.[$g].rules[$id].near_miss[$n]' "$manifest")")
+      run_hook "$hook" "$input"
+      reason=$(field_of .hookSpecificOutput.permissionDecisionReason "$hook_out")
+      if ((hook_rc != 0)); then
+        fail "$guard-rule-$id-near-miss-$n" "exit $hook_rc"
+      elif [[ $reason == *"Rule: $id"$'\n'* ]]; then
+        fail "$guard-rule-$id-near-miss-$n" "the rule reaches a command it should leave alone"
+      else
+        ok "$guard-rule-$id-near-miss-$n"
+      fi
+    done
   done <"$rules"
 done
 
-# Commands a person types every day, to show what the shape rules cost. Not a
-# check: the counts are read off this line.
+# Commands a person types every day, each with the decision it gets from each
+# guard. A shape rule that widens or an exact rule that over-matches changes one
+# of them; the tally printed after each guard is what docs/verification.md
+# quotes.
 for guard in db sensitive; do
   denied=0 asked=0 silent=0 total=0
-  while IFS= read -r command; do
-    run_hook "$(hook_for "$guard")" "$(hook_input "$command")"
+  while IFS=$'\t' read -r n command expected; do
+    input=$(hook_input "$command")
+    case $expected in
+    deny) expect_deny "$guard-ordinary-$n" "$(hook_for "$guard")" "$input" ;;
+    ask) expect_ask "$guard-ordinary-$n" "$(hook_for "$guard")" "$input" ;;
+    silent) expect_silent "$guard-ordinary-$n" "$(hook_for "$guard")" "$input" ;;
+    *) die "unknown expectation '$expected' for ordinary command $n in $manifest" ;;
+    esac
     total=$((total + 1))
-    case $(field_of .hookSpecificOutput.permissionDecision "$hook_out") in
-    deny)
-      denied=$((denied + 1))
-      echo "measured: $guard denied: $command"
-      ;;
-    ask)
-      asked=$((asked + 1))
-      echo "measured: $guard asked: $command"
-      ;;
+    case $expected in
+    deny) denied=$((denied + 1)) ;;
+    ask) asked=$((asked + 1)) ;;
     *) silent=$((silent + 1)) ;;
     esac
-  done < <(jq -r '.ordinary[]' "$manifest")
+  done < <(jq -r --arg g "$guard" '.ordinary | to_entries[]
+    | "\(.key)\t\(.value[0])\t\(if $g == "db" then .value[1] else .value[2] end)"' "$manifest")
   echo "measured: $guard guard on $total ordinary commands: $denied denied, $asked asked, $silent silent"
 done
 
