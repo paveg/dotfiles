@@ -4,7 +4,7 @@
 
 guard_subject='The sensitive-read guard'
 
-guard_ask_why='a hidden file or directory name, or a move into the home directory, next to a shell expansion, so the path that is read may be built at run time where no matcher can read it'
+guard_ask_why='a hidden file or directory name next to a shell expansion, so the path that is read may be built at run time where no matcher can read it'
 
 guard_advice='These paths hold credentials, cluster access, or shell history that must not reach an agent transcript. Take the value from its vault at run time instead: op run, ksm exec, or ghtkn exec.'
 
@@ -50,21 +50,26 @@ fragment="${guard_name_start}[.][[:alnum:]_-]"
 guard_rule_both_orders fragment-expansion ask "$fragment" "$guard_expansion"
 guard_rule slash-dot-expansion ask "/[.]${guard_expansion}"
 
+# A word that starts with a dot and an expansion is a hidden name whatever
+# directory it is read from, so a `cd` home needs no rule of its own
+# (`cd ~ && cat .{ssh,aws}/x`, `cd; cat .{ssh,aws}/x`, `pushd "$HOME" && ...`).
+# `*` and `[` stay out of the class: `.*` and `.[` start a regex or a jq filter
+# far more often than a glob (`rg 'import .* from'`, `jq '.[0]'`).
+word_dot_expansion='[{$`?]'
+guard_rule word-dot-expansion ask "(^|[[:space:];&|<>={,])[.]${word_dot_expansion}"
+
+# zsh, the shell of the Bash tool on the Macs, globs with parentheses too
+# (`~/.s(s)h`). `(` in the expansion class would ask about every `fix(scope)`
+# commit message that names a dot-file, so only a parenthesis inside a dot-word
+# counts.
+guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]*[(]"
+
 # An unbraced variable runs into the name that follows it (`~/$x.ssh`), so the
 # character before the dot is a name character and no name rule sees a name.
 guard_rule glued-variable-name ask "[$][[:alnum:]_]+(${glued_names})"
 
 guard_rule kubeconfig-expansion ask "${guard_name_start}kubeconfig.*${guard_expansion}"
 guard_rule kubeconfig-expansion-reversed ask "${guard_expansion}(.*[^[:alnum:]_-])?kubeconfig"
-
-# `cd ~` counts as naming the home directory, because what follows it needs no
-# path at all (`cd ~ && cat .{ssh,aws}/x`).
-home_cd='cd[[:space:]]+(~|[$][{]?home[}]?)/?([^[:alnum:]_/-]|$)'
-guard_rule_both_orders home-cd-expansion ask "$home_cd" "$guard_expansion"
-
-# A `cd` or `pushd` with no argument goes home too.
-bare_cd="${guard_name_start}(cd|pushd)[[:space:]]*([;&|]|\$)"
-guard_rule_both_orders bare-cd-expansion ask "$bare_cd" "$guard_expansion"
 
 # Committed templates, exempt where the token stands alone.
 guard_exempt_tokens=(

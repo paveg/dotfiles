@@ -85,6 +85,7 @@
           "psql -d app_dev -c \"DROP\nDATABASE app_dev\"",
           "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
           "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
+          "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\"",
           "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\""
         ]
       },
@@ -206,6 +207,7 @@
           "cat ~/.ssh/id_ed25519",
           "cat ~dev/.ssh/id_ed25519",
           "cat ./../.ssh/id_ed25519",
+          "cat ~/.s\\\ns\\\nh/id_ed25519",
           "cat ~/.s\\\ns\\\nh/id_ed25519"
         ]
       },
@@ -316,6 +318,40 @@
           "tar -czf /tmp/state.tgz \"$HOME\"/.{ssh,aws}"
         ]
       },
+      "word-dot-expansion": {
+        "tier": "ask",
+        "fixtures": [
+          "cd && cat .{ssh,aws}/x",
+          "cd; cat .{ssh,aws}/x",
+          "cd || cat .{ssh,aws}/x",
+          "pushd && cat .{ssh,aws}/x",
+          "cd ~ && cat .{ssh,aws}/credentials",
+          "cd $HOME && cat .{ssh,aws}/credentials",
+          "cd ${HOME} && cat .{ssh,aws}/credentials",
+          "cd ~/ && cat .{ssh,aws}/credentials",
+          "cd -- ~ && cat .{ssh,aws}/x",
+          "cd -P ~ && cat .{ssh,aws}/x",
+          "cd ~dev && cat .{ssh,aws}/x",
+          "cd /Users/dev && cat .{ssh,aws}/x",
+          "cd >/dev/null && cat .{ssh,aws}/x",
+          "cd # go home\ncat .{ssh,aws}/x",
+          "cd\ncat .{ssh,aws}/x",
+          "pushd \"$HOME\" && cat .{ssh,aws}/x",
+          "cat .{ssh,aws}/x",
+          "cat .$dir/x",
+          "cat .`echo ssh`/x",
+          "cat .?sh/id_ed25519"
+        ]
+      },
+      "dot-paren-glob": {
+        "tier": "ask",
+        "fixtures": [
+          "cat ~/.s(s)h/id_ed25519",
+          "cat ~/.a(w)s/credentials",
+          "cat .e(n)v",
+          "cat ~/.(ssh|aws)/config"
+        ]
+      },
       "glued-variable-name": {
         "tier": "ask",
         "fixtures": [
@@ -339,22 +375,6 @@
           "cat ~/$base.ssh/id_ed25519"
         ]
       },
-      "bare-cd-expansion": {
-        "tier": "ask",
-        "fixtures": [
-          "cd && cat .{ssh,aws}/x",
-          "cd; cat .{ssh,aws}/x",
-          "cd || cat .{ssh,aws}/x",
-          "pushd && cat .{ssh,aws}/x"
-        ]
-      },
-      "bare-cd-expansion-reversed": {
-        "tier": "ask",
-        "fixtures": [
-          "echo {a,b}; cd",
-          "echo {a,b}; pushd"
-        ]
-      },
       "kubeconfig-expansion": {
         "tier": "ask",
         "fixtures": [
@@ -366,25 +386,6 @@
         "fixtures": [
           "cat $DIR/kubeconfig-prod",
           "echo {kubeconfig-a,b}"
-        ]
-      },
-      "home-cd-expansion": {
-        "tier": "ask",
-        "fixtures": [
-          "cd ~ && cat .{ssh,aws}/credentials",
-          "cd $HOME && cat .{ssh,aws}/credentials",
-          "cd ${HOME} && cat .{ssh,aws}/credentials",
-          "cd ~/ && cat .{ssh,aws}/credentials",
-          "cd  ~ && cat .{ssh,aws}/credentials"
-        ]
-      },
-      "home-cd-expansion-reversed": {
-        "tier": "ask",
-        "fixtures": [
-          "echo {a,b}; cd ~",
-          "echo {a,b}; cd $HOME",
-          "echo {a,b}; cd ${HOME}",
-          "echo {a,b}; cd ~/"
         ]
       }
     },
@@ -431,7 +432,11 @@
       "variable-stem": "x=.ss; cat ~/${x}h/id_ed25519",
       "cd-home-brace": "cd ~ && cat .{ssh,aws}/credentials",
       "dotdir-glob": "ls .github/workflows/*.yml",
-      "config-glob": "ls ~/.config/*"
+      "config-glob": "ls ~/.config/*",
+      "paren-glob": "cat ~/.s(s)h/id_ed25519",
+      "dot-brace-no-cd": "cat .{ssh,aws}/x",
+      "pushd-home-brace": "pushd ~ && cat .{ssh,aws}/x",
+      "cd-newline-brace": "cd\ncat .{ssh,aws}/x"
     },
     "pass": {
       "read-readme": "cat README.md",

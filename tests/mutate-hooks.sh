@@ -215,14 +215,24 @@ expect_caught sensitive-fixtures-name-known-rules 'an expansion that replaces a 
 expect_caught 'sensitive-fixtures-name-known-rules sensitive-ask-variable-glued-before-ssh' 'a variable glued before a protected name is no longer noticed' \
   "$sensitive" $'guard_rule glued-variable-name ask "[$][[:alnum:]_]+(${glued_names})"\n' ''
 
-expect_caught sensitive-rule-home-cd-expansion-fires-1 'the $HOME form of moving home is not noticed' \
-  "$sensitive" "(~|[\$][{]?home[}]?)" "(~)"
+# A leading dot and an expansion, wherever the word stands: each character of
+# the class, and each character that may stand before the dot.
+expect_caught 'sensitive-rule-word-dot-expansion-fires-0:' 'a brace straight after a leading dot is not an expansion' \
+  "$sensitive" $'word_dot_expansion=\'[{$`?]\'' $'word_dot_expansion=\'[$`?]\''
 
-expect_caught sensitive-rule-home-cd-expansion-fires-3 'a trailing slash after the home directory is not noticed' \
-  "$sensitive" "[}]?)/?(" "[}]?)("
+expect_caught 'sensitive-rule-word-dot-expansion-fires-17:' 'a dollar sign straight after a leading dot is not an expansion' \
+  "$sensitive" $'word_dot_expansion=\'[{$`?]\'' $'word_dot_expansion=\'[{`?]\''
 
-expect_caught sensitive-rule-bare-cd-expansion-fires-3 'a pushd with no argument is not noticed' \
-  "$sensitive" '(cd|pushd)' '(cd)'
+expect_caught 'sensitive-rule-word-dot-expansion-fires-18:' 'a backtick straight after a leading dot is not an expansion' \
+  "$sensitive" $'word_dot_expansion=\'[{$`?]\'' $'word_dot_expansion=\'[{$?]\''
+
+expect_caught 'sensitive-rule-word-dot-expansion-fires-19:' 'a question mark straight after a leading dot is not an expansion' \
+  "$sensitive" $'word_dot_expansion=\'[{$`?]\'' $'word_dot_expansion=\'[{$`]\''
+
+expect_caught 'sensitive-rule-dot-paren-glob-fires-3:' \
+  'a parenthesis glob in a dot-word is no longer noticed' \
+  "$sensitive" $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]*[(]"' \
+  $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]+[(]"'
 
 expect_caught sensitive-rule-kubeconfig-expansion-reversed-fires-1 \
   'a name straight after the expansion is no longer noticed' \
@@ -296,6 +306,13 @@ expect_caught 'db-deny-sql-wipe-uppercase db-deny-sql-drop-db' \
 
 expect_caught db-deny-multiline-no-indent 'newlines are left in place, so grep matches one line at a time' \
   "$guard" $'  text=${text//$\'\\n\'/ }\n' ''
+
+# The engine on input where a backslash ends a line.
+expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'a backslash and its newline are not removed as a pair' \
+  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' ''
+
+expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'only the first backslash and newline pair is removed' \
+  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' $'  text=${text/\\\\$\'\\n\'/}\n'
 
 # The engine on input where a backslash ends a line.
 expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'a backslash and its newline are not removed as a pair' \
