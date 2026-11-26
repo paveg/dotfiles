@@ -103,6 +103,45 @@ expect_caught db-rule-script-db-wipe-fires-3 'one of the wipe scripts is not lis
 expect_caught db-rule-django-flush-fires-1 'one of the django commands is not listed' \
   "$db" '(flush|reset_db)' '(flush)'
 
+expect_caught 'db-rule-prisma-migrate-reset-fires-2: db-rule-prisma-migrate-reset-fires-3:' 'a version after prisma is not noticed' \
+  "$db" '"prisma${version}[[:space:]].*migrate' '"prisma[[:space:]].*migrate'
+
+expect_caught 'db-rule-prisma-migrate-reset-fires-3:' 'a version is digits only, not a tag' \
+  "$db" "version='(@[^[:space:]]*)?'" "version='(@[[:digit:].]*)?'"
+
+expect_caught 'db-rule-prisma-push-force-reset-fires-2:' 'a version after prisma is not noticed before db push' \
+  "$db" '"prisma${version}[[:space:]].*db' '"prisma[[:space:]].*db'
+
+expect_caught 'db-rule-drizzle-push-force-fires-1:' 'a version after drizzle-kit is not noticed' \
+  "$db" '"drizzle-kit${version}' '"drizzle-kit'
+
+expect_caught 'db-rule-sequelize-undo-all-fires-2: db-rule-sequelize-undo-all-fires-3:' 'a version after sequelize is not noticed' \
+  "$db" '"sequelize(-cli)?${version}' '"sequelize(-cli)?'
+
+expect_caught 'db-rule-sequelize-undo-all-fires-1: db-rule-sequelize-undo-all-fires-2:' 'the sequelize-cli binary is not listed' \
+  "$db" '"sequelize(-cli)?${version}' '"sequelize${version}'
+
+expect_caught 'db-rule-sequelize-undo-all-near-miss-1:' 'any suffix after sequelize is another binary of it' \
+  "$db" '"sequelize(-cli)?${version}' '"sequelize(-[[:alnum:]-]*)?${version}'
+
+expect_caught 'db-rule-typeorm-schema-drop-fires-1: db-rule-typeorm-schema-drop-fires-2:' 'the typeorm binaries for ts-node are not listed' \
+  "$db" '"typeorm(-ts-node-(commonjs|esm))?${version}' '"typeorm${version}'
+
+expect_caught 'db-rule-typeorm-schema-drop-fires-2:' 'the ESM binary of typeorm is not listed' \
+  "$db" '(commonjs|esm)' '(commonjs)'
+
+expect_caught 'db-rule-typeorm-schema-drop-fires-1:' 'the CommonJS binary of typeorm is not listed' \
+  "$db" '(commonjs|esm)' '(esm)'
+
+expect_caught 'db-rule-typeorm-schema-drop-fires-3:' 'a version after typeorm is not noticed' \
+  "$db" '"typeorm(-ts-node-(commonjs|esm))?${version}' '"typeorm(-ts-node-(commonjs|esm))?'
+
+expect_caught 'db-rule-typeorm-schema-drop-near-miss-1:' 'any suffix after typeorm is another binary of it' \
+  "$db" '"typeorm(-ts-node-(commonjs|esm))?${version}' '"typeorm(-[[:alnum:]-]*)?${version}'
+
+expect_caught 'db-rule-knex-rollback-all-fires-2:' 'a version after knex is not noticed' \
+  "$db" '"knex${version}[[:space:]].*migrate' '"knex[[:space:]].*migrate'
+
 expect_caught db-rule-client-construct-fires-2 'one database client is not listed' \
   "$db" "client='(psql|mysql|mariadb|" "client='(psql|mysql|"
 
@@ -395,7 +434,7 @@ expect_caught 'db-ordinary-1: db-rule-truncate-near-miss-1:' 'an unrelated comma
 expect_caught 'sensitive-rule-name-codex-auth-near-miss-0:' 'the dot in the auth file name matches any character' \
   "$sensitive" "'[.]codex/auth[.]json'" "'[.]codex/auth.json'"
 
-expect_caught 'db-rule-script-db-wipe-fires-5: db-rule-prisma-migrate-reset-fires-2:' 'a name ends only at a space, not at a semicolon' \
+expect_caught 'db-rule-script-db-wipe-fires-5: db-rule-prisma-migrate-reset-fires-4:' 'a name ends only at a space, not at a semicolon' \
   "$db" "name_end='([^[:alnum:]_]|\$)'" "name_end='([[:space:]]|\$)'"
 
 expect_caught 'db-rule-dropdb-fires-2:' 'the wipe binary counts only after a space, not after a slash' \
@@ -489,7 +528,7 @@ expect_caught 'db-rule-drop-database-fires-12:' 'a block comment between two SQL
   "$db" '/\*[^*]*\*/' '/\*[^*[:space:]]*\*/'
 
 expect_caught 'db-rule-knex-rollback-all-fires-1:' 'the knex command and its task are adjacent words' \
-  "$db" 'knex[[:space:]].*migrate:rollback' 'knex[[:space:]]migrate:rollback'
+  "$db" 'knex${version}[[:space:]].*migrate:rollback' 'knex${version}[[:space:]]migrate:rollback'
 
 expect_caught 'sensitive-rule-name-dotenv-fires-6:' 'one more .env suffix is exempt' \
   "$sensitive" $'  \'.env.template\'\n' $'  \'.env.template\'\n  \'.env.local\'\n'

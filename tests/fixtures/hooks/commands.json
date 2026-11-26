@@ -5,10 +5,13 @@
         "tier": "deny",
         "fixtures": [
           "npx prisma migrate reset --force",
-          "npx prisma migrate  reset"
+          "npx prisma migrate  reset",
+          "npx prisma@6 migrate reset",
+          "npx prisma@latest migrate reset --force"
         ],
         "near_miss": [
-          "npx prisma migrate resetx"
+          "npx prisma migrate resetx",
+          "npx prismax migrate reset"
         ],
         "boundary": [
           "npx prisma migrate reset;echo done"
@@ -18,7 +21,8 @@
         "tier": "deny",
         "fixtures": [
           "npx prisma db push --force-reset",
-          "npx prisma db  push --force-reset"
+          "npx prisma db  push --force-reset",
+          "npx prisma@6 db push --force-reset"
         ],
         "near_miss": [
           "npx prisma db push --force-resetx"
@@ -30,7 +34,8 @@
       "drizzle-push-force": {
         "tier": "deny",
         "fixtures": [
-          "pnpm drizzle-kit push --force"
+          "pnpm drizzle-kit push --force",
+          "npx drizzle-kit@latest push --force"
         ],
         "near_miss": [
           "pnpm drizzle-kit push --forcex"
@@ -68,10 +73,14 @@
       "sequelize-undo-all": {
         "tier": "deny",
         "fixtures": [
-          "npx sequelize db:migrate:undo:all"
+          "npx sequelize db:migrate:undo:all",
+          "npx sequelize-cli db:migrate:undo:all",
+          "npx sequelize-cli@6 db:migrate:undo:all",
+          "npx sequelize@6 db:migrate:undo:all"
         ],
         "near_miss": [
-          "npx sequelize db:migrate:undo:allx"
+          "npx sequelize db:migrate:undo:allx",
+          "npx sequelize-clix db:migrate:undo:all"
         ],
         "boundary": [
           "npx sequelize db:migrate:undo:all;echo done"
@@ -80,10 +89,14 @@
       "typeorm-schema-drop": {
         "tier": "deny",
         "fixtures": [
-          "npx typeorm schema:drop"
+          "npx typeorm schema:drop",
+          "npx typeorm-ts-node-commonjs schema:drop -d src/data-source.ts",
+          "npx typeorm-ts-node-esm schema:drop -d src/data-source.ts",
+          "npx typeorm@0.3 schema:drop"
         ],
         "near_miss": [
-          "npx typeorm schema:dropx"
+          "npx typeorm schema:dropx",
+          "npx typeorm-ts-node schema:drop"
         ],
         "boundary": [
           "npx typeorm schema:drop;echo done"
@@ -93,10 +106,12 @@
         "tier": "deny",
         "fixtures": [
           "npx knex migrate:rollback --all",
-          "npx knex --knexfile db.js migrate:rollback --all"
+          "npx knex --knexfile db.js migrate:rollback --all",
+          "npx knex@3 migrate:rollback --all"
         ],
         "near_miss": [
-          "npx knex migrate:rollback --allx"
+          "npx knex migrate:rollback --allx",
+          "npx knex-cli migrate:rollback --all"
         ],
         "boundary": [
           "npx knex migrate:rollback --all;echo done"

@@ -19,15 +19,19 @@ name_end='([^[:alnum:]_]|$)'
 # line comment, which the normalizer has already turned into one line.
 gap='([[:space:]]|/\*[^*]*\*/|--[^[:space:]]*[[:space:]])+'
 
+# A tool may be written with a version (`npx prisma@6 ...`), and a package may
+# ship more than one binary for one tool (`sequelize-cli`, `typeorm-ts-node-esm`).
+version='(@[^[:space:]]*)?'
+
 # Exact rules: a literal command, written as the tool spells it.
-guard_rule prisma-migrate-reset deny "prisma[[:space:]].*migrate[[:space:]]+reset${name_end}"
-guard_rule prisma-push-force-reset deny "prisma[[:space:]].*db[[:space:]]+push[[:space:]].*--force-reset${name_end}"
-guard_rule drizzle-push-force deny "drizzle-kit[[:space:]].*push[[:space:]].*--force${name_end}"
+guard_rule prisma-migrate-reset deny "prisma${version}[[:space:]].*migrate[[:space:]]+reset${name_end}"
+guard_rule prisma-push-force-reset deny "prisma${version}[[:space:]].*db[[:space:]]+push[[:space:]].*--force-reset${name_end}"
+guard_rule drizzle-push-force deny "drizzle-kit${version}[[:space:]].*push[[:space:]].*--force${name_end}"
 guard_rule rails-db-setup deny "(rails|rake)[[:space:]].*db:(setup|schema:load)${name_end}"
 guard_rule django-flush deny "manage\\.py[[:space:]].*(flush|reset_db)${name_end}"
-guard_rule sequelize-undo-all deny "sequelize[[:space:]].*db:migrate:undo:all${name_end}"
-guard_rule typeorm-schema-drop deny "typeorm[[:space:]].*schema:drop${name_end}"
-guard_rule knex-rollback-all deny "knex[[:space:]].*migrate:rollback[[:space:]].*--all${name_end}"
+guard_rule sequelize-undo-all deny "sequelize(-cli)?${version}[[:space:]].*db:migrate:undo:all${name_end}"
+guard_rule typeorm-schema-drop deny "typeorm(-ts-node-(commonjs|esm))?${version}[[:space:]].*schema:drop${name_end}"
+guard_rule knex-rollback-all deny "knex${version}[[:space:]].*migrate:rollback[[:space:]].*--all${name_end}"
 guard_rule script-db-wipe deny "db:(reset|drop|nuke|wipe|clear)${name_end}"
 guard_rule dropdb deny "(^|[^[:alnum:]_])dropdb${name_end}"
 guard_rule mysqladmin-drop deny "mysqladmin[[:space:]](.*[[:space:]])?drop${name_end}"
