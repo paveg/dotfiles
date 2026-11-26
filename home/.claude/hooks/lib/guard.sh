@@ -109,10 +109,13 @@ guard_drop_exempt_tokens() { # <normalized-command>
 
 # Drop quote and backslash concatenation so that token splitting cannot hide an
 # operation, flatten the newlines because grep matches one line at a time, and
-# lowercase. Over-normalizing can only add a pause for review; from here there
-# is no path to an allow.
+# lowercase. A backslash and the newline after it go first, as one pair: the
+# shell joins the two lines into one word, where the flattened newline would
+# leave a space. Over-normalizing can only add a pause for review; from here
+# there is no path to an allow.
 guard_normalize() { # <command>
   local text=$1
+  text=${text//\\$'\n'/}
   text=${text//\"/}
   text=${text//\'/}
   text=${text//\\/}

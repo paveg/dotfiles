@@ -297,6 +297,13 @@ expect_caught 'db-deny-sql-wipe-uppercase db-deny-sql-drop-db' \
 expect_caught db-deny-multiline-no-indent 'newlines are left in place, so grep matches one line at a time' \
   "$guard" $'  text=${text//$\'\\n\'/ }\n' ''
 
+# The engine on input where a backslash ends a line.
+expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'a backslash and its newline are not removed as a pair' \
+  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' ''
+
+expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'only the first backslash and newline pair is removed' \
+  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' $'  text=${text/\\\\$\'\\n\'/}\n'
+
 # The build.
 expect_caught 'db-pass-list-files sensitive-pass-read-readme' \
   "jq is resolved from the caller's PATH instead of the store" \

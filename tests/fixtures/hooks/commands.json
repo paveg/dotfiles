@@ -84,7 +84,8 @@
           "psql -d app_dev -c 'dro\"p data\"base app_dev'",
           "psql -d app_dev -c \"DROP\nDATABASE app_dev\"",
           "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
-          "pgcli -c 'DROP--wipe\n  DATABASE app_dev'"
+          "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
+          "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\""
         ]
       },
       "drop-schema": {
@@ -173,7 +174,8 @@
       "single-table": "psql -d app_dev -c 'DROP TABLE users'",
       "comment-split": "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
       "dash-comment": "psql -d app_dev -c 'DROP--wipe\n  DATABASE app_dev'",
-      "unlisted-client-comment": "pgcli -c 'DROP--wipe\n  DATABASE app_dev'"
+      "unlisted-client-comment": "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
+      "backslash-newline": "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\""
     },
     "ask": {
       "brace-split": "psql -d app_dev -c \"DROP${IFS}DATABASE app_dev\"",
@@ -203,7 +205,8 @@
         "fixtures": [
           "cat ~/.ssh/id_ed25519",
           "cat ~dev/.ssh/id_ed25519",
-          "cat ./../.ssh/id_ed25519"
+          "cat ./../.ssh/id_ed25519",
+          "cat ~/.s\\\ns\\\nh/id_ed25519"
         ]
       },
       "name-aws": {
@@ -410,7 +413,8 @@
       "template-then-real": "cat ~/.env.example;cat ~/.env",
       "backslash-split": "cat ~/.s\\sh/id_ed25519",
       "single-quote-split": "cat ~/.s's'h/id_ed25519",
-      "double-quote-split": "cat ~/.s\"s\"h/id_ed25519"
+      "double-quote-split": "cat ~/.s\"s\"h/id_ed25519",
+      "backslash-newline": "cat ~/.s\\\ns\\\nh/id_ed25519"
     },
     "ask": {
       "bare-cd-then-glob": "cd && cat .{ssh,aws}/x",
