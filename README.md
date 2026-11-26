@@ -2,7 +2,7 @@
 
 Nix-based dotfiles for agent-first development on macOS and WSL2. One command turns a fresh machine into a configured host, coding agents see the same tools as an interactive shell, and secrets stay in vaults.
 
-> **Status: implementation started.** The flake builds every host with the zsh layout in [`home/`](home/) and the global CLI tools in [`nix/packages.nix`](nix/packages.nix), and their tests are in; agent configuration and the bootstrap script are not. [`docs/design.md`](docs/design.md) is the design, [`docs/adr/`](docs/adr/) records the decisions, and [`docs/verification.md`](docs/verification.md) holds the evidence behind each factual claim. Statements marked **Unverified** there still need a real machine.
+> **Status: implementation started.** The flake builds every host with the zsh layout in [`home/`](home/), the global CLI tools in [`nix/packages.nix`](nix/packages.nix), and the guard hooks in [`nix/agents.nix`](nix/agents.nix), and their tests are in; the rest of the agent configuration and the bootstrap script are not. [`docs/design.md`](docs/design.md) is the design, [`docs/adr/`](docs/adr/) records the decisions, and [`docs/verification.md`](docs/verification.md) holds the evidence behind each factual claim. Statements marked **Unverified** there still need a real machine.
 
 ![From one command to a configured host](docs/diagrams/architecture.png)
 
@@ -56,11 +56,11 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
-| [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system and login name, and the nix-darwin and home-manager modules |
-| [`home/`](home/) | The files that land in `$HOME`, under their real names; zsh, mise, and the reply-language hook so far |
+| [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system and login name, the nix-darwin and home-manager modules, and the agent hook builds in `nix/agents.nix` |
+| [`home/`](home/) | The files that land in `$HOME`, under their real names: zsh, mise, the reply-language hook, and the guard hook sources under `home/.claude/hooks/`, which Nix builds into the store rather than links |
 | [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
-| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME`, `packages.sh` checks the built profile, `reply-language.sh` checks the reply-language hook, and each has a `mutate*.sh` that breaks one condition at a time to show the checks fail, except the ones that guard the harness itself (mutants that need `/etc` to reorder the login PATH run only where it does, as on macOS) |
-| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell and reply-language tests on Linux and macOS, `nix.yml` builds every host and runs the package tests on what it built |
+| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME`, `packages.sh` checks the built profile, `reply-language.sh` checks the reply-language hook, `hooks.sh` runs each built guard hook against its fixtures under an empty PATH, and each has a `mutate*.sh` that breaks one condition at a time to show the checks fail, except the ones that guard the harness itself (mutants that need `/etc` to reorder the login PATH run only where it does, as on macOS) |
+| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell and reply-language tests on Linux and macOS, `hooks.yml` builds the guard hooks and runs their tests there, `nix.yml` builds every host and runs the package tests on what it built |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repository |
 
 The rest of the planned layout (for example `scripts/`, `templates/`, `profiles/`, and further files under `nix/` and `home/`) is in [design: Repository layout](docs/design.md#repository-layout).
