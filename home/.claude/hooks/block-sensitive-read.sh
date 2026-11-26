@@ -16,8 +16,40 @@ name_end='([^[:alnum:]_-]|$)'
 # home/.ssh/config and home/.config/ghtkn/, are therefore denied in Bash too;
 # the Read tool reaches them, and the deny reason names the override.
 glued_names=
+
+# A `cd` into a directory that holds part of a protected name leaves the rest
+# of the name to a relative path (`cd ~/.local && cat share/atuin/key`), and no
+# name rule sees the whole name. The split can fall at any slash of the name,
+# so the rule tries each: the directory ends in the first segments, with or
+# without a trailing `/` or `/.` (`cd ~/.codex/.`), and a later word starts
+# with the next segment, so a further `cd` into it is caught too
+# (`cd ~/.local && cd share && cat atuin/key`). A `..` in the directory or in
+# the path read after it, a directory given as an option (`git -C`, `tar -C`)
+# and a move through CDPATH are open holes in ADR 0007.
+cd_word="${guard_name_start}(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+([^[:space:];&|<>()]*[^[:alnum:]_[:space:];&|<>()-])?"
+cd_dir_end='(/[.]?)*([[:space:];&|<>)]|$)'
+# Inside the directory the segments may be joined by `//` or `/./` as well.
+cd_segment_join='(/[.]?)*/'
+# The next segment starts a word, follows an `@` that names a file to send
+# (`curl -F f=@auth.json`, `http … f@auth.json`), or follows `./`, `~+/` (the
+# current directory) or `~-/` (the previous one) at the start of a word.
+cd_next_start='[[:space:];&|<>=({,@]([.]/+|~[+-]/+)*'
+guard_protect_cd_split() { # <id> <ERE for the name>
+  local -a segments
+  local prefix='' alternatives='' k
+  IFS=/ read -r -a segments <<<"$2"
+  for ((k = 1; k < ${#segments[@]}; k++)); do
+    prefix+="${prefix:+${cd_segment_join}}${segments[k - 1]}"
+    alternatives+="${alternatives:+|}${prefix}${cd_dir_end}.*${cd_next_start}${segments[k]}"
+  done
+  guard_rule "cd-split-$1" ask "${cd_word}(${alternatives})${name_end}"
+}
+
 guard_protect() { # <id> <ERE for the name>
   guard_rule "name-$1" deny "${guard_name_start}$2${name_end}"
+  if [[ $2 == *'/'* ]]; then
+    guard_protect_cd_split "$1" "$2"
+  fi
   # A name that holds a dot-prefixed segment of its own is already asked about
   # by the fragment rule, so a glued variable before it needs no rule.
   if [[ $2 == '[.]'* && $2 != *'/[.]'* ]]; then

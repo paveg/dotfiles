@@ -311,6 +311,48 @@ expect_caught 'sensitive-rule-home-dot-glob-near-miss-0: sensitive-rule-home-dot
 expect_caught 'sensitive-rule-home-dot-glob-near-miss-3: sensitive-rule-home-dot-glob-near-miss-4:' 'a move to any directory counts as a move home' \
   "$sensitive" "home_cd='(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+(~|" "home_cd='(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+([^[:space:]]+|~|"
 
+# A `cd` into part of a protected name, with the rest read relative to it.
+expect_caught 'sensitive-rule-cd-split-share-vault-fires-1: sensitive-rule-cd-split-share-vault-fires-3:' \
+  'only the first slash of a protected name is tried as the split' \
+  "$sensitive" 'for ((k = 1; k < ${#segments[@]}; k++)); do' 'for ((k = 1; k < 2; k++)); do'
+
+expect_caught 'sensitive-rule-cd-split-share-vault-fires-2: sensitive-rule-cd-split-codex-auth-fires-1:' \
+  'a directory that ends in /. is not read as the directory itself' \
+  "$sensitive" "cd_dir_end='(/[.]?)*(" "cd_dir_end='/?("
+
+expect_caught 'sensitive-rule-cd-split-share-vault-fires-4:' \
+  'a /./ between the segments of the directory is not read as a slash' \
+  "$sensitive" "cd_segment_join='(/[.]?)*/'" "cd_segment_join='/'"
+
+expect_caught 'sensitive-rule-cd-split-share-vault-fires-6:' 'a pushd into part of a name is not noticed' \
+  "$sensitive" 'cd_word="${guard_name_start}(cd|pushd)' 'cd_word="${guard_name_start}(cd)'
+
+expect_caught 'sensitive-rule-cd-split-share-vault-fires-7:' 'an option between cd and the directory is not noticed' \
+  "$sensitive" '(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+([^' '(cd|pushd)[[:space:]]+([^'
+
+expect_caught 'sensitive-rule-cd-split-share-vault-fires-9: sensitive-rule-cd-split-share-vault-fires-10: sensitive-rule-cd-split-share-vault-fires-11:' \
+  'the directory ends only at a space, not at a semicolon, an operator or a parenthesis' \
+  "$sensitive" "([[:space:];&|<>)]|\$)'" "([[:space:]]|\$)'"
+
+expect_caught 'sensitive-rule-cd-split-share-vault-fires-10: sensitive-rule-cd-split-claude-credentials-fires-2:' \
+  'the next segment after ./ is not read as the start of a word' \
+  "$sensitive" "cd_next_start='[[:space:];&|<>=({,@]([.]/+|~[+-]/+)*'" "cd_next_start='[[:space:];&|<>=({,@](~[+-]/+)*'"
+
+expect_caught 'sensitive-rule-cd-split-codex-auth-fires-3:' 'a file named after an @ is not read as the next segment' \
+  "$sensitive" "cd_next_start='[[:space:];&|<>=({,@]" "cd_next_start='[[:space:];&|<>=({,]"
+
+expect_caught 'sensitive-rule-cd-split-codex-auth-fires-4: sensitive-rule-cd-split-codex-auth-fires-5:' \
+  'a path from ~+ or ~- is not read as relative to the move' \
+  "$sensitive" "([.]/+|~[+-]/+)*'" "([.]/+)*'"
+
+expect_caught 'sensitive-rule-cd-split-share-vault-near-miss-3: sensitive-rule-cd-split-gcloud-near-miss-0:' \
+  'a directory that only starts with the first segments counts as them' \
+  "$sensitive" "cd_dir_end='(/[.]?)*(" "cd_dir_end='[^[:space:]]*("
+
+expect_caught 'sensitive-rule-cd-split-share-vault-near-miss-2:' \
+  'a name that only ends in the first segment counts as the first segment' \
+  "$sensitive" '([^[:space:];&|<>()]*[^[:alnum:]_[:space:];&|<>()-])?"' '[^[:space:];&|<>()]*"'
+
 expect_caught sensitive-rule-kubeconfig-expansion-reversed-fires-1 \
   'a name straight after the expansion is no longer noticed' \
   "$sensitive" '(.*[^[:alnum:]_-])?kubeconfig' '.*[^[:alnum:]_-]kubeconfig'
