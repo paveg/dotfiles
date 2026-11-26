@@ -92,7 +92,8 @@
       "knex-rollback-all": {
         "tier": "deny",
         "fixtures": [
-          "npx knex migrate:rollback --all"
+          "npx knex migrate:rollback --all",
+          "npx knex --knexfile db.js migrate:rollback --all"
         ],
         "near_miss": [
           "npx knex migrate:rollback --allx"
@@ -160,7 +161,9 @@
           "psql -d app_dev -c 'DROP\\\nDATABASE app_dev'",
           "psql -d app_dev <<'EOF'\nDROP\\\nDATABASE app_dev;\nEOF",
           "psql -d app_dev -c 'DROP\\\nDATABASE app_dev' -v x=\"$y\"",
-          "pgcli -c 'DROP --\\\nDATABASE app_dev'"
+          "pgcli -c 'DROP --\\\nDATABASE app_dev'",
+          "psql -d app_dev -c 'DROP--wipe-it\nDATABASE app_dev'",
+          "psql -d app_dev -c 'DROP /* a b */ DATABASE app_dev'"
         ],
         "near_miss": [
           "psql -c \"DROP DATABASEX\""
@@ -310,7 +313,10 @@
       "single-quoted-backslash-newline": "psql -d app_dev -c 'DROP\\\nDATABASE app_dev'",
       "heredoc-backslash-newline": "psql -d app_dev <<'EOF'\nDROP\\\nDATABASE app_dev;\nEOF",
       "ask-beside-backslash-newline": "psql -d app_dev -c 'DROP\\\nDATABASE app_dev' -v x=\"$y\"",
-      "comment-backslash-newline": "pgcli -c 'DROP --\\\nDATABASE app_dev'"
+      "comment-backslash-newline": "pgcli -c 'DROP --\\\nDATABASE app_dev'",
+      "dash-comment-with-hyphen": "psql -d app_dev -c 'DROP--wipe-it\nDATABASE app_dev'",
+      "block-comment-with-spaces": "psql -d app_dev -c 'DROP /* a b */ DATABASE app_dev'",
+      "knex-with-option": "npx knex --knexfile db.js migrate:rollback --all"
     },
     "ask": {
       "brace-split": "psql -d app_dev -c \"DROP${IFS}DATABASE app_dev\"",
@@ -491,7 +497,8 @@
           "cat .env/example",
           "cat .env.example.local",
           "cat .env.example\"bak\"",
-          "cat .env.example .env.example .env"
+          "cat .env.example .env.example .env",
+          "cat .env.local"
         ],
         "near_miss": [
           "cat .envrc",
@@ -726,7 +733,8 @@
       "template-then-other-name": "cat .env.example .ssh/config",
       "template-slash": "cat .env/example",
       "template-then-dot": "cat .env.example.local",
-      "template-then-quote": "cat .env.example\"bak\""
+      "template-then-quote": "cat .env.example\"bak\"",
+      "dotenv-local": "cat .env.local"
     },
     "ask": {
       "bare-cd-then-glob": "cd && cat .{ssh,aws}/x",

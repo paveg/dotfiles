@@ -410,7 +410,7 @@ expect_caught 'db-rule-drop-expansion-reversed-fires-1:' 'a verb counts only str
 expect_caught 'sensitive-rule-name-ssh-fires-6:' 'a name counts only after a space or a slash, not after a colon' \
   "$guard" "guard_name_start='(^|[^[:alnum:]_-])'" "guard_name_start='(^|[^[:alnum:]_:-])'"
 
-expect_caught 'sensitive-rule-name-dotenv-fires-6:' 'a name ends only at a slash, a dot or a space, not at a pipe' \
+expect_caught 'sensitive-rule-name-dotenv-fires-7:' 'a name ends only at a slash, a dot or a space, not at a pipe' \
   "$sensitive" "name_end='([^[:alnum:]_-]|\$)'" "name_end='([/.[:space:]]|\$)'"
 
 expect_caught 'sensitive-rule-fragment-expansion-fires-6:' 'a name after a dot starts with a letter, not a digit' \
@@ -465,6 +465,24 @@ expect_caught 'sensitive-deny-template-then-quote:' 'the exempt tokens are remov
 
 expect_caught 'db-rule-client-after-brace-near-miss-1:' 'a client anywhere after an opening brace counts, not only straight after it' \
   "$db" $'guard_rule client-after-brace ask "[{]${client}"\n' $'guard_rule client-after-brace ask "[{].*${client}"\n'
+
+expect_caught 'db-rule-drop-database-fires-11:' 'a line comment between two SQL keywords holds letters only, no hyphen' \
+  "$db" "--[^[:space:]]*[[:space:]])+'" "--[[:alnum:]]*[[:space:]])+'"
+
+expect_caught 'db-rule-drop-database-fires-12:' 'a block comment between two SQL keywords holds no space' \
+  "$db" '/\*[^*]*\*/' '/\*[^*[:space:]]*\*/'
+
+expect_caught 'db-rule-knex-rollback-all-fires-1:' 'the knex command and its task are adjacent words' \
+  "$db" 'knex[[:space:]].*migrate:rollback' 'knex[[:space:]]migrate:rollback'
+
+expect_caught 'sensitive-rule-name-dotenv-fires-6:' 'one more .env suffix is exempt' \
+  "$sensitive" $'  \'.env.template\'\n' $'  \'.env.template\'\n  \'.env.local\'\n'
+
+expect_caught 'sensitive-fixtures-name-known-rules' 'a leading dot and an expansion is no longer noticed (the class variable stays in use)' \
+  "$sensitive" $'guard_rule word-dot-expansion ask "(^|[[:space:];&|<>={,])[.]${word_dot_expansion}"\n' $': "$word_dot_expansion"\n'
+
+expect_caught 'sensitive-fixtures-name-known-rules' 'a dot-star after a move home is no longer noticed (the pattern variables stay in use)' \
+  "$sensitive" $'guard_rule home-dot-glob ask "(${home_cd}|${bare_cd}).*[[:space:];&|<>={,][.][*[]"\n' $': "$home_cd$bare_cd"\n'
 
 # The checks that demand the proofs above.
 expect_caught 'db-rule-unproven-has-near-miss' 'a rule with no near miss and no reason is added' \
