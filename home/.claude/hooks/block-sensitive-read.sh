@@ -68,7 +68,7 @@ guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]*[(]"
 # only be a read of the hidden names there (`cd ~ && cat .*/credentials`,
 # `cd; cat .[s]sh/id`). A bare `cd` or `pushd` goes home too. A regex after a
 # move home (`cd ~ && rg 'a .* b'`) is asked about as well.
-home_cd='(cd|pushd)[[:space:]]+(~|[$][{]?home[}]?)/?([^[:alnum:]_/-]|$)'
+home_cd='(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+(~|[$][{]?home[}]?)/?([^[:alnum:]_/-]|$)'
 bare_cd="${guard_name_start}(cd|pushd)[[:space:]]*([;&|]|\$)"
 guard_rule home-dot-glob ask "(${home_cd}|${bare_cd}).*[[:space:];&|<>={,][.][*[]"
 

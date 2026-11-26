@@ -622,7 +622,10 @@
           "cd ~/ && cat .*/credentials",
           "cd; cat .[s]sh/id_ed25519",
           "pushd && cat .*/credentials",
-          "pushd ~ && cat .[a]ws/credentials"
+          "pushd ~ && cat .[a]ws/credentials",
+          "cd\ncat .*/x",
+          "cd -P ~ && cat .*/x",
+          "cd -- ~ && cat .[s]sh/id_ed25519"
         ],
         "boundary": [
           "cd ~;cat .*/x",
@@ -633,7 +636,8 @@
           "rg -n 'import .* from' src/",
           "jq '.[0]' list.json",
           "cd ~ && sed -n 's/^.*=//p' notes.txt",
-          "cd subdir && cat .*/x"
+          "cd subdir && cat .*/x",
+          "cd - && cat .*/x"
         ]
       },
       "glued-variable-name": {
@@ -744,7 +748,9 @@
       "pushd-home-brace": "pushd ~ && cat .{ssh,aws}/x",
       "cd-newline-brace": "cd\ncat .{ssh,aws}/x",
       "home-cd-dot-star": "cd ~ && cat .*/credentials",
-      "bare-cd-dot-bracket": "cd && cat .[s]sh/id_ed25519"
+      "bare-cd-dot-bracket": "cd && cat .[s]sh/id_ed25519",
+      "bare-cd-newline-dot-star": "cd\ncat .*/credentials",
+      "cd-option-home-dot-star": "cd -P ~ && cat .*/x"
     },
     "pass": {
       "read-readme": "cat README.md",

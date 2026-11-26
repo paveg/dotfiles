@@ -110,15 +110,15 @@ guard_drop_exempt_tokens() { # <normalized-command>
 # Drop quote and backslash concatenation so that token splitting cannot hide an
 # operation, flatten the newlines because grep matches one line at a time, and
 # lowercase. A backslash and the newline after it go first, as one pair, and
-# become <joiner>. Over-normalizing can only add a pause for review; from here
-# there is no path to an allow.
-guard_normalize() { # <command> <what a backslash and its newline become>
+# become <pair>; every other newline becomes <newline>. Over-normalizing can
+# only add a pause for review; from here there is no path to an allow.
+guard_normalize() { # <command> <what a backslash and its newline become> <what a newline becomes>
   local text=$1
   text=${text//\\$'\n'/$2}
   text=${text//\"/}
   text=${text//\'/}
   text=${text//\\/}
-  text=${text//$'\n'/ }
+  text=${text//$'\n'/$3}
   printf '%s' "$text" | tr '[:upper:]' '[:lower:]'
 }
 
@@ -165,13 +165,19 @@ guard_rank() { # <verdict>
 
 # The shell deletes a backslash and the newline after it, so `.s\<newline>sh` is
 # one word. Inside single quotes and a quoted heredoc it does not: the client
-# gets both lines, and `DROP\<newline>DATABASE` is a verb and a noun. The
-# command is read both ways, the pair deleted and the pair a space, and the
-# stricter verdict stands.
+# gets both lines, and `DROP\<newline>DATABASE` is a verb and a noun. A newline
+# that is neither separates two commands, so a bare `cd` at the end of a line
+# is a move home, where a space would give it the next word as its argument.
+# The command is read three ways, and the stricter verdict stands.
 guard_decide() { # <command>
-  local joiner scan verdict strictest=''
-  for joiner in '' ' '; do
-    scan=$(guard_normalize "$1" "$joiner")
+  local -a pair_becomes=('' ' ' '') newline_becomes=(' ' ' ' ';') readings=(0 1 2)
+  local reading scan verdict strictest=''
+  # With no newline the three readings are the same text.
+  if [[ $1 != *$'\n'* ]]; then
+    readings=(0)
+  fi
+  for reading in "${readings[@]}"; do
+    scan=$(guard_normalize "$1" "${pair_becomes[reading]}" "${newline_becomes[reading]}")
     scan=$(guard_drop_exempt_tokens "$scan")
     verdict=$(guard_classify "$scan")
     if (($(guard_rank "$verdict") > $(guard_rank "$strictest"))); then

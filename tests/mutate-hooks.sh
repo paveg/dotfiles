@@ -290,14 +290,17 @@ expect_caught 'sensitive-rule-home-dot-glob-fires-4:' 'a trailing slash after th
 expect_caught 'sensitive-rule-home-dot-glob-fires-6:' 'a pushd with no argument is not noticed' \
   "$sensitive" '(cd|pushd)[[:space:]]*([;&|]' '(cd)[[:space:]]*([;&|]'
 
+expect_caught 'sensitive-rule-home-dot-glob-fires-9: sensitive-rule-home-dot-glob-fires-10:' 'an option between cd and the home directory is not noticed' \
+  "$sensitive" "(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+(~|" "(cd|pushd)[[:space:]]+(~|"
+
 expect_caught 'sensitive-rule-home-dot-glob-fires-7:' 'a pushd to the home directory is not noticed' \
   "$sensitive" "home_cd='(cd|pushd)" "home_cd='(cd)"
 
-expect_caught 'sensitive-rule-home-dot-glob-fires-8:' \
+expect_caught 'sensitive-rule-home-dot-glob-fires-11:' \
   'a move home ends only at a space, not at a semicolon' \
   "$sensitive" '([^[:alnum:]_/-]|$)' '([[:space:]]|$)'
 
-expect_caught 'sensitive-rule-home-dot-glob-fires-9: sensitive-rule-home-dot-glob-fires-10:' \
+expect_caught 'sensitive-rule-home-dot-glob-fires-12: sensitive-rule-home-dot-glob-fires-13:' \
   'a dot-star starts a word only after a space, not after a semicolon or an equals sign' \
   "$sensitive" '.*[[:space:];&|<>={,][.][*[]"' '.*[[:space:]][.][*[]"'
 
@@ -305,8 +308,8 @@ expect_caught 'sensitive-rule-home-dot-glob-near-miss-0: sensitive-rule-home-dot
   'a dot-star is asked about whether or not a move home came before it' \
   "$sensitive" 'guard_rule home-dot-glob ask "(${home_cd}|${bare_cd}).*' 'guard_rule home-dot-glob ask "'
 
-expect_caught 'sensitive-rule-home-dot-glob-near-miss-3:' 'a move to any directory counts as a move home' \
-  "$sensitive" "home_cd='(cd|pushd)[[:space:]]+(~|" "home_cd='(cd|pushd)[[:space:]]+([^[:space:]]+|~|"
+expect_caught 'sensitive-rule-home-dot-glob-near-miss-3: sensitive-rule-home-dot-glob-near-miss-4:' 'a move to any directory counts as a move home' \
+  "$sensitive" "home_cd='(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+(~|" "home_cd='(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+([^[:space:]]+|~|"
 
 expect_caught sensitive-rule-kubeconfig-expansion-reversed-fires-1 \
   'a name straight after the expansion is no longer noticed' \
@@ -379,7 +382,7 @@ expect_caught 'db-deny-sql-wipe-uppercase db-deny-sql-drop-db' \
   $'  printf \'%s\' "$text"\n'
 
 expect_caught db-deny-multiline-no-indent 'newlines are left in place, so grep matches one line at a time' \
-  "$guard" $'  text=${text//$\'\\n\'/ }\n' ''
+  "$guard" $'  text=${text//$\'\\n\'/$3}\n' ''
 
 # A rule that reaches past its target, and the edges of a pattern: each is
 # proved by a near miss or by a fixture that sits at a punctuation edge.
@@ -424,15 +427,18 @@ expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'on
   "$guard" $'  text=${text//\\\\$\'\\n\'/$2}\n' $'  text=${text/\\\\$\'\\n\'/$2}\n'
 
 expect_caught 'db-deny-single-quoted-backslash-newline: db-deny-heredoc-backslash-newline: db-deny-comment-backslash-newline:' \
-  'a backslash and its newline are only ever read as joined, which is not what a single-quoted string or a quoted heredoc holds' \
-  "$guard" $'  for joiner in \'\' \' \'; do\n' $'  for joiner in \'\'; do\n'
+  'a backslash and its newline are never read as a space, which is what a single-quoted string or a quoted heredoc holds' \
+  "$guard" $'  for reading in "${readings[@]}"; do\n' $'  for reading in 0 2; do\n'
 
 expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' \
   'a backslash and its newline are only ever read as a space, which is not what the shell does outside quotes' \
-  "$guard" $'  for joiner in \'\' \' \'; do\n' $'  for joiner in \' \'; do\n'
+  "$guard" $'  for reading in "${readings[@]}"; do\n' $'  for reading in 1; do\n'
 
-expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' \
-  'the later reading of a backslash and its newline replaces the stricter one' \
+expect_caught 'sensitive-rule-home-dot-glob-fires-8:' 'a newline is never read as a command separator, so a bare cd ends its line with an argument' \
+  "$guard" $'  for reading in "${readings[@]}"; do\n' $'  for reading in 0 1; do\n'
+
+expect_caught 'db-deny-single-quoted-backslash-newline:' \
+  'the later reading of a command replaces the stricter one' \
   "$guard" $'    if (($(guard_rank "$verdict") > $(guard_rank "$strictest"))); then\n' $'    if true; then\n'
 
 expect_caught 'db-deny-ask-beside-backslash-newline:' 'an ask outranks a deny when the two readings differ' \
@@ -442,7 +448,7 @@ expect_caught 'sensitive-deny-double-backslash:' 'only the first backslash is re
   "$guard" $'  text=${text//\\\\/}\n' $'  text=${text/\\\\/}\n'
 
 expect_caught 'db-deny-double-newline:' 'only the first newline is flattened' \
-  "$guard" $'  text=${text//$\'\\n\'/ }\n' $'  text=${text/$\'\\n\'/ }\n'
+  "$guard" $'  text=${text//$\'\\n\'/$3}\n' $'  text=${text/$\'\\n\'/$3}\n'
 
 expect_caught 'sensitive-deny-template-slash:' 'the dot of an exempt token matches any character' \
   "$guard" '${token//./[.]}' '${token}'
@@ -454,8 +460,8 @@ expect_caught 'sensitive-deny-template-then-other-name:' 'an exempt token takes 
   "$guard" 'text=${text/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[1]}${BASH_REMATCH[2]}"}' 'text=${text/"${BASH_REMATCH[0]}"/}'
 
 expect_caught 'sensitive-deny-template-then-quote:' 'the exempt tokens are removed before the quotes are' \
-  "$guard" $'    scan=$(guard_normalize "$1" "$joiner")\n    scan=$(guard_drop_exempt_tokens "$scan")\n' \
-  $'    scan=$(guard_drop_exempt_tokens "$1")\n    scan=$(guard_normalize "$scan" "$joiner")\n'
+  "$guard" $'    scan=$(guard_normalize "$1" "${pair_becomes[reading]}" "${newline_becomes[reading]}")\n    scan=$(guard_drop_exempt_tokens "$scan")\n' \
+  $'    scan=$(guard_drop_exempt_tokens "$1")\n    scan=$(guard_normalize "$scan" "${pair_becomes[reading]}" "${newline_becomes[reading]}")\n'
 
 # The checks that demand the proofs above.
 expect_caught 'db-rule-unproven-has-near-miss' 'a rule with no near miss and no reason is added' \
