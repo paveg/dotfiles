@@ -463,6 +463,9 @@ expect_caught 'sensitive-deny-template-then-quote:' 'the exempt tokens are remov
   "$guard" $'    scan=$(guard_normalize "$1" "${pair_becomes[reading]}" "${newline_becomes[reading]}")\n    scan=$(guard_drop_exempt_tokens "$scan")\n' \
   $'    scan=$(guard_drop_exempt_tokens "$1")\n    scan=$(guard_normalize "$scan" "${pair_becomes[reading]}" "${newline_becomes[reading]}")\n'
 
+expect_caught 'db-rule-client-after-brace-near-miss-1:' 'a client anywhere after an opening brace counts, not only straight after it' \
+  "$db" $'guard_rule client-after-brace ask "[{]${client}"\n' $'guard_rule client-after-brace ask "[{].*${client}"\n'
+
 # The checks that demand the proofs above.
 expect_caught 'db-rule-unproven-has-near-miss' 'a rule with no near miss and no reason is added' \
   "$db" $'guard_rule truncate deny "truncate${name_end}"\n' \

@@ -286,7 +286,8 @@
           "pnpm run {db:res,x}et"
         ],
         "near_miss": [
-          "echo {x,psql}"
+          "echo {xpsql,y}",
+          "echo {x,mypsql}"
         ]
       }
     },
