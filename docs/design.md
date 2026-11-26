@@ -283,6 +283,15 @@ Pure evaluation cannot read `~/.config/dots-work/` (absolute paths outside the f
 - Only the guards move to managed settings. Other keys change behaviour there (a managed `enabledPlugins` entry cannot be turned off by the user, a managed `model` overrides a `/model` choice at each session start), so they stay in `settings.json`.
 - The merge concatenates and de-duplicates arrays instead of using jq's plain `*`, which replaces them. Profiles need their own array entries: the work profile adds `permissions.deny` rules (cloud, cluster, and infrastructure CLIs) that must not apply to personal hosts.
 
+**Permission rules.** `settings.common.json` writes its `permissions` rules to the forms below, because the inventory of the previous `~/.claude/settings.json` found each of these written another way:
+
+- `Read(...)` rules for secrets outside a repository start with `~/` (for example `Read(~/.ssh/**)`, `Read(~/.aws/**)`, `Read(~/.kube/**)`). A pattern with no leading `/`, `~/` or `//`, such as `Read(id_rsa)` or `Read(**/*credential*)`, covers only the current directory and below, so it never reaches the home directory while the agent works in a repository.
+- A Bash prefix rule ends in a space before the wildcard (`Bash(gh *)`). Without it, `Bash(gh*)` also matches `ghq`, and `Bash(go*)` matches `gopass`.
+- `allow` holds no database client and no command whose subcommands include a destructive one without an `ask` rule for those (`gh pr merge`, `gh repo delete`, `gh release delete`). A client is left to the database guard and auto mode's classifier.
+- `git reset` and `git rebase` are `ask`, not `deny`. They are routine on a feature branch, but `git reset --hard` discards uncommitted work that no reflog holds, so a person confirms each. An `ask` rule with a command pattern still prompts in auto mode.
+- A `deny` or `ask` prefix rule matches the order Claude usually writes, not every spelling (`Bash(git push --force *)` misses `git push origin main --force`). What must hold whatever the spelling is enforced elsewhere: branch protection on GitHub, the sandbox, or a guard hook.
+- `Edit(~/.claude/settings.json)` and `Edit(~/.claude/hooks/**)` are denied, and `permissions.disableBypassPermissionsMode` is `"disable"`.
+
 **Environment facts for agents.** `~/.claude/CLAUDE.md` (the same file as `~/.codex/AGENTS.md`) states:
 
 - where repositories live (`~/repos/github.com/<owner>/<repo>`, through ghq);
