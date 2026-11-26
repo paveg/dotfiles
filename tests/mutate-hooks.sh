@@ -306,7 +306,7 @@ expect_caught 'sensitive-rule-home-dot-glob-fires-12: sensitive-rule-home-dot-gl
 
 expect_caught 'sensitive-rule-home-dot-glob-near-miss-0: sensitive-rule-home-dot-glob-near-miss-1:' \
   'a dot-star is asked about whether or not a move home came before it' \
-  "$sensitive" 'guard_rule home-dot-glob ask "(${home_cd}|${bare_cd}).*' 'guard_rule home-dot-glob ask "'
+  "$sensitive" 'guard_rule home-dot-glob ask "(${home_cd}|${bare_cd}).*' 'guard_rule home-dot-glob ask "(${home_cd}|${bare_cd})?.*'
 
 expect_caught 'sensitive-rule-home-dot-glob-near-miss-3: sensitive-rule-home-dot-glob-near-miss-4:' 'a move to any directory counts as a move home' \
   "$sensitive" "home_cd='(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+(~|" "home_cd='(cd|pushd)([[:space:]]+-[[:alnum:]-]*)*[[:space:]]+([^[:space:]]+|~|"
@@ -428,18 +428,18 @@ expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'on
 
 expect_caught 'db-deny-single-quoted-backslash-newline: db-deny-heredoc-backslash-newline: db-deny-comment-backslash-newline:' \
   'a backslash and its newline are never read as a space, which is what a single-quoted string or a quoted heredoc holds' \
-  "$guard" $'  for reading in "${readings[@]}"; do\n' $'  for reading in 0 2; do\n'
+  "$guard" 'readings=(0 1 2)' 'readings=(0 2)'
 
 expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' \
   'a backslash and its newline are only ever read as a space, which is not what the shell does outside quotes' \
-  "$guard" $'  for reading in "${readings[@]}"; do\n' $'  for reading in 1; do\n'
+  "$guard" 'readings=(0 1 2)' 'readings=(1)'
 
 expect_caught 'sensitive-rule-home-dot-glob-fires-8:' 'a newline is never read as a command separator, so a bare cd ends its line with an argument' \
-  "$guard" $'  for reading in "${readings[@]}"; do\n' $'  for reading in 0 1; do\n'
+  "$guard" 'readings=(0 1 2)' 'readings=(0 1)'
 
 expect_caught 'db-deny-single-quoted-backslash-newline:' \
   'the later reading of a command replaces the stricter one' \
-  "$guard" $'    if (($(guard_rank "$verdict") > $(guard_rank "$strictest"))); then\n' $'    if true; then\n'
+  "$guard" $'    if (($(guard_rank "$verdict") > $(guard_rank "$strictest"))); then\n' $'    if (($(guard_rank "$verdict") >= 0)); then\n'
 
 expect_caught 'db-deny-ask-beside-backslash-newline:' 'an ask outranks a deny when the two readings differ' \
   "$guard" $'  ask*) printf 1 ;;\n' $'  ask*) printf 5 ;;\n'
