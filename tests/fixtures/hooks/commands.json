@@ -360,6 +360,19 @@
           "cat ~/.(ssh|aws)/config"
         ]
       },
+      "home-dot-glob": {
+        "tier": "ask",
+        "fixtures": [
+          "cd ~ && cat .*/credentials",
+          "cd && cat .[s]sh/id_ed25519",
+          "cd $HOME && cat .*/credentials",
+          "cd ${HOME} && cat .*/credentials",
+          "cd ~/ && cat .*/credentials",
+          "cd; cat .[s]sh/id_ed25519",
+          "pushd && cat .*/credentials",
+          "pushd ~ && cat .[a]ws/credentials"
+        ]
+      },
       "glued-variable-name": {
         "tier": "ask",
         "fixtures": [
@@ -444,7 +457,9 @@
       "paren-glob": "cat ~/.s(s)h/id_ed25519",
       "dot-brace-no-cd": "cat .{ssh,aws}/x",
       "pushd-home-brace": "pushd ~ && cat .{ssh,aws}/x",
-      "cd-newline-brace": "cd\ncat .{ssh,aws}/x"
+      "cd-newline-brace": "cd\ncat .{ssh,aws}/x",
+      "home-cd-dot-star": "cd ~ && cat .*/credentials",
+      "bare-cd-dot-bracket": "cd && cat .[s]sh/id_ed25519"
     },
     "pass": {
       "read-readme": "cat README.md",
@@ -472,7 +487,8 @@
       "ghtkn-exec": "ghtkn exec -- gh pr list",
       "remote-login": "ssh personal-mac uptime",
       "list-files": "ls -la",
-      "dotenv-template-at-start": ".env.example"
+      "dotenv-template-at-start": ".env.example",
+      "regex-after-cd-subdir": "cd subdir && cat .*/x"
     }
   },
   "ordinary": [

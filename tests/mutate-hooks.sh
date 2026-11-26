@@ -234,6 +234,25 @@ expect_caught 'sensitive-rule-dot-paren-glob-fires-3:' \
   "$sensitive" $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]*[(]"' \
   $'guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]+[(]"'
 
+# After a move home, `.*` and `.[` are a read of the hidden names there.
+expect_caught 'sensitive-rule-home-dot-glob-fires-0:' 'a star after a leading dot is not an expansion after a move home' \
+  "$sensitive" '[.][*[]"' '[.][[]"'
+
+expect_caught 'sensitive-rule-home-dot-glob-fires-1:' 'a bracket after a leading dot is not an expansion after a move home' \
+  "$sensitive" '[.][*[]"' '[.][*]"'
+
+expect_caught 'sensitive-rule-home-dot-glob-fires-2:' 'the $HOME form of moving home is not noticed' \
+  "$sensitive" "(~|[\$][{]?home[}]?)" "(~)"
+
+expect_caught 'sensitive-rule-home-dot-glob-fires-4:' 'a trailing slash after the home directory is not noticed' \
+  "$sensitive" "[}]?)/?(" "[}]?)("
+
+expect_caught 'sensitive-rule-home-dot-glob-fires-6:' 'a pushd with no argument is not noticed' \
+  "$sensitive" '(cd|pushd)[[:space:]]*([;&|]' '(cd)[[:space:]]*([;&|]'
+
+expect_caught 'sensitive-rule-home-dot-glob-fires-7:' 'a pushd to the home directory is not noticed' \
+  "$sensitive" "home_cd='(cd|pushd)" "home_cd='(cd)"
+
 expect_caught sensitive-rule-kubeconfig-expansion-reversed-fires-1 \
   'a name straight after the expansion is no longer noticed' \
   "$sensitive" '(.*[^[:alnum:]_-])?kubeconfig' '.*[^[:alnum:]_-]kubeconfig'

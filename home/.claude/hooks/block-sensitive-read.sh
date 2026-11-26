@@ -64,6 +64,14 @@ guard_rule word-dot-expansion ask "(^|[[:space:];&|<>={,])[.]${word_dot_expansio
 # counts.
 guard_rule dot-paren-glob ask "${guard_name_start}[.][[:alnum:]_-]*[(]"
 
+# `.*` and `.[` are left out of the word rule, but after a move home they can
+# only be a read of the hidden names there (`cd ~ && cat .*/credentials`,
+# `cd; cat .[s]sh/id`). A bare `cd` or `pushd` goes home too. A regex after a
+# move home (`cd ~ && rg 'a .* b'`) is asked about as well.
+home_cd='(cd|pushd)[[:space:]]+(~|[$][{]?home[}]?)/?([^[:alnum:]_/-]|$)'
+bare_cd="${guard_name_start}(cd|pushd)[[:space:]]*([;&|]|\$)"
+guard_rule home-dot-glob ask "(${home_cd}|${bare_cd}).*[[:space:];&|<>={,][.][*[]"
+
 # An unbraced variable runs into the name that follows it (`~/$x.ssh`), so the
 # character before the dot is a name character and no name rule sees a name.
 guard_rule glued-variable-name ask "[$][[:alnum:]_]+(${glued_names})"
