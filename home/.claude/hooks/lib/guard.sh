@@ -108,16 +108,24 @@ guard_drop_exempt_tokens() { # <normalized-command>
 }
 
 # Drop quote and backslash concatenation so that token splitting cannot hide an
-# operation, flatten the newlines because grep matches one line at a time, and
-# lowercase. A backslash and the newline after it go first, as one pair, and
-# become <pair>; every other newline becomes <newline>. Over-normalizing can
-# only add a pause for review; from here there is no path to an allow.
+# operation, collapse the slash runs and `/./` segments that name the same path
+# (`~/.config//gcloud`), flatten the newlines because grep matches one line at a
+# time, and lowercase. A backslash and the newline after it go first, as one
+# pair, and become <pair>; every other newline becomes <newline>. Over-normalizing
+# can only add a pause for review; from here there is no path to an allow.
 guard_normalize() { # <command> <what a backslash and its newline become> <what a newline becomes>
   local text=$1
   text=${text//\\$'\n'/$2}
   text=${text//\"/}
   text=${text//\'/}
   text=${text//\\/}
+  # Two block comments with nothing between them (`/**//**/`) hold a `//` that
+  # is not a path.
+  text=${text//\*\/\/\*/*\/ \/*}
+  while [[ $text == *//* || $text == */./* ]]; do
+    text=${text//\/\//\/}
+    text=${text//\/.\//\/}
+  done
   text=${text//$'\n'/$3}
   printf '%s' "$text" | tr '[:upper:]' '[:lower:]'
 }

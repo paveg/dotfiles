@@ -419,6 +419,22 @@ expect_caught 'sensitive-rule-fragment-expansion-fires-6:' 'a name after a dot s
 expect_caught 'sensitive-rule-glued-variable-name-fires-18:' 'a variable name has letters only, no digit or underscore' \
   "$sensitive" '"[$][[:alnum:]_]+(${glued_names})"' '"[$][[:alpha:]]+(${glued_names})"'
 
+# The slash runs and dot segments that name one path.
+expect_caught 'sensitive-rule-name-gcloud-fires-1: sensitive-rule-name-gcloud-fires-4:' 'a run of slashes is no longer one slash' \
+  "$guard" $'  while [[ $text == *//* || $text == */./* ]]; do\n    text=${text//\\/\\//\\/}\n    text=${text//\\/.\\//\\/}\n  done\n' \
+  $'  while [[ $text == */./* ]]; do\n    text=${text//\\/.\\//\\/}\n  done\n'
+
+expect_caught 'sensitive-rule-name-gcloud-fires-2: sensitive-rule-name-gcloud-fires-3:' 'a dot segment is no longer dropped from a path' \
+  "$guard" $'  while [[ $text == *//* || $text == */./* ]]; do\n    text=${text//\\/\\//\\/}\n    text=${text//\\/.\\//\\/}\n  done\n' \
+  $'  while [[ $text == *//* ]]; do\n    text=${text//\\/\\//\\/}\n  done\n'
+
+expect_caught 'sensitive-rule-name-gcloud-fires-3: sensitive-rule-name-gcloud-fires-4:' 'slashes and dot segments are collapsed once, not until none is left' \
+  "$guard" $'  while [[ $text == *//* || $text == */./* ]]; do\n    text=${text//\\/\\//\\/}\n    text=${text//\\/.\\//\\/}\n  done\n' \
+  $'  if [[ $text == *//* || $text == */./* ]]; then\n    text=${text//\\/\\//\\/}\n    text=${text//\\/.\\//\\/}\n  fi\n'
+
+expect_caught 'db-rule-drop-database-fires-13:' 'two block comments with nothing between them are read as a path' \
+  "$guard" $'  text=${text//\\*\\/\\/\\*/*\\/ \\/*}\n' ''
+
 # The engine on input that repeats what it removes.
 expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'a backslash and its newline are not removed as a pair' \
   "$guard" $'  text=${text//\\\\$\'\\n\'/$2}\n' ''
