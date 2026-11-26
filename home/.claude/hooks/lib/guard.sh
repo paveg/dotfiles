@@ -109,13 +109,12 @@ guard_drop_exempt_tokens() { # <normalized-command>
 
 # Drop quote and backslash concatenation so that token splitting cannot hide an
 # operation, flatten the newlines because grep matches one line at a time, and
-# lowercase. A backslash and the newline after it go first, as one pair: the
-# shell joins the two lines into one word, where the flattened newline would
-# leave a space. Over-normalizing can only add a pause for review; from here
+# lowercase. A backslash and the newline after it go first, as one pair, and
+# become <joiner>. Over-normalizing can only add a pause for review; from here
 # there is no path to an allow.
-guard_normalize() { # <command>
+guard_normalize() { # <command> <what a backslash and its newline become>
   local text=$1
-  text=${text//\\$'\n'/}
+  text=${text//\\$'\n'/$2}
   text=${text//\"/}
   text=${text//\'/}
   text=${text//\\/}
@@ -154,11 +153,32 @@ guard_classify() { # <normalized-command>
   return 0
 }
 
+# error before deny before ask before nothing.
+guard_rank() { # <verdict>
+  case $1 in
+  error*) printf 3 ;;
+  deny*) printf 2 ;;
+  ask*) printf 1 ;;
+  *) printf 0 ;;
+  esac
+}
+
+# The shell deletes a backslash and the newline after it, so `.s\<newline>sh` is
+# one word. Inside single quotes and a quoted heredoc it does not: the client
+# gets both lines, and `DROP\<newline>DATABASE` is a verb and a noun. The
+# command is read both ways, the pair deleted and the pair a space, and the
+# stricter verdict stands.
 guard_decide() { # <command>
-  local scan
-  scan=$(guard_normalize "$1")
-  scan=$(guard_drop_exempt_tokens "$scan")
-  guard_classify "$scan"
+  local joiner scan verdict strictest=''
+  for joiner in '' ' '; do
+    scan=$(guard_normalize "$1" "$joiner")
+    scan=$(guard_drop_exempt_tokens "$scan")
+    verdict=$(guard_classify "$scan")
+    if (($(guard_rank "$verdict") > $(guard_rank "$strictest"))); then
+      strictest=$verdict
+    fi
+  done
+  printf '%s' "$strictest"
 }
 
 guard_main() {

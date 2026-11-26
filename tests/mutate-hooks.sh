@@ -309,17 +309,25 @@ expect_caught db-deny-multiline-no-indent 'newlines are left in place, so grep m
 
 # The engine on input where a backslash ends a line.
 expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'a backslash and its newline are not removed as a pair' \
-  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' ''
+  "$guard" $'  text=${text//\\\\$\'\\n\'/$2}\n' ''
 
 expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'only the first backslash and newline pair is removed' \
-  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' $'  text=${text/\\\\$\'\\n\'/}\n'
+  "$guard" $'  text=${text//\\\\$\'\\n\'/$2}\n' $'  text=${text/\\\\$\'\\n\'/$2}\n'
 
-# The engine on input where a backslash ends a line.
-expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'a backslash and its newline are not removed as a pair' \
-  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' ''
+expect_caught 'db-deny-single-quoted-backslash-newline: db-deny-heredoc-backslash-newline: db-deny-comment-backslash-newline:' \
+  'a backslash and its newline are only ever read as joined, which is not what a single-quoted string or a quoted heredoc holds' \
+  "$guard" $'  for joiner in \'\' \' \'; do\n' $'  for joiner in \'\'; do\n'
 
-expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' 'only the first backslash and newline pair is removed' \
-  "$guard" $'  text=${text//\\\\$\'\\n\'/}\n' $'  text=${text/\\\\$\'\\n\'/}\n'
+expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' \
+  'a backslash and its newline are only ever read as a space, which is not what the shell does outside quotes' \
+  "$guard" $'  for joiner in \'\' \' \'; do\n' $'  for joiner in \' \'; do\n'
+
+expect_caught 'db-deny-backslash-newline: sensitive-deny-backslash-newline:' \
+  'the later reading of a backslash and its newline replaces the stricter one' \
+  "$guard" $'    if (($(guard_rank "$verdict") > $(guard_rank "$strictest"))); then\n' $'    if true; then\n'
+
+expect_caught 'db-deny-ask-beside-backslash-newline:' 'an ask outranks a deny when the two readings differ' \
+  "$guard" $'  ask*) printf 1 ;;\n' $'  ask*) printf 5 ;;\n'
 
 # The build.
 expect_caught 'db-pass-list-files sensitive-pass-read-readme' \

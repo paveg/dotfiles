@@ -86,7 +86,11 @@
           "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
           "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
           "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\"",
-          "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\""
+          "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\"",
+          "psql -d app_dev -c 'DROP\\\nDATABASE app_dev'",
+          "psql -d app_dev <<'EOF'\nDROP\\\nDATABASE app_dev;\nEOF",
+          "psql -d app_dev -c 'DROP\\\nDATABASE app_dev' -v x=\"$y\"",
+          "pgcli -c 'DROP --\\\nDATABASE app_dev'"
         ]
       },
       "drop-schema": {
@@ -176,7 +180,11 @@
       "comment-split": "psql -d app_dev -c 'DROP/**/DATABASE app_dev'",
       "dash-comment": "psql -d app_dev -c 'DROP--wipe\n  DATABASE app_dev'",
       "unlisted-client-comment": "pgcli -c 'DROP--wipe\n  DATABASE app_dev'",
-      "backslash-newline": "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\""
+      "backslash-newline": "psql -d app_dev -c \"DRO\\\nP DATA\\\nBASE app_dev\"",
+      "single-quoted-backslash-newline": "psql -d app_dev -c 'DROP\\\nDATABASE app_dev'",
+      "heredoc-backslash-newline": "psql -d app_dev <<'EOF'\nDROP\\\nDATABASE app_dev;\nEOF",
+      "ask-beside-backslash-newline": "psql -d app_dev -c 'DROP\\\nDATABASE app_dev' -v x=\"$y\"",
+      "comment-backslash-newline": "pgcli -c 'DROP --\\\nDATABASE app_dev'"
     },
     "ask": {
       "brace-split": "psql -d app_dev -c \"DROP${IFS}DATABASE app_dev\"",
