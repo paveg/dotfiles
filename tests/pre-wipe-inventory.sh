@@ -82,6 +82,8 @@ printf 'stashed\n' >>"$dir/README"
 fixture_git -C "$dir" stash push -q -m fixture
 
 dir=$(pushed_repo ahead-of-upstream)
+commit "$dir" README 'only in the reflog'
+fixture_git -C "$dir" reset -q --hard origin/main
 commit "$dir" README 'not pushed'
 
 dir=$(pushed_repo local-branch)
@@ -113,12 +115,15 @@ fixture_git -C "$dir" tag -a local-tag -m 'local tag'
 fixture_git -C "$dir" reset -q --hard origin/main
 
 # A commit only a ref outside heads and tags holds, made without touching HEAD,
-# so no reflog holds it; and a commit only the reflog holds.
+# so no reflog holds it; and two commits, on lines of their own, only the
+# reflog holds.
 dir=$(pushed_repo wip-ref)
 fixture_git -C "$dir" update-ref refs/wip/x "$(fixture_git -C "$dir" commit-tree -p HEAD -m 'only on refs/wip/x' 'HEAD^{tree}')"
 dir=$(pushed_repo reflog-only)
-commit "$dir" README 'only in the reflog'
-fixture_git -C "$dir" reset -q --hard origin/main
+for text in 'only in the reflog' 'only in another reflog entry'; do
+  commit "$dir" README "$text"
+  fixture_git -C "$dir" reset -q --hard origin/main
+done
 
 dir=$(pushed_repo linked-detached)
 fixture_git -C "$dir" worktree add -q --detach "$home/wt/linked-detached"
@@ -400,7 +405,7 @@ has detached-head "$(block_of example.com/owner/detached-head)" 'commits on no r
 has detached-head-no-branch "$(block_of example.com/owner/detached-head)" 'on no branch (a detached HEAD or only a tag): 1'
 has tag-only "$(block_of example.com/owner/tag-only)" 'commits on no remote ref: 1'
 has wip-ref "$(block_of example.com/owner/wip-ref)" 'commits on no remote ref: 1'
-has reflog-only "$(block_of example.com/owner/reflog-only)" 'commits on no remote ref: 1'
+has reflog-only "$(block_of example.com/owner/reflog-only)" 'commits on no remote ref: 2'
 has linked-worktree-head "$(block_of example.com/owner/linked-detached)" 'commits on no remote ref: 1'
 has git-file-repo "$(block_of example.com/owner/gitfile)" 'commits on no remote ref: 1'
 has bare-only-copy "$(block_of example.com/owner/bare-only.git)" '  - no remote'
@@ -518,6 +523,25 @@ moved=$(tr '\0' '\n' <"$work_dir/paths-ssh-documents")
 has ssh-in-documents-run "$moved" "$memory/MEMORY.md"
 leaked=$(while IFS= read -r -d '' record; do if [[ $record == "$home/Documents"/* || $record == "$home/.ssh"/* ]]; then printf '%s ' "$record"; fi; done <"$work_dir/paths-ssh-documents")
 if [[ -n $leaked ]]; then fail ssh-in-documents-not-listed "$leaked"; else ok ssh-in-documents-not-listed; fi
+
+# Run as printed, code span by code span, a next step keeps every commit the
+# report counted. The steps write refs and a bundle, so they run after the
+# snapshot.
+for name in reflog-only ahead-of-upstream wip-ref; do
+  dir=$ghq_root/example.com/owner/$name
+  counted=$(git -C "$dir" rev-list --all --reflog --not --remotes)
+  next=$(block_of "example.com/owner/$name" | sed -n 's/^  - next: //p')
+  steps=$(grep -o '`[^`]*`' <<<"$next" | tr -d '`')
+  while IFS= read -r step; do
+    [[ -n $step ]] && { bash -c "$step" >/dev/null 2>&1 || fail "next-step-runs $name" "$step"; }
+  done <<<"$steps"
+  kept=''
+  if git clone -q --mirror "$dir/$name.bundle" "$work_dir/bundle-$name" 2>/dev/null; then
+    kept=$(git -C "$work_dir/bundle-$name" rev-list --all)
+  fi
+  missing=$(while IFS= read -r sha; do grep -qxF -- "$sha" <<<"$kept" || printf '%s ' "$sha"; done <<<"$counted")
+  if [[ -z $missing ]]; then ok "next-step-keeps-commits $name"; else fail "next-step-keeps-commits $name" "not in the bundle: $missing; next: $next"; fi
+done
 
 if diff "$work_dir/before" "$work_dir/after" >"$work_dir/diff"; then
   ok nothing-changed
