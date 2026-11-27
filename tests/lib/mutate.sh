@@ -4,7 +4,8 @@
 # Env: MUTATE_JOBS caps the mutants that run at once (default: the CPU count).
 #      MUTATE_ONLY=<regex> runs only the mutants whose description matches; the
 #      run fails when none does.
-# A runner calls mutate_baseline, then mutant once per mutant, then mutate_finish.
+# A runner calls mutate_baseline, then mutant or clean_mutant once per mutant,
+# then mutate_finish.
 
 # The physical path: a `path:` flakeref refuses a directory reached through a
 # symlink, and macOS puts mktemp's directory under /var, a link to /private/var.
@@ -19,6 +20,7 @@ mutate_unselected=0
 mutate_baseline_passed=
 mutate_slot_kind=()
 mutate_slot_text=()
+mutate_slot_verb=()
 
 # A tree, not a pid: the test scripts, zsh and nix below a mutant ignore the
 # SIGINT a Ctrl-C sends, as every background job of a non-interactive shell does.
@@ -83,7 +85,7 @@ mutate_checks_failed() { # <output> <check>...
   done
   [[ -z $missing ]] && return 0
   echo "expected to fail:$missing"
-  grep -E '^(FAIL|summary)' <<<"$out" | head -5
+  grep -E '^(FAIL|ERROR|summary)' <<<"$out" | head -5
   return 1
 }
 
@@ -116,8 +118,17 @@ mutate_fail() { # <line>
 # directory of the mutant's own. The function succeeds when the mutant is
 # caught; what it prints shows under the MISSED line.
 mutant() { # <description> <function> <arg>...
-  local description=$1 dir
-  shift
+  mutate_spawn caught "$@"
+}
+
+# As mutant, for a mutant the checks must pass: success prints "clean:".
+clean_mutant() { # <description> <function> <arg>...
+  mutate_spawn clean "$@"
+}
+
+mutate_spawn() { # <verb> <description> <function> <arg>...
+  local verb=$1 description=$2 dir
+  shift 2
   if [[ -z $mutate_baseline_passed ]]; then
     echo "FAIL: mutant '$description' was declared before the files as committed passed" >&2
     exit 1
@@ -127,6 +138,7 @@ mutant() { # <description> <function> <arg>...
     return 0
   fi
   mutate_slot mutant "$description"
+  mutate_slot_verb[mutate_slots]=$verb
   dir=$mutate_dir/$mutate_slots
   mkdir -p "$dir/tree"
   while (($(jobs -pr | wc -l) >= mutate_jobs)); do
@@ -144,7 +156,7 @@ mutant() { # <description> <function> <arg>...
 
 # $mutate_context, when set, is added to the last line.
 mutate_finish() {
-  local n dir status caught=0 failed=0 na=0 selected=0 summary
+  local n dir status caught=0 clean=0 failed=0 na=0 selected=0 summary
   wait
   for ((n = 1; n <= mutate_slots; n++)); do
     case ${mutate_slot_kind[n]} in
@@ -160,18 +172,22 @@ mutate_finish() {
       selected=$((selected + 1))
       dir=$mutate_dir/$n
       status=$(cat "$dir/status" 2>/dev/null) || status=missing
-      if [[ $status == 0 ]]; then
-        caught=$((caught + 1))
-        echo "caught: ${mutate_slot_text[n]}"
-      else
+      if [[ $status != 0 ]]; then
         failed=$((failed + 1))
         echo "MISSED: ${mutate_slot_text[n]} (exit $status)"
         cat "$dir/out"
+      elif [[ ${mutate_slot_verb[n]} == clean ]]; then
+        clean=$((clean + 1))
+        echo "clean: ${mutate_slot_text[n]}"
+      else
+        caught=$((caught + 1))
+        echo "caught: ${mutate_slot_text[n]}"
       fi
       ;;
     esac
   done
   summary="$caught caught"
+  ((clean == 0)) || summary="$summary, $clean clean"
   ((na == 0)) || summary="$summary, $na n/a"
   [[ -z ${mutate_context-} ]] || summary="$summary, $mutate_context"
   if [[ -n ${MUTATE_ONLY-} ]]; then
@@ -181,7 +197,7 @@ mutate_finish() {
     echo "$failed mutation check(s) failed ($summary)"
     exit 1
   fi
-  if ((caught == 0)); then
+  if ((caught + clean == 0)); then
     echo "no mutant ran ($summary)"
     exit 1
   fi

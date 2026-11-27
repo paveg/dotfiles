@@ -15,77 +15,38 @@ default_host=wsl
 host=${DOTFILES_HOST:-$default_host}
 export DOTFILES_HOST=$host
 
-work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
+# shellcheck source=tests/lib/mutate.sh
+source "$repo_dir/tests/lib/mutate.sh"
 
-caught=0
-clean=0
-skipped=0
-failures=0
-
-skip() { # <reason>
-  skipped=$((skipped + 1))
-  echo "n/a: $1"
-}
-
-# A copy of the files under test with each <file> <old> <new> edit applied.
-mutant() { # <file> <old> <new> [<file> <old> <new>]...
-  local dir entry
-  dir=$(mktemp -d "$work_dir/mutant.XXXX")
+# Fill <dir> with a copy of the files under test and apply each edit to it.
+apply_edits() { # <dir> <file> <old> <new> [<file> <old> <new>]...
+  local dir=$1 entry
+  shift
   for entry in flake.nix flake.lock hosts nix home docs; do
-    cp -R "$repo_dir/$entry" "$dir/$entry"
+    cp -R "$repo_dir/$entry" "$dir/$entry" || return
   done
   while (($# >= 3)); do
-    OLD=$2 NEW=$3 python3 - "$dir/$1" <<'PY' || return 1
-import os, sys
-path = sys.argv[1]
-text = open(path).read()
-old, new = os.environ["OLD"], os.environ["NEW"]
-if text.count(old) != 1:
-    sys.exit(f"mutation target found {text.count(old)} times: {old!r}")
-open(path, "w").write(text.replace(old, new))
-PY
+    mutate_apply "$dir/$1" "$2" "$3" || return
     shift 3
   done
-  echo "$dir"
 }
 
-expect_pass() {
-  local out
-  if out=$("$repo_dir/tests/licenses.sh" 2>&1); then
-    echo "pass: the files as committed"
-  else
-    echo "FAIL: the files as committed should pass"
-    grep '^FAIL' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
-}
-
-# A mutant that must still pass, with <row> (a regular expression) in its table.
-expect_clean() { # <row> <description> <file> <old> <new> [<file> <old> <new>]...
-  local row=$1 description=$2 dir out
+run_clean() { # <dir> <row> <file> <old> <new> [<file> <old> <new>]...
+  local dir=$1 row=$2 out
   shift 2
-  dir=$(mutant "$@") || {
-    failures=$((failures + 1))
-    return
-  }
+  apply_edits "$dir" "$@" || return
   if out=$("$repo_dir/tests/licenses.sh" "$dir" 2>&1) && grep -Eq "$row" <<<"$out"; then
-    clean=$((clean + 1))
-    echo "clean: $description"
-  else
-    echo "MISSED: $description (expected a pass with a row matching '$row')"
-    grep -E '^(FAIL|summary)' <<<"$out" | head -5
-    failures=$((failures + 1))
+    return 0
   fi
+  echo "expected a pass with a row matching '$row'"
+  grep -E '^(FAIL|summary)' <<<"$out" | head -5
+  return 1
 }
 
-expect_caught() { # <check>... <description> <file> <old> <new> [<file> <old> <new>]...
-  local checks=$1 description=$2 dir out check wrong
+run_caught() { # <dir> <check>... <file> <old> <new> [<file> <old> <new>]...
+  local dir=$1 checks=$2 out check wrong
   shift 2
-  dir=$(mutant "$@") || {
-    failures=$((failures + 1))
-    return
-  }
+  apply_edits "$dir" "$@" || return
   out=$("$repo_dir/tests/licenses.sh" "$dir" 2>&1) && wrong=' (exit 0)' || wrong=
   # The summary line proves the run reached the end: a crash that skips later
   # rows is a broken harness, not a caught mutant.
@@ -97,14 +58,19 @@ expect_caught() { # <check>... <description> <file> <old> <new> [<file> <old> <n
       grep -q "^FAIL: $check:" <<<"$out" || wrong="$wrong $check"
     fi
   done
-  if [[ -z $wrong ]]; then
-    caught=$((caught + 1))
-    echo "caught: $description"
-  else
-    echo "MISSED: $description (wrong:$wrong)"
-    grep -E '^(FAIL|summary)' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
+  [[ -z $wrong ]] && return 0
+  echo "wrong:$wrong"
+  grep -E '^(FAIL|summary)' <<<"$out" | head -5
+  return 1
+}
+
+# A mutant that must still pass, with <row> (a regular expression) in its table.
+expect_clean() { # <row> <description> <file> <old> <new> [<file> <old> <new>]...
+  clean_mutant "$2" run_clean "$1" "${@:3}"
+}
+
+expect_caught() { # <check>... <description> <file> <old> <new> [<file> <old> <new>]...
+  mutant "$2" run_caught "$1" "${@:3}"
 }
 
 h=$host
@@ -113,7 +79,7 @@ with_package() { # <expression>
   printf '    atuin\n    %s\n  ]' "$1"
 }
 
-expect_pass
+mutate_baseline 'the files as committed' "$repo_dir/tests/licenses.sh"
 
 expect_caught "non-commercial-$h-zsh-abbr unfree-$h-zsh-abbr" \
   'zsh-abbr (CC-BY-NC-SA-4.0) is installed' \
@@ -313,7 +279,7 @@ if [[ $host == wsl ]]; then
     'an install kept by hand is recorded with a non-commercial licence' \
     nix/licenses.nix 'udev-gothic-nf = ofl;' 'udev-gothic-nf = cc-by-nc-40;'
 else
-  skip "the winget mutants need wsl, and this run is on $host"
+  mutate_na "the winget mutants need wsl, and this run is on $host"
 fi
 
 if [[ $host != wsl ]]; then
@@ -342,11 +308,8 @@ if [[ $host != wsl ]]; then
     'a nix-darwin derivation loses its recorded licence' \
     nix/licenses.nix $'    "darwin-rebuild" = mit;\n' ''
 else
-  skip "the system, font, and Homebrew mutants need a macOS host, and this run is on $host"
+  mutate_na "the system, font, and Homebrew mutants need a macOS host, and this run is on $host"
 fi
 
-if ((failures > 0)); then
-  echo "$failures mutation check(s) failed"
-  exit 1
-fi
-echo "every mutant is caught ($caught caught, $clean clean, $skipped n/a, host $host)"
+mutate_context="host $host"
+mutate_finish
