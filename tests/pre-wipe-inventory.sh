@@ -322,6 +322,7 @@ if grep -qF clean-repo "$work_dir/out"; then
 else
   ok clean-repo-not-listed
 fi
+has fetch-prune-first "$(cat "$work_dir/out")" 'run `git fetch --prune` in a repository first'
 has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, not listed): 5'
 has git-summary "$(cat "$work_dir/out")" '| Git repositories | 28 | 23 |'
 

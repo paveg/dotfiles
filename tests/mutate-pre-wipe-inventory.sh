@@ -73,6 +73,7 @@ expect_caught 'the report follows the backup list' '  backup_paths
   exit 0' '  backup_paths'
 expect_caught 'the atuin export hint is missing' 'echo "atuin history is left out:' ': "atuin history is left out:'
 expect_caught 'agent notes in git are checked without a kind' 'findings=$(repo_findings "$notes_dir" work)' 'findings=$(repo_findings "$notes_dir")'
+expect_caught 'a deleted upstream is not pruned first' 'run `git fetch --prune` in a repository' 'run `git fetch` in a repository'
 expect_caught 'clean repositories are listed' 'if [[ -z $findings ]]; then
     repo_clean' 'if [[ -z $findings && 1 == 2 ]]; then
     repo_clean'

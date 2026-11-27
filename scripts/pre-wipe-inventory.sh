@@ -488,7 +488,7 @@ printf 'What wiping this machine would lose. Generated %s on %s, read-only: the 
 printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n- what to back up: run with `--backup-paths` for NUL-separated paths, for `tar --null -T -`\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
 have ghq || note 'ghq: not installed'
 
-section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch` in a repository first if its remote may have moved. Untracked files honour .gitignore; ignored files are listed when no build re-creates them and their name suggests no secret.'
+section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch --prune` in a repository first if its remote may have moved: a branch deleted on the remote counts as pushed until its remote-tracking ref is pruned. Untracked files honour .gitignore; ignored files are listed when no build re-creates them and their name suggests no secret.'
 note "Searched \`~\` and every ghq root for work trees (a \`.git\` directory or file) and bare repositories, skipping $prune_list; symlinks are not followed. Each submodule and each linked worktree's repository is checked as a repository of its own."
 notes_real=$(real_path "$notes_dir")
 while IFS=$'\t' read -r dir kind; do
