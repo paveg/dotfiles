@@ -142,6 +142,14 @@ write_probe() { # <script> <out-file>
   print -r -- "CTRL_R=\$ctrl_r"
   print -r -- "CTRL_T=\$ctrl_t"
   print -r -- "ALT_C=\$alt_c"
+  LBUFFER=gst; dots-abbreviation-expand; print -r -- "ABBREVIATION_GST=\$LBUFFER"
+  space=\$(bindkey ' '); space=\${space##* }
+  enter=\$(bindkey '^m'); enter=\${enter##* }
+  print -r -- "SPACE_TYPE=\${widgets[\$space]-none}"
+  print -r -- "ENTER_TYPE=\${widgets[\$enter]-none}"
+  for name in \${(k)dots_abbreviations}; do
+    if (( \$+commands[\$name] || \$+builtins[\$name] )); then print -r -- "SHADOWED \$name"; fi
+  done
   print -r -- "LOCAL_RC=\${DOTS_LOCAL_RC-}"
   alias | sed 's/^/ALIAS /'
   print -r -- "DONE=yes"
@@ -340,6 +348,20 @@ is interactive-option-no-beep off "$(field OPTION_beep "$probe_text")"
 is interactive-profile-completion-registered _dots_stub \
   "$(field COMPLETION_STUB "$probe_text")"
 is interactive-skip-global-compinit 1 "$(field SKIP_GLOBAL_COMPINIT "$probe_text")"
+
+# Abbreviations expand when Space or Enter runs a user widget, and, like an
+# alias would, only for names that are not already a command.
+is interactive-abbreviation-expands 'git status' "$(field ABBREVIATION_GST "$probe_text")"
+case $(field SPACE_TYPE "$probe_text") in
+user:*) ok interactive-space-expands-abbreviations ;;
+*) fail interactive-space-expands-abbreviations "Space runs $(field SPACE_TYPE "$probe_text")" ;;
+esac
+case $(field ENTER_TYPE "$probe_text") in
+user:*) ok interactive-enter-expands-abbreviations ;;
+*) fail interactive-enter-expands-abbreviations "Enter runs $(field ENTER_TYPE "$probe_text")" ;;
+esac
+is interactive-abbreviations-shadow-nothing "" \
+  "$(grep '^SHADOWED ' "$probe" 2>/dev/null | tr '\n' ' ' || true)"
 
 # "Aliases: none by default": compare with a HOME that has no zsh files at all,
 # so zsh's own aliases and anything /etc adds are not counted.

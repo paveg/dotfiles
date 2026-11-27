@@ -78,6 +78,49 @@ if (( $+commands[atuin] )); then
   eval "$(atuin init zsh --disable-up-arrow)"
 fi
 
+# Abbreviations instead of aliases: Space or Enter expands one typed as the
+# whole line so far, so the full command is what runs and what atuin records.
+# Only names that are not a command already.
+typeset -A dots_abbreviations=(
+  g git
+  ga 'git add'
+  gaa 'git add --all'
+  gb 'git branch'
+  gc 'git commit'
+  gcm 'git commit -m'
+  gco 'git checkout'
+  gcb 'git checkout -b'
+  gd 'git diff'
+  gds 'git diff --staged'
+  gf 'git fetch'
+  gl 'git log --oneline -20'
+  gp 'git push'
+  gpl 'git pull'
+  gst 'git status'
+  gsw 'git switch'
+  gswc 'git switch -c'
+  k kubectl
+  lg lazygit
+  v nvim
+)
+dots-abbreviation-expand() {
+  if [[ -n $LBUFFER && -n ${dots_abbreviations[$LBUFFER]-} ]]; then
+    LBUFFER=${dots_abbreviations[$LBUFFER]}
+  fi
+}
+dots-abbreviation-space() {
+  dots-abbreviation-expand
+  zle self-insert
+}
+dots-abbreviation-accept() {
+  dots-abbreviation-expand
+  zle accept-line
+}
+zle -N dots-abbreviation-space
+zle -N dots-abbreviation-accept
+bindkey ' ' dots-abbreviation-space
+bindkey '^m' dots-abbreviation-accept
+
 # The first profile on PATH that has each plugin. zsh-syntax-highlighting wraps
 # the widgets that exist when it loads, so it comes after every other one.
 for dots_plugin in zsh-autosuggestions zsh-syntax-highlighting; do

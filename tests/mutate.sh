@@ -316,6 +316,18 @@ expect_caught interactive-ctrl-r-atuin-widget "atuin is told to leave Ctrl+r alo
   .config/zsh/.zshrc 'atuin init zsh --disable-up-arrow' \
   'atuin init zsh --disable-ctrl-r'
 
+expect_caught interactive-abbreviation-expands 'an abbreviation is left as typed' \
+  .config/zsh/.zshrc '    LBUFFER=${dots_abbreviations[$LBUFFER]}' '    :'
+
+expect_caught interactive-space-expands-abbreviations 'Space inserts a space without expanding' \
+  .config/zsh/.zshrc $'bindkey \' \' dots-abbreviation-space\n' ''
+
+expect_caught interactive-enter-expands-abbreviations 'Enter runs the line without expanding' \
+  .config/zsh/.zshrc $'bindkey \'^m\' dots-abbreviation-accept\n' ''
+
+expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command' \
+  .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  vi nvim\n'
+
 expect_caught interactive-zshrc-local-from-zdotdir \
   'the local zsh override is never sourced' \
   .config/zsh/.zshrc $'if [[ -r $ZDOTDIR/.zshrc.local ]]; then\n  source $ZDOTDIR/.zshrc.local\nfi\n' ''
