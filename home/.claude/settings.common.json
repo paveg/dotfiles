@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/.dev.vars)",
+      "Read(**/.envrc)",
+      "Read(**/.envrc.*)",
+      "Read(id_rsa)",
+      "Read(id_ed25519)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.config/op/**)",
+      "Read(~/.config/dots-work/**)",
+      "Read(~/.local/share/atuin/**)",
+      "Read(~/.netrc)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.codex/auth.json)",
+      "Read(**/*token*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*_key)",
+      "Read(**/*_key.*)",
+      "Read(**/*credential*)",
+      "Read(**/*password*)",
+      "Read(**/*secret*)",
+      "Read(**/.netrc)",
+      "Read(**/.npmrc)"
+    ]
+  }
+}
