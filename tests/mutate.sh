@@ -306,7 +306,7 @@ expect_caught home-tree-adds-only-cache 'the completion dump lands outside the c
 expect_caught caller-cache-holds-completion-dump 'completion is never initialized' \
   .config/zsh/.zshrc 'compinit -i -d $XDG_CACHE_HOME/zsh/zcompdump' ''
 
-expect_caught 'insecure-fpath-completion-initialized insecure-fpath-interactive-shell-log-quiet' \
+expect_caught insecure-fpath-completion-initialized \
   'compinit asks about an insecure fpath directory, and with no terminal to answer it aborts' \
   .config/zsh/.zshrc 'compinit -i -d' 'compinit -d'
 
@@ -409,7 +409,7 @@ expect_caught interactive-zshrc-local-from-zdotdir \
   $'if [[ -r $ZDOTDIR/.zshrc.local ]]; then\n  source $ZDOTDIR/.zshrc.local' \
   $'if [[ -r $HOME/.zshrc.local ]]; then\n  source $HOME/.zshrc.local'
 
-expect_caught 'interactive-shell-log-quiet caller-cache-interactive-shell-log-quiet' \
+expect_caught 'interactive-shell-log-quiet caller-cache-interactive-shell-log-quiet insecure-fpath-interactive-shell-log-quiet' \
   'the local zsh override is sourced even when it does not exist' \
   .config/zsh/.zshrc \
   $'if [[ -r $ZDOTDIR/.zshrc.local ]]; then\n  source $ZDOTDIR/.zshrc.local\nfi' \
