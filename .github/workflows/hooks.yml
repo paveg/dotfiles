@@ -16,7 +16,7 @@ on:
       - "tests/fixtures/hooks/**"
       - "tests/reply-language.sh"
       - "tests/fixtures/reply-language/**"
-      - ".github/workflows/hooks.yml"
+      - ".github/workflows/**"
 
 permissions:
   contents: read

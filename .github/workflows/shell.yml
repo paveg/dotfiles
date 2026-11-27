@@ -10,7 +10,9 @@ on:
       - "profiles/**"
       - "tests/**"
       - "scripts/pre-wipe-inventory.sh"
-      - ".github/workflows/shell.yml"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/**"
 
 permissions:
   contents: read

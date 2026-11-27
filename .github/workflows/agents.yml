@@ -7,14 +7,14 @@ on:
     paths:
       - "flake.nix"
       - "flake.lock"
-      - "home/.claude/**"
+      - "home/**"
       - "hosts/**"
       - "nix/**"
       - "profiles/**"
       - "tests/agents.sh"
       - "tests/mutate-agents.sh"
       - "tests/lib/mutate.sh"
-      - ".github/workflows/agents.yml"
+      - ".github/workflows/**"
 
 permissions:
   contents: read
