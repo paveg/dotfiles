@@ -306,6 +306,10 @@ expect_caught home-tree-adds-only-cache 'the completion dump lands outside the c
 expect_caught caller-cache-holds-completion-dump 'completion is never initialized' \
   .config/zsh/.zshrc 'compinit -i -d $XDG_CACHE_HOME/zsh/zcompdump' ''
 
+expect_caught 'insecure-fpath-completion-initialized insecure-fpath-interactive-shell-log-quiet' \
+  'compinit asks about an insecure fpath directory, and with no terminal to answer it aborts' \
+  .config/zsh/.zshrc 'compinit -i -d' 'compinit -d'
+
 expect_caught 'completion-cache-in-xdg-cache home-allowlist' \
   'the completion cache lands in $HOME' \
   .config/zsh/.zshrc 'cache-path $XDG_CACHE_HOME/zsh/zcompcache' 'cache-path $HOME/.zcompcache'

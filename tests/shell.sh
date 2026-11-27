@@ -169,6 +169,7 @@ write_probe() { # <script> <out-file>
     if [[ -o \$option ]]; then print -r -- "OPTION_\$option=on"; else print -r -- "OPTION_\$option=off"; fi
   done
   print -r -- "COMPLETION_STUB=\${_comps[dots-stub-command]-none}"
+  print -r -- "COMPLETION_COUNT=\${#_comps}"
   print -r -- "SKIP_GLOBAL_COMPINIT=\${skip_global_compinit-}"
   ctrl_g=\$(bindkey '^g'); ctrl_g=\${ctrl_g##* }
   ctrl_r=\$(bindkey '^r'); ctrl_r=\${ctrl_r##* }
@@ -575,6 +576,24 @@ for name in mise-shims aqua-bin; do
     fail "caller-path-$name" "$dir is not on PATH=$alt_path"
   fi
 done
+
+# A world-writable directory on fpath, which compaudit calls insecure on every
+# system (a group-writable one passes on Linux when the group is the user's
+# own), must not stop completion: without a terminal to answer compinit's
+# question, it would abort.
+insecure_home=$(new_home insecure-fpath)
+chmod o+w "$insecure_home/.nix-profile/share/zsh/site-functions"
+insecure_probe=$work_dir/insecure-fpath.vars
+insecure_log=$work_dir/insecure-fpath.log
+run_interactive "$insecure_home" "$insecure_probe" "$insecure_log"
+ran_and_quiet insecure-fpath-interactive-shell "$insecure_probe" "$insecure_log"
+insecure_count=$(field COMPLETION_COUNT "$(cat "$insecure_probe" 2>/dev/null)")
+if [[ $insecure_count == [0-9]* ]] && ((insecure_count > 0)); then
+  ok insecure-fpath-completion-initialized
+else
+  fail insecure-fpath-completion-initialized \
+    "_comps holds '$insecure_count' entries; log: $(tr '\n' ' ' <"$insecure_log" | cut -c1-200)"
+fi
 
 # The completion cache follows a caller-set XDG_CACHE_HOME, and nothing lands in
 # ~/.cache instead.
