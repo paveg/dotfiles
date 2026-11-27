@@ -12,7 +12,21 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 script=${1:-$repo_dir/scripts/pre-wipe-inventory.sh}
 bash_bin=/bin/bash
-work_dir=$(cd "$(mktemp -d)" && pwd -P)
+# Everything below, fixtures included, runs on a temporary HOME, the system PATH
+# plus a link to git, and no XDG_* variable: an inherited XDG_CONFIG_HOME once
+# pointed a run at the real HOME's files.
+if [[ -z ${INVENTORY_TEST_DIR:-} ]]; then
+  work_dir=$(cd "$(mktemp -d)" && pwd -P)
+  mkdir -p "$work_dir/needed" "$work_dir/root/home"
+  ln -s "$(command -v git)" "$work_dir/needed/git"
+  exec env -i INVENTORY_TEST_DIR="$work_dir" HOME="$work_dir/root/home" PATH="$work_dir/needed:/usr/bin:/bin:/usr/sbin:/sbin" \
+    "$bash_bin" "$0" "$script"
+fi
+work_dir=$INVENTORY_TEST_DIR
+if env | grep -q '^XDG_' || [[ $HOME != "$work_dir/root/home" ]]; then
+  echo "FAIL: the tests see an XDG_* variable or a HOME other than $work_dir/root/home"
+  exit 1
+fi
 trap 'rm -rf "$work_dir"' EXIT
 
 checks=0
