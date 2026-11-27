@@ -201,13 +201,32 @@ backup_roots=(
   "$notes_dir"                    # agent notes: kept outside every repository
 )
 
+# Why a backup root is refused, or nothing. Its real path must be a Claude Code
+# memory directory in the real HOME, or the default agent notes location, or,
+# for an AGENT_NOTES_DIR set by hand, a directory below the real HOME.
+backup_root_refusal() { # <root> <its real path>
+  local project=${2#"$home_real/.claude/projects/"}
+  project=${project%/memory}
+  if [[ $1 != "$notes_dir" ]]; then
+    [[ $2 == "$home_real/.claude/projects/$project/memory" && -n $project && $project != */* ]] ||
+      printf 'its real path `%s` is no Claude Code memory directory in HOME' "$(tilde "$2")"
+  elif [[ -n ${AGENT_NOTES_DIR:-} ]]; then
+    [[ $2 == "$home_real"/?* ]] || printf 'AGENT_NOTES_DIR resolves to `%s`, which is not below HOME' "$(tilde "$2")"
+  else
+    [[ $2 == "$home_real/.local/share/agent-notes" ]] || printf 'its real path `%s` is not `~/.local/share/agent-notes`' "$(tilde "$2")"
+  fi
+}
+
 # For each file below a backup root, NUL-separated: why it is left out (empty
-# when it is listed), then its path. find follows no symlink below the root's
-# real path, so each path it prints is that file's real path, inside the root.
+# when it is listed), then its path; a refused root is one such record. find
+# follows no symlink below the root's real path, so each path it prints is that
+# file's real path, inside the root.
 backup_scan() {
   local root real path location why prune=(\( -name .git -o -name node_modules -o -name .cache \) -prune -o)
   for root in "${backup_roots[@]}"; do
     real=$(real_path "$root") || continue
+    why=$(backup_root_refusal "$root" "$real")
+    [[ -n $why ]] && { printf '%s\0%s\0' "$why" "$root"; continue; }
     find "$real" "${prune[@]}" -type f -links 1 -print0 2>/dev/null | {
       shopt -s nocasematch
       while IFS= read -r -d '' path; do
