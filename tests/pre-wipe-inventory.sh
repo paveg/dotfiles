@@ -17,8 +17,10 @@ bash_bin=/bin/bash
 # pointed a run at the real HOME's files.
 if [[ -z ${INVENTORY_TEST_DIR:-} ]]; then
   work_dir=$(cd "$(mktemp -d)" && pwd -P)
-  mkdir -p "$work_dir/needed" "$work_dir/root/home"
+  mkdir -p "$work_dir/needed" "$work_dir/host" "$work_dir/root/home"
   ln -s "$(command -v git)" "$work_dir/needed/git"
+  # Off PATH: the host's chezmoi, if any, which the chezmoi check below offers the script.
+  if command -v chezmoi >/dev/null; then ln -s "$(command -v chezmoi)" "$work_dir/host/chezmoi"; fi
   exec env -i INVENTORY_TEST_DIR="$work_dir" HOME="$work_dir/root/home" PATH="$work_dir/needed:/usr/bin:/bin:/usr/sbin:/sbin" \
     "$bash_bin" "$0" "$script"
 fi
@@ -142,6 +144,20 @@ for dir in "$ghq_root/gitlab.com/group/sub1/sub2/deep-repo" "$home/work/work-rep
   commit "$dir" notes 'never pushed'
 done
 
+# A chezmoi source, rooted in home/ by `.chezmoiroot`, whose hook and `output`
+# template leave a marker and whose external fetches from a closed port when
+# chezmoi reads it. The names in it mark two entries in HOME as managed.
+chezmoi_source=$home/.local/share/chezmoi
+hook_marker=$root/chezmoi-hook-ran
+template_marker=$root/chezmoi-template-ran
+mkdir -p "$chezmoi_source/home/dot_claude" "$home/.config/chezmoi" "$home/.claude"
+printf 'home\n' >"$chezmoi_source/.chezmoiroot"
+printf '[hooks.read-source-state.pre]\n    command = "/bin/sh"\n    args = ["-c", "echo ran >%s"]\n' "$hook_marker" >"$home/.config/chezmoi/chezmoi.toml"
+printf '{{ output "/bin/sh" "-c" "echo ran >%s" }}\n' "$template_marker" >"$chezmoi_source/home/.chezmoiignore"
+printf '[".fixture-external"]\n    type = "archive"\n    url = "http://127.0.0.1:9/fixture.tar.gz"\n' >"$chezmoi_source/home/.chezmoiexternal.toml"
+printf 'managed\n' | tee "$chezmoi_source/home/dot_fixture-managed" "$chezmoi_source/home/dot_claude/private_fixture-settings.json.tmpl" \
+  "$home/.fixture-managed" "$home/.claude/fixture-settings.json" "$home/.fixture-unmanaged" >/dev/null
+
 # Submodules whose own repository holds the unsaved work.
 fixture_git init -q --bare "$remotes/library.git"
 fixture_git clone -q "$remotes/library.git" "$work_dir/library" 2>/dev/null
@@ -255,6 +271,9 @@ stub() { # <path> [<arguments the stub answers> <answer>]
 }
 stub "$brew_prefix/bin/brew"
 for tool in devbox mise cargo pnpm colima limactl nix; do stub "$tools_bin/$tool"; done
+# chezmoi is the host's own where it has one, so that a run of it shows as a
+# marker or a new file in HOME; elsewhere a stub logs the call.
+if [[ -e $work_dir/host/chezmoi ]]; then ln -s "$work_dir/host/chezmoi" "$tools_bin/chezmoi"; else stub "$tools_bin/chezmoi"; fi
 stub "$tools_bin/npm"
 stub "$tools_bin/uv" 'tool dir' "$root/uv-tools"
 stub "$tools_bin/ghq" 'root --all' "$ghq_root
@@ -375,6 +394,11 @@ has submodule-stash "$(block_of example.com/owner/sub-stash/sub)" 'stashes: 1'
 # shellcheck disable=SC2088
 has unreadable-repo "$(block_of '~/broken-repo')" 'git cannot read this repository'
 if [[ -e $filter_marker ]]; then fail filter-not-run 'a repository clean filter ran'; else ok filter-not-run; fi
+if [[ -e $hook_marker || -e $template_marker ]]; then fail chezmoi-not-run 'a chezmoi hook or template ran'; else ok chezmoi-not-run; fi
+unmanaged=$(sed -n '/^## Files no dotfiles manage/,/^## Large user folders/p' "$work_dir/out")
+has chezmoi-unnamed-listed "$unmanaged" '`~/.fixture-unmanaged`'
+if grep -qF '`~/.fixture-managed`' <<<"$unmanaged"; then fail chezmoi-source-name-managed 'a name in the chezmoi source is listed'; else ok chezmoi-source-name-managed; fi
+if grep -qF 'fixture-settings.json' "$work_dir/out"; then fail chezmoi-attribute-name-managed 'a name with chezmoi attributes is listed'; else ok chezmoi-attribute-name-managed; fi
 
 # shellcheck disable=SC2088
 has next-step-bundle "$(block_of '~/no-remote-repo')" "next: \`git -C '$home/no-remote-repo' bundle create no-remote-repo.bundle --all\`"
