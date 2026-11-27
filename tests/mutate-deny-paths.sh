@@ -115,7 +115,8 @@ rm "$dir/$settings"
 expect fail 'no settings.common.json' "$dir" settings.common.json
 
 for rule in 'Read(//etc/hosts)' 'Read(/docs/**)' 'Read(./notes)' 'Read(~/repos/**)' \
-  'Read(~/**/.env)' 'Read(~/*/x)' 'Read(!x)'; do
+  'Read(~/Repos/**)' 'Read(~/**/.env)' 'Read(~/*/x)' 'Read(~/[r]epos/**)' 'Read(~/rep?s/**)' \
+  'Read(!x)' 'Read(#x)'; do
   dir=$(scratch)
   set_rules "$dir" ".permissions.deny += [\"$rule\"]"
   expect fail "a rule the check cannot place, $rule" "$dir" "$rule"
