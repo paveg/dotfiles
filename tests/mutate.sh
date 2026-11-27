@@ -306,6 +306,13 @@ expect_caught home-tree-adds-only-cache 'the completion dump lands outside the c
 expect_caught caller-cache-holds-completion-dump 'completion is never initialized' \
   .config/zsh/.zshrc 'compinit -i -d $XDG_CACHE_HOME/zsh/zcompdump' ''
 
+expect_caught 'completion-cache-in-xdg-cache home-allowlist' \
+  'the completion cache lands in $HOME' \
+  .config/zsh/.zshrc 'cache-path $XDG_CACHE_HOME/zsh/zcompcache' 'cache-path $HOME/.zcompcache'
+
+expect_caught completion-cache-in-xdg-cache 'completion functions never use their cache' \
+  .config/zsh/.zshrc "use-cache on" "use-cache off"
+
 expect_caught interactive-profile-completion-registered \
   "the Nix profiles' completions are left off fpath" \
   .config/zsh/.zshrc $'fpath=(${^_dots_path:h}/share/zsh/site-functions(N/) $fpath)\n' ''

@@ -199,6 +199,10 @@ write_probe() { # <script> <out-file>
   done
   print -r -- "LOCAL_RC=\${DOTS_LOCAL_RC-}"
   alias | sed 's/^/ALIAS /'
+  () {
+    local curcontext=:complete:dots-probe: dots_probe_cache=1
+    _store_cache _dots_probe_cache dots_probe_cache
+  }
   print -r -- "DONE=yes"
 } >$out 2>&1
 exit
@@ -460,6 +464,11 @@ else
 fi
 
 is no-history-file "" "$(cd "$home" && find . -name '*zsh_history*' | LC_ALL=C sort)"
+
+# The probe stores one completion cache entry, the way a completion function
+# does, so the use-cache and cache-path zstyles decide where it lands.
+is completion-cache-in-xdg-cache ./.cache/zsh/zcompcache/_dots_probe_cache \
+  "$(cd "$home" && find . -name _dots_probe_cache | LC_ALL=C sort)"
 
 stray=
 for entry in $(cd "$home" && ls -A); do
