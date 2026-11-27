@@ -106,5 +106,15 @@ g -C "$dir" commit -qm 'Merge main into feature'
 merge_into_main "$dir"
 expect fail 'a secret typed into the resolution of a merge conflict' "$dir"
 
+dir=$(scratch)
+g -C "$dir" checkout -qb feature
+echo "token=$fake_token" >"$dir/conf.txt"
+g -C "$dir" add conf.txt
+g -C "$dir" commit -qm 'add conf'
+g -C "$dir" rm -q conf.txt
+g -C "$dir" commit -qm 'remove conf'
+merge_into_main "$dir"
+expect fail 'a secret added and removed again on a branch merged into HEAD' "$dir"
+
 echo "summary: $cases cases, $failures failed"
 if ((failures > 0)); then exit 1; fi

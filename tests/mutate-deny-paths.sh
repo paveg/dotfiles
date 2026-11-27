@@ -123,6 +123,10 @@ for rule in 'Read(//etc/hosts)' 'Read(/docs/**)' 'Read(./notes)' 'Read(~/repos/*
 done
 
 dir=$(scratch)
+set_rules "$dir" '.permissions.deny += ["Read(~/re\\pos/**)"]'
+expect fail 'a rule the check cannot place, Read(~/re\pos/**)' "$dir" 'Read(~/re\pos/**)'
+
+dir=$(scratch)
 set_rules "$dir" '.permissions.deny += ["Edit(**/*.md)"]'
 expect pass 'a deny rule that is not a Read rule' "$dir"
 
