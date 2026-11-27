@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - "home/**"
-      - "nix/ssh_config"
+      - "nix/**"
       - "profiles/**"
       - "tests/**"
       - "scripts/pre-wipe-inventory.sh"
@@ -15,9 +15,13 @@ on:
 permissions:
   contents: read
 
+env:
+  # A pull request runs a mutation script only when one of its inputs changed.
+  MUTATE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+
 jobs:
   zsh:
-    timeout-minutes: 80
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Install zsh
         if: runner.os == 'Linux'
@@ -34,21 +39,47 @@ jobs:
           sudo apt-get install --yes zsh
       - name: Start zsh in a temporary HOME and check the layout
         run: tests/shell.sh
-      - name: Check that each shell test fails on a broken copy
-        run: tests/mutate.sh
-      - name: Check the reply-language hook and that each of its tests fails on a broken copy
+      - name: Check the reply-language hook
+        run: tests/reply-language.sh
+      - name: Check the git files in a temporary HOME
+        run: tests/git.sh
+      - name: Check the ssh config with ssh -G
+        run: tests/ssh.sh
+      - name: Check the pre-wipe inventory
+        run: tests/pre-wipe-inventory.sh
+      - name: Check how the mutation scripts are selected, split by OS and sharded
+        if: runner.os == 'Linux'
         run: |
-          tests/reply-language.sh
-          tests/mutate-reply-language.sh
-      - name: Check the git files in a temporary HOME and that each check fails on a broken copy
+          tests/selection.sh
+          tests/mutation-coverage.sh
+          MUTATE_OS=linux tests/mutate-selection.sh
+      - name: Check that each check fails on a broken copy
+        if: runner.os == 'Linux'
         run: |
-          tests/git.sh
-          tests/mutate-git.sh
-      - name: Check the ssh config with ssh -G and that each check fails on a broken copy
+          MUTATE_OS=linux tests/mutate-reply-language.sh
+          MUTATE_OS=linux tests/mutate-git.sh
+          MUTATE_OS=linux tests/mutate-ssh.sh
+          MUTATE_OS=linux tests/mutate.sh
+          MUTATE_OS=linux tests/mutate-pre-wipe-inventory.sh
+      - name: Check that the checks that depend on macOS fail on a broken copy
+        if: runner.os == 'macOS'
         run: |
-          tests/ssh.sh
-          tests/mutate-ssh.sh
-      - name: Check the pre-wipe inventory and that each of its tests fails on a broken copy
+          MUTATE_OS=macos tests/mutate-git.sh
+          MUTATE_OS=macos tests/mutate-ssh.sh
+          MUTATE_OS=macos tests/mutate.sh
+          MUTATE_OS=macos tests/mutate-pre-wipe-inventory.sh
+
+  shell-passed:
+    if: always()
+    needs: [zsh]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          tests/pre-wipe-inventory.sh
-          tests/mutate-pre-wipe-inventory.sh
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
