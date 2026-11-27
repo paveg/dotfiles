@@ -167,6 +167,16 @@ expect_caught "no-licence-$h-jq" \
   nix/packages.nix $'    jq\n' \
   $'    (jq.overrideAttrs (old: { meta = removeAttrs old.meta [ "license" ]; }))\n'
 
+expect_caught "no-licence-$h-jq" \
+  'a package has an empty licence list' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = [ ]; }; }))\n'
+
+expect_caught "no-licence-$h-jq" \
+  'a package has a compound AND of no licences' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.AND [ ]; }; }))\n'
+
 expect_caught "no-licence-$h-hm-session-vars.sh" \
   'a generated derivation loses its recorded licence' \
   nix/licenses.nix $'    "hm-session-vars.sh" = mit;\n' ''

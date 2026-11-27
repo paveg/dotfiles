@@ -87,7 +87,8 @@ let
     else
       "?";
 
-  # license is null when nothing names one; missing is the rule that breaks.
+  # license is null when nothing gives one, and an empty list or compound names
+  # none; missing is the rule either breaks.
   row =
     {
       source,
@@ -99,16 +100,17 @@ let
       fromFile,
     }:
     let
+      named = license != null && leaves license != [ ];
       rules =
-        if license == null then
+        if !named then
           [ missing ]
         else
           lib.optional (lib.any isNonCommercial (leaves license)) "non-commercial"
           ++ lib.optional (!admitted && !holds "free" license) "unfree"
           ++ lib.optional (!admitted && !holds "redistributable" license) "non-redistributable";
       notes =
-        lib.optional (license != null && admitted && !holds "free" license) unfreeNote
-        ++ lib.optional (license != null && fromFile) "licence from nix/licenses.nix";
+        lib.optional (named && admitted && !holds "free" license) unfreeNote
+        ++ lib.optional (named && fromFile) "licence from nix/licenses.nix";
     in
     lib.concatStringsSep "|" [
       source
