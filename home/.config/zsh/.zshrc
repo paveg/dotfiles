@@ -129,8 +129,7 @@ zle -N dots-abbreviation-accept
 bindkey ' ' dots-abbreviation-space
 bindkey '^m' dots-abbreviation-accept
 
-# The first profile on PATH that has each plugin. zsh-syntax-highlighting wraps
-# the widgets that exist when it loads, so it comes after every other one.
+# The first profile on PATH that has each plugin.
 for dots_plugin in zsh-autosuggestions zsh-syntax-highlighting; do
   dots_plugin_files=(${^_dots_path:h}/share/$dots_plugin/$dots_plugin.zsh(N))
   if (( $#dots_plugin_files )); then
