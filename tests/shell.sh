@@ -199,7 +199,9 @@ write_probe() { # <script> <out-file>
   print -r -- "ENTER_TYPE=\${widgets[\$enter]-none}"
   print -r -- "ENTER_CLEARS_SUGGESTION=\${ZSH_AUTOSUGGEST_CLEAR_WIDGETS[(Ie)\$enter]}"
   for name in \${(k)dots_abbreviations}; do
-    if (( \$+commands[\$name] || \$+builtins[\$name] )); then print -r -- "SHADOWED \$name"; fi
+    if (( \$+commands[\$name] || \$+builtins[\$name] || \${reswords[(Ie)\$name]} )); then
+      print -r -- "SHADOWED \$name"
+    fi
   done
   print -r -- "LOCAL_RC=\${DOTS_LOCAL_RC-}"
   alias | sed 's/^/ALIAS /'
@@ -567,7 +569,8 @@ is interactive-zshrc-local-from-zdotdir zdotdir "$(field LOCAL_RC "$fix_text")"
 # Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named).
 is interactive-ctrl-g-dots-widget "user:$(field CTRL_G "$fix_text")" \
   "$(field CTRL_G_TYPE "$fix_text")"
-# No abbreviation is a command on PATH, the Nix profile's included.
+# No abbreviation is a command on PATH, the Nix profile's included, a builtin,
+# or a reserved word.
 is interactive-abbreviations-shadow-nothing "" \
   "$(grep '^SHADOWED ' "$fix_probe" 2>/dev/null | tr '\n' ' ' || true)"
 
