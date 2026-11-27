@@ -37,7 +37,9 @@ PROMPT='%~ %# '
 # escape sequences on scroll; turn it off once, at the first prompt.
 autoload -Uz add-zsh-hook
 dots-mouse-reporting-off() {
-  printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l'
+  if [[ -t 1 ]]; then
+    printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l'
+  fi
   add-zsh-hook -d precmd dots-mouse-reporting-off
 }
 add-zsh-hook precmd dots-mouse-reporting-off

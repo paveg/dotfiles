@@ -369,6 +369,9 @@ expect_caught interactive-enter-clears-suggestion \
 expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command' \
   .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  vi nvim\n'
 
+expect_caught piped-stdout-as-bare 'the mouse reporting reset writes escape bytes into a pipe' \
+  .config/zsh/.zshrc '[[ -t 1 ]]' 'true'
+
 expect_caught interactive-zshrc-local-from-zdotdir \
   'the local zsh override is never sourced' \
   .config/zsh/.zshrc $'if [[ -r $ZDOTDIR/.zshrc.local ]]; then\n  source $ZDOTDIR/.zshrc.local\nfi\n' ''

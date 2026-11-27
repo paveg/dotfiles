@@ -490,6 +490,14 @@ no_terminal_stderr() { # <home>
 is no-terminal-stderr-as-bare "$(no_terminal_stderr "$bare_home")" \
   "$(no_terminal_stderr "$fix_home")"
 
+# A stdout that is not a terminal gets the commands' output and nothing else,
+# such as the escape sequences that turn mouse reporting off at the first prompt.
+piped_stdout() { # <home>
+  (cd "$work_dir" && printf 'echo hi\n' | detached env -i HOME="$1" TERM=xterm-256color \
+    PATH="$base_path" "$zsh_bin" -i 2>/dev/null | od -c) || true
+}
+is piped-stdout-as-bare "$(piped_stdout "$bare_home")" "$(piped_stdout "$home")"
+
 # Each XDG variable the caller sets is kept, ZDOTDIR follows XDG_CONFIG_HOME,
 # and everything derived from an XDG directory follows it too. $HOME holds only
 # ~/.zshenv here, so a file read from $HOME instead of $ZDOTDIR is missing.
