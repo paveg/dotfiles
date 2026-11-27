@@ -28,6 +28,19 @@ export VISUAL=nvim
 export PAGER=less
 export MANPAGER='less -R'
 
+# kubectl reads only ~/.kube/config unless KUBECONFIG lists more files. A value
+# the caller set is kept: every nested zsh runs this file.
+if [[ -z ${KUBECONFIG-} ]]; then
+  () {
+    local kube_files=($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))
+    # A colon in a name would split it into two entries of the list.
+    kube_files=(${kube_files:#*:*})
+    if (( $#kube_files )); then
+      export KUBECONFIG=${(j.:.)kube_files}
+    fi
+  }
+fi
+
 # Ubuntu's /etc/zsh/zshrc runs a compinit of its own, dumping into $ZDOTDIR,
 # unless this is set; .zshrc runs the one compinit.
 skip_global_compinit=1

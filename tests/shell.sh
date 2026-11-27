@@ -186,6 +186,9 @@ write_probe() { # <script> <out-file>
     print -r -- "\$LBUFFER"
   }
   print -r -- "ABBREVIATION_GST=\$(expanded start '' gst '')"
+  for name in ll la lt b; do
+    print -r -- "ABBREVIATION_\$name=\$(expanded start '' \$name '')"
+  done
   print -r -- "ABBREVIATION_TEXT_RIGHT=\$(expanded start '' g 'it status')"
   print -r -- "ABBREVIATION_CONTINUATION=\$(expanded cont 'echo "first'\$'\\n' gst '')"
   print -r -- "ABBREVIATION_VARED=\$(expanded vared '' g '')"
@@ -196,7 +199,9 @@ write_probe() { # <script> <out-file>
   print -r -- "ENTER_TYPE=\${widgets[\$enter]-none}"
   print -r -- "ENTER_CLEARS_SUGGESTION=\${ZSH_AUTOSUGGEST_CLEAR_WIDGETS[(Ie)\$enter]}"
   for name in \${(k)dots_abbreviations}; do
-    if (( \$+commands[\$name] || \$+builtins[\$name] )); then print -r -- "SHADOWED \$name"; fi
+    if (( \$+commands[\$name] || \$+builtins[\$name] || \${reswords[(Ie)\$name]} )); then
+      print -r -- "SHADOWED \$name"
+    fi
   done
   print -r -- "LOCAL_RC=\${DOTS_LOCAL_RC-}"
   alias | sed 's/^/ALIAS /'
@@ -362,6 +367,45 @@ is lang-en-us-where-libc-has-it "$want_lang" "$(field LANG "$vars")"
 is lang-c-utf8-when-en-us-absent C.UTF-8 \
   "$(field LANG "$(printenv_without_en_us "$home" 2>/dev/null)")"
 
+# With no ~/.kube, KUBECONFIG is not exported at all, not even empty.
+is kubeconfig-unset-without-kube-dir 0 "$(grep -c '^KUBECONFIG=' <<<"$vars" || true)"
+
+# KUBECONFIG lists ~/.kube/config and then each ~/.kube/*.yaml that is a file or
+# a symlink to one, not a directory or a dangling symlink. The same HOME without
+# and then with the directory shows that nothing else changes.
+kube_home=$(new_home kube)
+kube_vars_before=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
+kube_output_before=$(run_zsh "$kube_home" -c true 2>&1) || true
+mkdir -p "$kube_home/.kube/x.yaml"
+touch "$kube_home/.kube/config" "$kube_home/.kube/homelab.yaml" "$kube_home/.kube/notes.txt" \
+  "$kube_home/cluster.conf"
+ln -s "$kube_home/cluster.conf" "$kube_home/.kube/linked.yaml"
+ln -s "$kube_home/.kube/missing" "$kube_home/.kube/dangling.yaml"
+kube_vars=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
+is kubeconfig-lists-config-then-yaml \
+  "$kube_home/.kube/config:$kube_home/.kube/homelab.yaml:$kube_home/.kube/linked.yaml" \
+  "$(field KUBECONFIG "$kube_vars")"
+kube_dir_config_home=$(new_home kube-config-dir)
+mkdir -p "$kube_dir_config_home/.kube/config"
+touch "$kube_dir_config_home/.kube/homelab.yaml"
+is kubeconfig-skips-config-directory "$kube_dir_config_home/.kube/homelab.yaml" \
+  "$(field KUBECONFIG "$(run_zsh "$kube_dir_config_home" -c printenv 2>/dev/null)")"
+# A name with a colon would split the list, and its tail would name a file
+# relative to the working directory.
+kube_colon_home=$(new_home kube-colon)
+mkdir -p "$kube_colon_home/.kube"
+touch "$kube_colon_home/.kube/config" "$kube_colon_home/.kube/team:prod.yaml"
+is kubeconfig-drops-names-with-colon "$kube_colon_home/.kube/config" \
+  "$(field KUBECONFIG "$(run_zsh "$kube_colon_home" -c printenv 2>/dev/null)")"
+is kube-dir-env-unchanged-apart-from-kubeconfig "" \
+  "$(diff <(grep -v '^KUBECONFIG=' <<<"$kube_vars_before" | LC_ALL=C sort) \
+    <(grep -v '^KUBECONFIG=' <<<"$kube_vars" | LC_ALL=C sort) | tr '\n' ' ')"
+is kube-dir-output-unchanged "$kube_output_before" "$(run_zsh "$kube_home" -c true 2>&1)"
+# A value the caller set, such as a cluster chosen for one session, is kept.
+is kubeconfig-caller-value-kept "$work_dir/caller-kubeconfig" \
+  "$(field KUBECONFIG "$(env -i HOME="$kube_home" TERM=dumb PATH="$base_path" \
+    KUBECONFIG="$work_dir/caller-kubeconfig" "$zsh_bin" -c printenv 2>/dev/null)")"
+
 nonlogin_path=$(run_zsh "$home" -c 'print -r -- $PATH' 2>/dev/null) || true
 check_path_holds path "$nonlogin_path" "$home" "$home/.local/share"
 is nonlogin-git-from-nix-profile "$home/.nix-profile/bin/git" \
@@ -440,6 +484,10 @@ is interactive-skip-global-compinit 1 "$(field SKIP_GLOBAL_COMPINIT "$probe_text
 # Abbreviations expand when Space or Enter runs a user widget, and, like an
 # alias would, only for names that are not already a command.
 is interactive-abbreviation-expands 'git status' "$(field ABBREVIATION_GST "$probe_text")"
+is interactive-abbreviation-ll 'eza -l --git' "$(field ABBREVIATION_ll "$probe_text")"
+is interactive-abbreviation-la 'eza -la --git' "$(field ABBREVIATION_la "$probe_text")"
+is interactive-abbreviation-lt 'eza --tree --level=2' "$(field ABBREVIATION_lt "$probe_text")"
+is interactive-abbreviation-b bat "$(field ABBREVIATION_b "$probe_text")"
 # Only a whole command line expands: not a word with text to its right (Ctrl+a
 # to fix a typo), not a line inside an open quote or a heredoc, not vared. The
 # probe sets the zle parameters as a widget sees them (measured under a pty):
@@ -521,7 +569,8 @@ is interactive-zshrc-local-from-zdotdir zdotdir "$(field LOCAL_RC "$fix_text")"
 # Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named).
 is interactive-ctrl-g-dots-widget "user:$(field CTRL_G "$fix_text")" \
   "$(field CTRL_G_TYPE "$fix_text")"
-# No abbreviation is a command on PATH, the Nix profile's included.
+# No abbreviation is a command on PATH, the Nix profile's included, a builtin,
+# or a reserved word.
 is interactive-abbreviations-shadow-nothing "" \
   "$(grep '^SHADOWED ' "$fix_probe" 2>/dev/null | tr '\n' ' ' || true)"
 

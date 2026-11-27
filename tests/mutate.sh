@@ -184,6 +184,49 @@ else
   skipped=$((skipped + 2))
 fi
 
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists the yaml files before config' \
+  .config/zsh/.zshenv '($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))' \
+  '($HOME/.kube/*.yaml(N-.) $HOME/.kube/config(N-.))'
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists every file in ~/.kube' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*(N-.)'
+
+expect_caught kubeconfig-lists-config-then-yaml \
+  'KUBECONFIG lists a *.yaml that is a directory or a dangling symlink' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*.yaml(N)'
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG leaves out a *.yaml symlink to a file' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*.yaml(N.)'
+
+expect_caught kubeconfig-skips-config-directory 'KUBECONFIG lists ~/.kube/config when it is a directory' \
+  .config/zsh/.zshenv '$HOME/.kube/config(N-.)' '$HOME/.kube/config(N)'
+
+expect_caught kubeconfig-drops-names-with-colon 'KUBECONFIG lists a name that holds a colon' \
+  .config/zsh/.zshenv $'    kube_files=(${kube_files:#*:*})\n' ''
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG is set but not exported' \
+  .config/zsh/.zshenv 'export KUBECONFIG=' 'KUBECONFIG='
+
+expect_caught kubeconfig-unset-without-kube-dir 'KUBECONFIG is exported empty with no ~/.kube' \
+  .config/zsh/.zshenv $'    if (( $#kube_files )); then\n      export KUBECONFIG=${(j.:.)kube_files}\n    fi' \
+  '    export KUBECONFIG=${(j.:.)kube_files}'
+
+expect_caught 'nonlogin-quiet-stderr login-quiet-stderr' \
+  'the KUBECONFIG globs fail with no ~/.kube' \
+  .config/zsh/.zshenv '$HOME/.kube/config(N-.)' '$HOME/.kube/config(-.)'
+
+expect_caught kubeconfig-caller-value-kept 'KUBECONFIG replaces the value the caller set' \
+  .config/zsh/.zshenv 'if [[ -z ${KUBECONFIG-} ]]; then' 'if true; then'
+
+expect_caught kube-dir-env-unchanged-apart-from-kubeconfig \
+  'the KUBECONFIG list is globbed after a cd, which changes PWD' \
+  .config/zsh/.zshenv 'local kube_files=($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))' \
+  'cd $HOME/.kube; local kube_files=($PWD/config(N-.) $PWD/*.yaml(N-.))'
+
+expect_caught kube-dir-output-unchanged 'the KUBECONFIG block prints the list' \
+  .config/zsh/.zshenv '      export KUBECONFIG=${(j.:.)kube_files}' \
+  $'      export KUBECONFIG=${(j.:.)kube_files}\n      print -r -- $KUBECONFIG'
+
 # One directory at a time off the PATH list, which must fail the same checks in
 # both a non-login and a login shell.
 expect_caught 'path-nix-profile login-path-nix-profile login-path-nix-profile-before-usr-bin nonlogin-git-from-nix-profile login-git-from-nix-profile' \
@@ -365,6 +408,18 @@ expect_caught interactive-ctrl-r-atuin-widget "atuin is told to leave Ctrl+r alo
 expect_caught interactive-abbreviation-expands 'an abbreviation is left as typed' \
   .config/zsh/.zshrc '    LBUFFER=${dots_abbreviations[$LBUFFER]}' '    :'
 
+expect_caught interactive-abbreviation-ll 'll is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  ll \'eza -l --git\'\n' ''
+
+expect_caught interactive-abbreviation-la 'la lists without hidden files' \
+  .config/zsh/.zshrc "la 'eza -la --git'" "la 'eza -l --git'"
+
+expect_caught interactive-abbreviation-lt 'lt is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  lt \'eza --tree --level=2\'\n' ''
+
+expect_caught interactive-abbreviation-b 'b is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  b bat\n' ''
+
 expect_caught interactive-abbreviation-not-with-text-right \
   'a word with text to its right expands, so Ctrl+a then g runs gitit status' \
   .config/zsh/.zshrc ' && -z $RBUFFER' ''
@@ -395,6 +450,9 @@ expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows 
 
 expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command from the Nix profile' \
   .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  rg \'rg --hidden\'\n'
+
+expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a reserved word' \
+  .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  foreach \'git log\'\n'
 
 expect_caught piped-stdout-as-bare 'the mouse reporting reset writes escape bytes into a pipe' \
   .config/zsh/.zshrc '[[ -t 1 ]]' 'true'

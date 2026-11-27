@@ -89,6 +89,7 @@ fi
 # whole command line, at the primary prompt, so the full command is what runs
 # and what atuin records. Only names that are not a command already.
 typeset -A dots_abbreviations=(
+  b bat
   g git
   ga 'git add'
   gaa 'git add --all'
@@ -107,7 +108,10 @@ typeset -A dots_abbreviations=(
   gsw 'git switch'
   gswc 'git switch -c'
   k kubectl
+  la 'eza -la --git'
   lg lazygit
+  ll 'eza -l --git'
+  lt 'eza --tree --level=2'
   v nvim
 )
 dots-abbreviation-expand() {
