@@ -3,9 +3,11 @@
 # home/.claude/settings.common.json, the file the generated settings.json is
 # built from: no agent could read or maintain that file (AGENTS.md). Claude Code
 # reads these rules as gitignore patterns relative to the working directory, so
-# git matches them against the repository root. Case is folded on every OS:
-# whether Claude Code folds it is not established, and a path that differs only
-# in case must not pass on Linux and be denied on macOS.
+# git matches them from the repository root. A rule of several segments anchors
+# deeper in a session started in a subdirectory, which this check does not try.
+# Case is folded on every OS: whether Claude Code folds it is not established,
+# and a path that differs only in case must not pass on Linux and be denied on
+# macOS.
 #
 # A home rule (`~/...`) reaches this checkout only through ~/repos, so one
 # whose first segment is a literal other name cannot match a tracked path. Any
@@ -45,6 +47,15 @@ while IFS= read -r rule; do
     /* | ./* | '!'* | '#'*)
       echo "FAIL: Read($rule) has a form this check does not evaluate"
       failures=$((failures + 1))
+      ;;
+    # In a deny rule, unlike in gitignore, a single directory segment before
+    # `/**` matches that directory at any depth (code.claude.com/docs/en/permissions).
+    [!/]*/'**')
+      if [[ $rule == */*/'**' ]]; then
+        printf '%s\n' "$rule" >>"$patterns"
+      else
+        printf '**/%s\n' "$rule" >>"$patterns"
+      fi
       ;;
     *) printf '%s\n' "$rule" >>"$patterns" ;;
   esac

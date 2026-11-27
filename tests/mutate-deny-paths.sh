@@ -67,7 +67,7 @@ expect pass 'a scratch copy of this checkout' "$(scratch)"
 for path in foo.key home/foo.key docs/id_rsa nested/dir/id_ed25519 .env app/.env \
   .env.local app/.dev.vars .envrc .envrc.prod api_token.txt docs/tokens.md \
   server.pem deploy_key deploy_key.pub aws-credentials.json db-password.txt \
-  docs/secrets.md .netrc home/.npmrc DB-PASSWORD.txt Foo.KEY; do
+  docs/secrets.md docs/secrets/readme.md .netrc home/.npmrc DB-PASSWORD.txt Foo.KEY; do
   dir=$(scratch)
   track "$dir" "$path"
   expect fail "a tracked $path" "$dir" "$path"
@@ -88,6 +88,18 @@ dir=$(scratch)
 set_rules "$dir" '.permissions.deny += ["Read(**/*.vault)"]'
 track "$dir" notes.vault
 expect fail 'a tracked path that only a rule added to the settings denies' "$dir" notes.vault
+
+# A deny rule of one directory segment matches that directory at any depth;
+# one of two segments stays at the root.
+dir=$(scratch)
+set_rules "$dir" '.permissions.deny += ["Read(vault/**)"]'
+track "$dir" docs/vault/notes.md
+expect fail 'a nested directory that a one-segment rule names' "$dir" docs/vault/notes.md
+
+dir=$(scratch)
+set_rules "$dir" '.permissions.deny += ["Read(docs/vault/**)"]'
+track "$dir" home/docs/vault/notes.md
+expect pass 'a nested copy of a two-segment rule' "$dir"
 
 dir=$(scratch)
 set_rules "$dir" '.permissions.deny -= ["Read(**/*.key)"]'
