@@ -206,6 +206,26 @@ expect_caught "unfree-$h-jq non-redistributable-$h-jq" \
   nix/packages.nix $'    jq\n' \
   $'    (jq.overrideAttrs (old: { meta = old.meta // { license = { spdxId = "LicenseRef-custom"; }; }; }))\n'
 
+expect_caught "unfree-$h-jq non-redistributable-$h-jq" \
+  'a WITH licence has an unfree exception' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.WITH lib.licenses.mit lib.licenses.unfree; }; }))\n'
+
+expect_caught "unfree-$h-jq non-redistributable-$h-jq" \
+  'a compound licence has an operator the check does not know' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = { licenseType = "compound"; operator = "XOR"; licenses = [ lib.licenses.unfree ]; }; }; }))\n'
+
+expect_caught "non-commercial-$h-jq !unfree-$h-jq" \
+  'a free licence has NC in its SPDX id only' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = { spdxId = "CC-BY-NC-4.0"; shortName = "custom"; free = true; redistributable = true; }; }; }))\n'
+
+expect_caught "non-commercial-$h-jq !unfree-$h-jq" \
+  'a free licence spells noncommercial without a hyphen in its full name' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = { shortName = "example"; fullName = "Example Noncommercial License"; free = true; redistributable = true; }; }; }))\n'
+
 expect_caught "no-licence-$h-jq" \
   'a package has no meta.license' \
   nix/packages.nix $'    jq\n' \
