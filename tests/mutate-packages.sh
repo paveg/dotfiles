@@ -116,11 +116,17 @@ if runs common; then
   expect_caught 'real-dir-.config/mise' 'the mise directory is linked as a whole' \
     nix/home.nix '"mise/config.toml"' '"mise"'
 
+  # The platform file goes too: a link inside a linked directory fails the build.
   expect_caught 'real-dir-.config/git' 'the git directory is linked as a whole' \
-    nix/home.nix $'      "git/config"\n      "git/ignore"\n      "git/personal.gitconfig"\n' $'      "git"\n'
+    nix/home.nix \
+    $'      "git/config"\n      "git/ignore"\n      "git/personal.gitconfig"\n    ] (path: {\n      source = link ".config/${path}";\n    })\n    // {\n      # The 1Password signer, and on wsl the ssh command, under the one name the git config includes.\n      "git/platform.gitconfig".source = link ".config/git/${platform}.gitconfig";\n    };\n' \
+    $'      "git"\n    ] (path: {\n      source = link ".config/${path}";\n    });\n'
 
   expect_caught 'link-.config/git/personal.gitconfig' 'the personal identity is not linked' \
     nix/home.nix $'      "git/personal.gitconfig"\n' ''
+
+  expect_caught 'link-.config/git/platform.gitconfig' 'the other OS'"'"'s signer is linked' \
+    nix/home.nix 'then "darwin" else "wsl"' 'then "wsl" else "darwin"'
 
   expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml link-.config/git/config' \
     'the files are copied into the store instead of linked out of it' \

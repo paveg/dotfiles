@@ -55,6 +55,10 @@ linked_files=(
   .config/git/config .config/git/ignore .config/git/personal.gitconfig
 )
 real_dirs=(.config/zsh .config/mise .config/git)
+# <link>:<file under home/>, where the file that is linked depends on the OS.
+platform=darwin
+[[ $host == wsl ]] && platform=wsl
+linked_files+=(".config/git/platform.gitconfig:.config/git/$platform.gitconfig")
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
@@ -230,10 +234,11 @@ if [[ -n $home_files ]]; then
   # checkout. The checkout exists only on the owner's machine, so follow the
   # links by name instead of asking the filesystem. A file copied into the
   # store has no second hop, and the store path is what fails the comparison.
-  for path in "${linked_files[@]}"; do
+  for entry in "${linked_files[@]}"; do
+    path=${entry%%:*} source=${entry#*:}
     store_link=$(readlink "$home_files/$path" 2>>"$work_dir/readlink.err")
     target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
-    is "link-$path" "$checkout/home/$path" "$target"
+    is "link-$path" "$checkout/home/$source" "$target"
   done
   if [[ -s $work_dir/readlink.err && $failures -gt 0 ]]; then
     echo "readlink stderr: $(brief "$work_dir/readlink.err")"

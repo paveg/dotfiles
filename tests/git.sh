@@ -2,7 +2,8 @@
 # Check the git files in <home-dir> (default home/) in a temporary HOME, with no
 # Nix switch: a repository resolves the personal identity, and one under the
 # work org's directory, or a linked worktree of one wherever it lives, resolves
-# the work profile's. The work side comes from <work-profile-dir> (default
+# the work profile's, and commits are signed through 1Password's signer for
+# the OS. The work side comes from <work-profile-dir> (default
 # profiles/work.example/), placed where the work profile lives on work-mac.
 # tests/packages.sh checks that the built configuration links these files.
 # Repositories are set up with no global config, so only the queries read the
@@ -40,13 +41,15 @@ is() { # <name> <want> <got>
   if [[ $3 == "$2" ]]; then ok "$1"; else fail "$1" "want '$2', got '$3'"; fi
 }
 
-# The git files that nix/home.nix links, under the names it links them to.
-new_home() { # <name>
+# The git files that nix/home.nix links, under the names it links them to:
+# <platform>.gitconfig (darwin or wsl) becomes platform.gitconfig.
+new_home() { # <name> <platform>
   local home=$work_dir/$1 file
   mkdir -p "$home/.config/git"
   for file in config ignore personal.gitconfig; do
     cp "$home_src/.config/git/$file" "$home/.config/git/$file" 2>/dev/null || :
   done
+  cp "$home_src/.config/git/$2.gitconfig" "$home/.config/git/platform.gitconfig" 2>/dev/null || :
   echo "$home"
 }
 
@@ -107,7 +110,7 @@ else
   fail work-identity-set "work.gitconfig gives name '$work_name', email '$work_email'"
 fi
 
-home=$(new_home work-host)
+home=$(new_home work-host darwin)
 add_work_profile "$home"
 org_dir=$home/repos/github.com/$work_org
 work_repo=$org_dir/app
@@ -143,7 +146,7 @@ is ghq-root '~/repos' "$(git_at "$home" "$home" config --get ghq.root 2>&1)"
 
 # A personal host has no work profile: the include of the missing file is
 # ignored, and a repository under the org directory stays personal.
-bare=$(new_home personal-host)
+bare=$(new_home personal-host wsl)
 make_repo "$bare/repos/github.com/$work_org/app"
 identity_is no-profile-org-repo "$bare" "$bare/repos/github.com/$work_org/app" "$personal_name" "$personal_email"
 if out=$(git_at "$bare" "$bare" config --list 2>&1); then
@@ -151,6 +154,39 @@ if out=$(git_at "$bare" "$bare" config --list 2>&1); then
 else
   fail no-profile-config-reads "$(tr '\n' ' ' <<<"$out" | cut -c1-200)"
 fi
+
+# Commits are signed with an SSH key that 1Password holds, through its signer:
+# a program in the app on macOS, the Windows signer on wsl, which also hands
+# ssh to Windows. Nothing is signed here; this reads what a commit would use.
+config_at() { # <home> <dir> <key>
+  git_at "$1" "$2" config --get "$3" 2>&1
+}
+for platform in darwin wsl; do
+  case $platform in
+  darwin) at=$home repo=$personal_repo ;;
+  wsl) at=$bare repo=$bare/repos/github.com/$work_org/app ;;
+  esac
+  is "signing-format-$platform" ssh "$(config_at "$at" "$repo" gpg.format)"
+  is "signing-commits-$platform" true "$(config_at "$at" "$repo" commit.gpgsign)"
+  # The public key itself, which 1Password matches to its private key, rather
+  # than the path of a key file on disk.
+  key=$(config_at "$at" "$repo" user.signingkey)
+  if [[ $key == "ssh-ed25519 "* ]]; then
+    ok "signing-key-is-public-key-$platform"
+  else
+    fail "signing-key-is-public-key-$platform" "user.signingkey is '$key'"
+  fi
+done
+is signing-program-darwin /Applications/1Password.app/Contents/MacOS/op-ssh-sign \
+  "$(config_at "$home" "$personal_repo" gpg.ssh.program)"
+is signing-program-darwin-work-repo /Applications/1Password.app/Contents/MacOS/op-ssh-sign \
+  "$(config_at "$home" "$work_repo" gpg.ssh.program)"
+# A bare name, so the path holds no Windows user name; that the Windows PATH
+# finds it is Unverified (docs/design.md).
+is signing-program-wsl op-ssh-sign-wsl.exe \
+  "$(config_at "$bare" "$bare/repos/github.com/$work_org/app" gpg.ssh.program)"
+is ssh-command-darwin "" "$(config_at "$home" "$personal_repo" core.sshCommand)"
+is ssh-command-wsl ssh.exe "$(config_at "$bare" "$bare/repos/github.com/$work_org/app" core.sshCommand)"
 
 echo "summary: $checks checks, $failures failed (git $("$git_bin" --version), home $home_src)"
 if ((failures > 0)); then exit 1; fi

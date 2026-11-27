@@ -62,6 +62,7 @@ config=home/.config/git/config
 include=profile/git/include.gitconfig
 work_include=$'[include]\n  path = ~/.config/dots-work/git/include.gitconfig\n'
 personal_include=$'[include]\n  path = ~/.config/git/personal.gitconfig\n'
+platform_include=$'[include]\n  path = ~/.config/git/platform.gitconfig\n'
 
 expect_pass
 
@@ -83,7 +84,7 @@ expect_caught 'work-repo-name work-repo-email work-worktree-inside-name work-wor
 
 expect_caught 'work-repo-email work-worktree-inside-email work-worktree-outside-email' \
   'the work profile is included before the personal identity, which then wins' \
-  "$config" "$personal_include$work_include" "$work_include$personal_include"
+  "$config" "$personal_include$platform_include$work_include" "$work_include$personal_include$platform_include"
 
 expect_caught 'work-repo-email work-worktree-outside-email' \
   'the work profile is included from a path the profile does not use' \
@@ -113,6 +114,37 @@ expect_caught ignore-claude-worktrees 'the global ignore is read from somewhere 
 
 expect_caught ghq-root 'ghq clones somewhere other than ~/repos' \
   "$config" 'root = ~/repos' 'root = ~/ghq'
+
+darwin=home/.config/git/darwin.gitconfig
+wsl=home/.config/git/wsl.gitconfig
+
+expect_caught 'signing-format-darwin signing-format-wsl' 'git signs with gpg rather than an SSH key' \
+  "$config" $'[gpg]\n  format = ssh\n' ''
+
+expect_caught 'signing-commits-darwin signing-commits-wsl' 'commits are not signed unless asked' \
+  "$config" 'gpgsign = true' 'gpgsign = false'
+
+expect_caught 'signing-key-is-public-key-darwin signing-key-is-public-key-wsl' \
+  'the signing key is a key file on disk' \
+  home/.config/git/personal.gitconfig \
+  'signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC3c+G4Y5+gaeYYtfSQUE/7p4RtsQdfrKi4a8aRiN4Wn' \
+  'signingkey = ~/.ssh/id_ed25519.pub'
+
+expect_caught 'signing-program-darwin signing-program-darwin-work-repo signing-program-wsl ssh-command-wsl' \
+  'the platform file is never included' \
+  "$config" "$platform_include" ''
+
+expect_caught 'signing-program-darwin signing-program-darwin-work-repo' 'macOS signs with plain ssh-keygen instead of the 1Password signer' \
+  "$darwin" 'program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign' 'program = ssh-keygen'
+
+expect_caught signing-program-wsl 'wsl signs with the Linux side, where 1Password has no agent' \
+  "$wsl" '  program = op-ssh-sign-wsl.exe' ''
+
+expect_caught ssh-command-wsl 'wsl runs the Linux ssh, which cannot reach 1Password on Windows' \
+  "$wsl" '  sshCommand = ssh.exe' ''
+
+expect_caught ssh-command-darwin 'macOS hands ssh to a Windows binary' \
+  "$darwin" '[gpg "ssh"]' $'[core]\n  sshCommand = ssh.exe\n[gpg "ssh"]'
 
 if ((failures > 0)); then
   echo "$failures mutation check(s) failed"
