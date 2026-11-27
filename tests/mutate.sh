@@ -184,6 +184,36 @@ else
   skipped=$((skipped + 2))
 fi
 
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists the yaml files before config' \
+  .config/zsh/.zshenv '($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))' \
+  '($HOME/.kube/*.yaml(N-.) $HOME/.kube/config(N-.))'
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists every file in ~/.kube' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*(N-.)'
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG is set but not exported' \
+  .config/zsh/.zshenv 'export KUBECONFIG=' 'KUBECONFIG='
+
+expect_caught kubeconfig-unset-without-kube-dir 'KUBECONFIG is exported empty with no ~/.kube' \
+  .config/zsh/.zshenv $'    if (( $#kube_files )); then\n      export KUBECONFIG=${(j.:.)kube_files}\n    fi' \
+  '    export KUBECONFIG=${(j.:.)kube_files}'
+
+expect_caught 'nonlogin-quiet-stderr login-quiet-stderr' \
+  'the KUBECONFIG globs fail with no ~/.kube' \
+  .config/zsh/.zshenv '$HOME/.kube/config(N-.)' '$HOME/.kube/config(-.)'
+
+expect_caught kubeconfig-caller-value-kept 'KUBECONFIG replaces the value the caller set' \
+  .config/zsh/.zshenv 'if [[ -z ${KUBECONFIG-} ]]; then' 'if true; then'
+
+expect_caught kube-dir-env-unchanged-apart-from-kubeconfig \
+  'the KUBECONFIG list is globbed after a cd, which changes PWD' \
+  .config/zsh/.zshenv 'local kube_files=($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))' \
+  'cd $HOME/.kube; local kube_files=($PWD/config(N-.) $PWD/*.yaml(N-.))'
+
+expect_caught kube-dir-output-unchanged 'the KUBECONFIG block prints the list' \
+  .config/zsh/.zshenv '      export KUBECONFIG=${(j.:.)kube_files}' \
+  $'      export KUBECONFIG=${(j.:.)kube_files}\n      print -r -- $KUBECONFIG'
+
 # One directory at a time off the PATH list, which must fail the same checks in
 # both a non-login and a login shell.
 expect_caught 'path-nix-profile login-path-nix-profile login-path-nix-profile-before-usr-bin nonlogin-git-from-nix-profile login-git-from-nix-profile' \
