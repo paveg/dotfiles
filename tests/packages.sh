@@ -4,8 +4,9 @@
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile, the zsh,
 # mise and git directories are real directories whose files link into the
-# checkout, the global mise config refuses the asdf backend, and on macOS the
-# switch sets the launchd variables for GUI apps.
+# checkout, the ssh config is a store copy on macOS alone, the global mise
+# config refuses the asdf backend, and on macOS the switch sets the launchd
+# variables for GUI apps.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -258,6 +259,24 @@ if [[ -n $home_files ]]; then
     target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
     is "link-$path" "$checkout/home/$source" "$target"
   done
+  # The ssh config is a store copy, not a link into the checkout, and only on
+  # macOS: wsl hands ssh to Windows.
+  ssh_entry=$home_files/.ssh/config
+  if [[ $host == wsl ]]; then
+    if [[ -e $home_files/.ssh || -L $home_files/.ssh ]]; then
+      fail ssh-config "wsl gets $(ls -ld "$home_files/.ssh" 2>&1)"
+    else
+      ok ssh-config
+    fi
+  else
+    ssh_copy=$(readlink "$ssh_entry" 2>>"$work_dir/readlink.err")
+    if [[ $ssh_copy == /nix/store/* && -f $ssh_copy && ! -L $ssh_copy ]] &&
+      cmp -s "$ssh_copy" "$repo_dir/nix/ssh_config"; then
+      ok ssh-config
+    else
+      fail ssh-config "want a store copy of nix/ssh_config, got '$ssh_copy' ($(ls -ld "$ssh_copy" 2>&1))"
+    fi
+  fi
   if [[ -s $work_dir/readlink.err && $failures -gt 0 ]]; then
     echo "readlink stderr: $(brief "$work_dir/readlink.err")"
   fi

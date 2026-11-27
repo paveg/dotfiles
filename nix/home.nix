@@ -13,6 +13,9 @@ in
   home.stateVersion = "26.11";
 
   home.file.".zshenv".source = link ".zshenv";
+  # A store copy, not a link into the checkout, so editing the repository never edits the live ~/.ssh/config.
+  # On wsl, git hands ssh to Windows (wsl.gitconfig).
+  home.file.".ssh/config" = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin { source = ./ssh_config; };
   # One link per file, so ~/.config/zsh stays a real directory and .zshrc.local stays out of the checkout.
   xdg.configFile =
     lib.genAttrs [

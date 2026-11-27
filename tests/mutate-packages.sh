@@ -183,6 +183,21 @@ if runs per-host; then
     expect_caught package-names 'peco moves into the list every host gets' \
       nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    peco\n  ]\n'
   fi
+
+  ssh_line='home.file.".ssh/config" = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin { source = ./ssh_config; };'
+  if [[ $host == wsl ]]; then
+    expect_caught ssh-config 'wsl gets the macOS ssh config' \
+      nix/home.nix 'lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {' 'lib.mkIf true {'
+  else
+    expect_caught ssh-config "$host gets no ssh config" \
+      nix/home.nix "  $ssh_line"$'\n' ''
+
+    expect_caught ssh-config 'the ssh config links into the checkout, where an edit changes it live' \
+      nix/home.nix 'source = ./ssh_config;' 'source = config.lib.file.mkOutOfStoreSymlink "${checkout}/nix/ssh_config";'
+
+    expect_caught ssh-config 'another file is installed as the ssh config' \
+      nix/home.nix 'source = ./ssh_config;' 'source = ../home/.config/git/ignore;'
+  fi
 fi
 
 if ((failures > 0)); then
