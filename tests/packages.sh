@@ -4,7 +4,8 @@
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile, the zsh,
 # mise and git directories are real directories whose files link into the
-# checkout, and the global mise config refuses the asdf backend.
+# checkout, the global mise config refuses the asdf backend, and on macOS the
+# switch sets the launchd variables for GUI apps.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -55,6 +56,8 @@ linked_files=(
   .config/git/config .config/git/ignore .config/git/personal.gitconfig
 )
 real_dirs=(.config/zsh .config/mise .config/git)
+# launchd.user.envVariables on macOS, as <name>=<value>.
+launchd_vars=(ORCA_TELEMETRY_DISABLED=1 HOMEBREW_NO_ANALYTICS=1)
 # <link>:<file under home/>, where the file that is linked depends on the OS.
 platform=darwin
 [[ $host == wsl ]] && platform=wsl
@@ -218,6 +221,16 @@ else
     for cmd in "${commands[@]}"; do
       per_user=$system/etc/profiles/per-user/$user/bin/$cmd
       is "per-user-$cmd" "$profile/bin/$cmd" "$(readlink "$per_user" 2>>"$work_dir/readlink.err")"
+    done
+    # For apps that launchd starts without a shell: the switch sets each one in
+    # the primary user's launchd domain, so the line must carry that user.
+    for var in "${launchd_vars[@]}"; do
+      name=${var%%=*} value=${var#*=}
+      if grep -qE "sudo --user='?$user'? -- launchctl setenv $name '$value'\$" "$system/activate"; then
+        ok "launchd-$name"
+      else
+        fail "launchd-$name" "$system/activate has no user launchctl setenv $name '$value': $(grep -n 'launchctl setenv' "$system/activate" 2>&1 | tr '\n' ' ' | cut -c1-200)"
+      fi
     done
   fi
 fi

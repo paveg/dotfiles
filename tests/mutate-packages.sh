@@ -154,6 +154,16 @@ if runs per-user; then
   else
     expect_caught 'per-user-git per-user-claude' 'the packages never reach the per-user profile' \
       nix/darwin.nix $'    useUserPackages = true;\n' ''
+
+    expect_caught launchd-ORCA_TELEMETRY_DISABLED 'GUI apps never get ORCA_TELEMETRY_DISABLED' \
+      nix/darwin.nix $'    ORCA_TELEMETRY_DISABLED = "1";\n' ''
+
+    expect_caught launchd-HOMEBREW_NO_ANALYTICS 'GUI apps get HOMEBREW_NO_ANALYTICS with another value' \
+      nix/darwin.nix 'HOMEBREW_NO_ANALYTICS = "1";' 'HOMEBREW_NO_ANALYTICS = "0";'
+
+    expect_caught 'launchd-ORCA_TELEMETRY_DISABLED launchd-HOMEBREW_NO_ANALYTICS' \
+      'the variables go to the system domain, not the user'"'"'s' \
+      nix/darwin.nix 'launchd.user.envVariables = {' 'launchd.envVariables = {'
   fi
 fi
 
