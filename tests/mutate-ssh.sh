@@ -27,6 +27,11 @@ expect_caught() { # <check>... <description> <old> <new>
 
 socket='"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"'
 
+# The file is macOS's ssh config, read by macOS's own ssh, so every mutant runs
+# there too.
+mutate_runs_on='linux macos'
+
+mutate_inputs nix/ssh_config tests/ssh.sh tests/mutate-ssh.sh tests/lib/
 mutate_baseline 'the file as committed' "$repo_dir/tests/ssh.sh"
 
 expect_caught 'identity-agent-github identity-agent-any-host pve-identity-agent' \

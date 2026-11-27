@@ -4,20 +4,48 @@
 # Env: MUTATE_JOBS caps the mutants that run at once (default: the CPU count).
 #      MUTATE_ONLY=<regex> runs only the mutants whose description matches; the
 #      run fails when none does.
-# A runner calls mutate_baseline, then mutant or clean_mutant once per mutant,
-# then mutate_finish.
+#      MUTATE_BASE=<rev> runs the mutants only when a path the runner declared
+#      with mutate_inputs, or one of .github/workflows/, flake.nix and
+#      flake.lock, changed since its merge base with <rev>. A diff that cannot be
+#      computed runs them all; the baseline runs either way.
+#      MUTATE_OS=linux|macos runs only the mutants whose OSes name that one; one
+#      this host cannot run then fails the run instead of reading n/a.
+#      MUTATE_SHARD=<k>/<n> runs only the mutants whose declaration index i,
+#      counted from 0 over every mutant the runner declares, has i % n == k.
+#      MUTATE_LIST=1 prints the inputs and each mutant with its OSes, running
+#      nothing.
+# A runner calls mutate_inputs, then mutate_baseline, then mutant or
+# clean_mutant once per mutant, then mutate_finish. Before declaring a mutant it
+# may set mutate_runs_on (default: linux) to the OSes whose CI run must catch
+# it, and mutate_host_lacks to why this host cannot run it.
 
 # The physical path: a `path:` flakeref refuses a directory reached through a
 # symlink, and macOS puts mktemp's directory under /var, a link to /private/var.
 mutate_dir=$(cd "$(mktemp -d)" && pwd -P)
+mutate_repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 mutate_jobs=${MUTATE_JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)}
 if ! [[ $mutate_jobs =~ ^[1-9][0-9]*$ ]]; then
   echo "MUTATE_JOBS must be a positive integer, got '$mutate_jobs'" >&2
   exit 2
 fi
+mutate_shard_index=0 mutate_shard_count=1
+if [[ -n ${MUTATE_SHARD-} ]]; then
+  if ! [[ $MUTATE_SHARD =~ ^([0-9]+)/([1-9][0-9]*)$ ]] || ((BASH_REMATCH[1] >= BASH_REMATCH[2])); then
+    echo "MUTATE_SHARD must be <k>/<n> with 0 <= k < n, got '$MUTATE_SHARD'" >&2
+    exit 2
+  fi
+  mutate_shard_index=${BASH_REMATCH[1]} mutate_shard_count=${BASH_REMATCH[2]}
+fi
 mutate_slots=0
+mutate_declared=0
 mutate_unselected=0
+mutate_shard_skipped=0
+mutate_diff_skipped=0
+mutate_os_skipped=0
+mutate_listed=0
 mutate_baseline_passed=
+mutate_input_paths=()
+mutate_mode=full
 mutate_slot_kind=()
 mutate_slot_text=()
 mutate_slot_verb=()
@@ -49,9 +77,55 @@ trap mutate_cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+# Every path a mutant copies or its test reads, relative to the repository; a
+# directory stands for everything below it.
+mutate_inputs() { # <path>...
+  mutate_input_paths+=("$@")
+}
+
+# Succeeds when a path in <changed> (one per line) is an input, or a path whose
+# change runs every runner.
+mutate_inputs_changed() { # <changed>
+  local path input
+  while IFS= read -r path; do
+    [[ -n $path ]] || continue
+    for input in .github/workflows flake.nix flake.lock "${mutate_input_paths[@]}"; do
+      input=${input%/}
+      [[ $path == "$input" || $path == "$input"/* ]] && return 0
+    done
+  done <<<"$1"
+  return 1
+}
+
+mutate_select() {
+  local changed
+  if [[ -z ${MUTATE_BASE-} ]]; then
+    echo "mode: full (MUTATE_BASE is unset)"
+  elif ! changed=$(git -C "$mutate_repo" diff --name-only --no-renames "$MUTATE_BASE...HEAD" 2>&1); then
+    echo "mode: full (no diff against $MUTATE_BASE: ${changed%%$'\n'*})"
+  elif mutate_inputs_changed "$changed"; then
+    echo "mode: full (an input changed since $MUTATE_BASE)"
+  else
+    mutate_mode=none
+    echo "mode: none (no input changed since $MUTATE_BASE)"
+  fi
+}
+
 mutate_baseline() { # <what> <command>...; exits unless the command passes
-  local what=$1 out
+  local what=$1 out input
   shift
+  if ((${#mutate_input_paths[@]} == 0)); then
+    echo "FAIL: the runner declares no inputs, so no diff can select it" >&2
+    exit 2
+  fi
+  if [[ -n ${MUTATE_LIST-} ]]; then
+    for input in "${mutate_input_paths[@]}"; do
+      echo "input: $input"
+    done
+    mutate_baseline_passed=1
+    return 0
+  fi
+  mutate_select
   if out=$("$@" 2>&1); then
     echo "pass: $what"
     mutate_baseline_passed=1
@@ -114,6 +188,11 @@ mutate_fail() { # <line>
   mutate_slot fail "$1"
 }
 
+mutate_on() { # <OSes> <command>...: the mutants <command> declares run on <OSes>
+  local mutate_runs_on=$1
+  "${@:2}"
+}
+
 # Run `<function> <dir> <arg>...` in the background, where <dir> is an empty
 # directory of the mutant's own. The function succeeds when the mutant is
 # caught; what it prints shows under the MISSED line.
@@ -133,8 +212,35 @@ mutate_spawn() { # <verb> <description> <function> <arg>...
     echo "FAIL: mutant '$description' was declared before the files as committed passed" >&2
     exit 1
   fi
+  local runs_on=${mutate_runs_on:-linux}
+  mutate_declared=$((mutate_declared + 1))
+  if (((mutate_declared - 1) % mutate_shard_count != mutate_shard_index)); then
+    mutate_shard_skipped=$((mutate_shard_skipped + 1))
+    return 0
+  fi
   if [[ -n ${MUTATE_ONLY-} ]] && ! [[ $description =~ $MUTATE_ONLY ]]; then
     mutate_unselected=$((mutate_unselected + 1))
+    return 0
+  fi
+  if [[ -n ${MUTATE_LIST-} ]]; then
+    mutate_listed=$((mutate_listed + 1))
+    echo "mutant: $runs_on: $description"
+    return 0
+  fi
+  if [[ $mutate_mode == none ]]; then
+    mutate_diff_skipped=$((mutate_diff_skipped + 1))
+    return 0
+  fi
+  if [[ -n ${MUTATE_OS-} && " $runs_on " != *" $MUTATE_OS "* ]]; then
+    mutate_os_skipped=$((mutate_os_skipped + 1))
+    return 0
+  fi
+  if [[ -n ${mutate_host_lacks-} ]]; then
+    if [[ -n ${MUTATE_OS-} ]]; then
+      mutate_fail "FAIL: '$description' must run on $MUTATE_OS, but $mutate_host_lacks"
+    else
+      mutate_na "$description: $mutate_host_lacks"
+    fi
     return 0
   fi
   mutate_slot mutant "$description"
@@ -158,6 +264,9 @@ mutate_spawn() { # <verb> <description> <function> <arg>...
 mutate_finish() {
   local n dir status caught=0 clean=0 failed=0 na=0 selected=0 summary
   wait
+  if [[ -n ${MUTATE_SHARD-} ]]; then
+    echo "shard $MUTATE_SHARD: selected $((mutate_declared - mutate_shard_skipped)) of $mutate_declared"
+  fi
   for ((n = 1; n <= mutate_slots; n++)); do
     case ${mutate_slot_kind[n]} in
     na)
@@ -193,11 +302,21 @@ mutate_finish() {
   if [[ -n ${MUTATE_ONLY-} ]]; then
     summary="$summary; MUTATE_ONLY selected $selected, skipped $mutate_unselected"
   fi
+  if [[ -n ${MUTATE_LIST-} ]]; then
+    echo "listed $mutate_listed mutant(s)"
+    exit 0
+  fi
+  ((mutate_diff_skipped == 0)) || summary="$summary; skipped $mutate_diff_skipped, no input changed"
+  ((mutate_os_skipped == 0)) || summary="$summary; skipped $mutate_os_skipped that run on another OS"
   if ((failed > 0)); then
     echo "$failed mutation check(s) failed ($summary)"
     exit 1
   fi
   if ((caught + clean == 0)); then
+    if [[ -z ${MUTATE_ONLY-} ]] && ((mutate_diff_skipped + mutate_os_skipped + mutate_shard_skipped > 0)); then
+      echo "no mutant runs here, and the baseline passed ($summary)"
+      exit 0
+    fi
     echo "no mutant ran ($summary)"
     exit 1
   fi

@@ -26,7 +26,14 @@ run_mutant() { # <dir> <check>... <file> <old> <new>
   mutate_checks_failed "$out" $checks
 }
 
+# Login and interactive shells read /etc files that differ between macOS and
+# Ubuntu, and tests/shell.sh branches on uname for the locale checks, so the
+# mutants those checks grade run on macOS too.
 expect_caught() { # <check>... <description> <file> <old> <new>
+  if [[ -z ${mutate_runs_on-} ]] &&
+    [[ $3 == *.zshrc || $3 == *.zprofile || " $1" =~ \ (login|interactive|lang)- ]]; then
+    local mutate_runs_on='linux macos'
+  fi
   mutant "$2" run_mutant "$1" "$3" "$4" "$5"
 }
 
@@ -43,6 +50,7 @@ etc_reorders_login_path() {
   [[ $reordered == 1 ]]
 }
 
+mutate_inputs home tests/shell.sh tests/packages.sh tests/mutate.sh tests/lib/
 mutate_baseline 'the files as committed' "$repo_dir/tests/shell.sh"
 
 expect_caught zdotdir 'ZDOTDIR is never set' \
@@ -144,14 +152,14 @@ expect_caught lang-c-utf8-when-en-us-absent \
 
 # The host's own answer, as tests/shell.sh asks it: where libc cannot load
 # en_US.UTF-8, the check expects C.UTF-8 and these mutants cannot be caught.
-if [[ $(env -i LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null) == UTF-8 ]]; then
-  expect_caught lang-en-us-where-libc-has-it 'the LANG probe expects a codeset libc never names' \
-    .config/zsh/.zshenv '[[ $langinfo[CODESET] == UTF-8 ]]' '[[ $langinfo[CODESET] == utf8 ]]'
-  expect_caught lang-en-us-where-libc-has-it 'LANG is C.UTF-8 even where libc has en_US.UTF-8' \
-    .config/zsh/.zshenv 'export LANG=en_US.UTF-8' 'export LANG=C.UTF-8'
-else
-  mutate_na "libc here cannot load en_US.UTF-8, so the en_US.UTF-8 branch cannot be mutation-tested"
-fi
+# macOS's libc has it, so the macOS run must catch them.
+[[ $(env -i LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null) == UTF-8 ]] ||
+  mutate_host_lacks="libc here cannot load en_US.UTF-8, so the en_US.UTF-8 branch cannot be mutation-tested"
+mutate_on macos expect_caught lang-en-us-where-libc-has-it 'the LANG probe expects a codeset libc never names' \
+  .config/zsh/.zshenv '[[ $langinfo[CODESET] == UTF-8 ]]' '[[ $langinfo[CODESET] == utf8 ]]'
+mutate_on macos expect_caught lang-en-us-where-libc-has-it 'LANG is C.UTF-8 even where libc has en_US.UTF-8' \
+  .config/zsh/.zshenv 'export LANG=en_US.UTF-8' 'export LANG=C.UTF-8'
+mutate_host_lacks=
 
 expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists the yaml files before config' \
   .config/zsh/.zshenv '($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))' \
@@ -442,19 +450,19 @@ expect_caught 'interactive-shell-log-quiet caller-cache-interactive-shell-log-qu
   $'if [[ -r $ZDOTDIR/.zshrc.local ]]; then\n  source $ZDOTDIR/.zshrc.local\nfi' \
   'source $ZDOTDIR/.zshrc.local'
 
-if etc_reorders_login_path; then
-  expect_caught 'login-path-nix-profile-before-usr-bin login-path-per-user-before-usr-bin login-path-current-system-before-usr-bin login-path-nix-default-before-usr-bin login-path-local-bin-before-usr-bin login-path-mise-shims-before-usr-bin login-path-aqua-bin-before-usr-bin login-git-from-nix-profile' \
-    '.zprofile does not re-front the Nix directories' \
-    .config/zsh/.zprofile 'path=($_dots_path $path)' ''
-  expect_caught 'login-path-per-user-before-usr-bin login-path-current-system-before-usr-bin login-path-nix-default-before-usr-bin login-path-local-bin-before-usr-bin login-path-mise-shims-before-usr-bin login-path-aqua-bin-before-usr-bin' \
-    '.zprofile re-fronts the first directory only' \
-    .config/zsh/.zprofile 'path=($_dots_path $path)' 'path=($HOME/.nix-profile/bin $path)'
-elif [[ $(uname) == Darwin ]]; then
+if ! etc_reorders_login_path; then
   # macOS reorders login PATH with path_helper, so a probe that says otherwise is
   # broken rather than reporting a machine where .zprofile's fix is untestable.
-  mutate_fail "FAIL: the reorder probe found no /etc file that reorders login PATH on macOS"
-else
-  mutate_na "no /etc file reorders login PATH here, so .zprofile's fix cannot be mutation-tested on this machine"
+  [[ $(uname) != Darwin ]] ||
+    mutate_fail "FAIL: the reorder probe found no /etc file that reorders login PATH on macOS"
+  mutate_host_lacks="no /etc file reorders login PATH here, so .zprofile's fix cannot be mutation-tested on this machine"
 fi
+mutate_on macos expect_caught 'login-path-nix-profile-before-usr-bin login-path-per-user-before-usr-bin login-path-current-system-before-usr-bin login-path-nix-default-before-usr-bin login-path-local-bin-before-usr-bin login-path-mise-shims-before-usr-bin login-path-aqua-bin-before-usr-bin login-git-from-nix-profile' \
+  '.zprofile does not re-front the Nix directories' \
+  .config/zsh/.zprofile 'path=($_dots_path $path)' ''
+mutate_on macos expect_caught 'login-path-per-user-before-usr-bin login-path-current-system-before-usr-bin login-path-nix-default-before-usr-bin login-path-local-bin-before-usr-bin login-path-mise-shims-before-usr-bin login-path-aqua-bin-before-usr-bin' \
+  '.zprofile re-fronts the first directory only' \
+  .config/zsh/.zprofile 'path=($_dots_path $path)' 'path=($HOME/.nix-profile/bin $path)'
+mutate_host_lacks=
 
 mutate_finish

@@ -25,7 +25,12 @@ run_mutant() { # <dir> <check>... <file> <old> <new>
   mutate_checks_failed "$out" $checks
 }
 
+# macOS's file system folds case and its temporary directory sits behind a
+# symlink, so the mutants graded by the case and symlink checks run there too.
 expect_caught() { # <check>... <description> <file> <old> <new>
+  if [[ $1 =~ other-case|behind-symlink ]]; then
+    local mutate_runs_on='linux macos'
+  fi
   mutant "$2" run_mutant "$1" "$3" "$4" "$5"
 }
 
@@ -54,6 +59,7 @@ if [[ -d $mutate_dir/fold ]]; then
     org-dir-other-case-reached-as-pattern-email-C-pwd'
 fi
 
+mutate_inputs home profiles/work.example tests/git.sh tests/mutate-git.sh tests/lib/
 mutate_baseline 'the files as committed' "$repo_dir/tests/git.sh"
 
 expect_caught "$(all_modes personal-repo-name personal-repo-email personal-worktree-in-org-dir-name \
