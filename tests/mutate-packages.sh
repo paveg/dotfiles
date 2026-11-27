@@ -141,6 +141,9 @@ if runs common; then
 
   expect_caught 'mise-disable-backends' 'the global mise config disables a backend the projects use' \
     home/.config/mise/config.toml 'disable_backends = ["asdf"]' 'disable_backends = ["asdf", "aqua"]'
+
+  expect_caught 'atuin-reads-config' 'the atuin config sets a style atuin does not have' \
+    home/.config/atuin/config.toml 'style = "compact"' 'style = "bogus"'
 fi
 
 if runs per-user; then

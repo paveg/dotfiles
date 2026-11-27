@@ -4,9 +4,9 @@
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile and the
 # zsh plugins, the zsh, mise and atuin directories are real directories whose files
-# link into the checkout, the global mise config refuses the asdf backend, and
-# on macOS the generated /etc/zshrc leaves completion and the prompt to
-# $ZDOTDIR/.zshrc.
+# link into the checkout, the global mise config refuses the asdf backend, the
+# built atuin accepts the atuin config, and on macOS the generated /etc/zshrc
+# leaves completion and the prompt to $ZDOTDIR/.zshrc.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -288,6 +288,22 @@ fi
 # asdf and nothing else: disabling a backend a project needs would be refused
 # the same way, and the message above does not say which backend is off.
 is mise-disable-backends '["asdf"]' "$(run_mise settings get disable_backends)"
+
+# The built atuin accepts the linked config.toml: with a key or value it
+# rejects, every atuin command fails with "could not load client settings",
+# and `atuin info` prints the config path only after loading it. A copy, so
+# nothing atuin writes lands in the checkout.
+atuin_dir=$work_dir/atuin
+mkdir -p "$atuin_dir/config" "$atuin_dir/home"
+cp "$repo_dir/home/.config/atuin/config.toml" "$atuin_dir/config/"
+atuin_out=$(cd "$work_dir" && env -i HOME="$atuin_dir/home" PATH=/usr/bin:/bin \
+  ATUIN_HOME="$atuin_dir/data" ATUIN_CONFIG_DIR="$atuin_dir/config" \
+  "$profile/bin/atuin" info 2>&1)
+if grep -qF "client config: \"$atuin_dir/config/config.toml\"" <<<"$atuin_out"; then
+  ok atuin-reads-config
+else
+  fail atuin-reads-config "$(tr '\n' ' ' <<<"$atuin_out" | cut -c1-300)"
+fi
 
 summary
 if ((failures > 0)); then exit 1; fi
