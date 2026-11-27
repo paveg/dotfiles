@@ -69,6 +69,8 @@ expect_caught 'an ignored directory is offered whole' '(cd "$1" && find "${entry
 expect_caught 'Claude Code memory is not offered for backup' 'for dir in "$claude_dir"/projects/*/memory ' 'for dir in '
 expect_caught 'the user folders are not offered for backup' '"$notes_dir" "${folders[@]/#/$HOME/}"' '"$notes_dir"'
 expect_caught 'Desktop and Documents are left out when sync is not known to be on' '((desktop_documents_synced)) || folders=(Desktop Documents Downloads Pictures)' ':'
+expect_caught 'synced Desktop and Documents are listed anyway' 'local dir folders=(Downloads Pictures)' 'local dir folders=(Desktop Documents Downloads Pictures)'
+expect_caught 'leaving out Desktop and Documents goes unsaid' "echo 'Desktop and Documents are left out:" ": 'Desktop and Documents are left out:"
 expect_caught 'the report follows the backup list' '  backup_paths
   exit 0' '  backup_paths'
 expect_caught 'the atuin export hint is missing' 'echo "atuin history is left out:' ': "atuin history is left out:'

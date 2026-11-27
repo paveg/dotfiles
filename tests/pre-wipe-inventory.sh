@@ -281,6 +281,11 @@ env -i HOME="$home" PATH="$tools_bin:$brew_prefix/bin:$stub_bin" PNPM_HOME="$roo
 env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C \
   "$bash_bin" "$script" --backup-paths >"$work_dir/paths" 2>"$work_dir/err-paths" || status=$?
 snapshot >"$work_dir/after"
+# With iCloud Drive holding a Documents folder, Desktop & Documents sync looks
+# on: the list leaves both folders out and says so.
+mkdir -p "$home/Library/Mobile Documents/com~apple~CloudDocs/Documents"
+env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C \
+  "$bash_bin" "$script" --backup-paths >"$work_dir/paths-synced" 2>"$work_dir/err-synced" || status=$?
 
 if [[ $status == 0 ]]; then ok exit-0; else fail exit-0 "exit $status"; fi
 if grep -q '^## Summary' "$work_dir/out"; then ok summary-section; else fail summary-section "no '## Summary' heading"; fi
@@ -424,6 +429,10 @@ else
   fail tar-takes-the-list 'tar could not archive the list'
 fi
 has atuin-export-hint "$(cat "$work_dir/err-paths")" 'atuin history list'
+synced=$(tr '\0' '\n' <"$work_dir/paths-synced")
+if grep -qxF -- "$home/Documents/report.txt" <<<"$synced"; then fail synced-documents-left-out 'Documents is listed while its sync looks on'; else ok synced-documents-left-out; fi
+has synced-downloads-kept "$synced" "$home/Downloads/file.zip"
+has synced-documents-said "$(cat "$work_dir/err-synced")" 'Desktop and Documents are left out'
 
 if diff "$work_dir/before" "$work_dir/after" >"$work_dir/diff"; then
   ok nothing-changed

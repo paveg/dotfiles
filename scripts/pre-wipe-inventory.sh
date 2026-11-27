@@ -411,6 +411,9 @@ backup_paths() {
   local dir
   backup_candidates | backup_safe | LC_ALL=C sort -zu
   echo 'Files whose name suggests a credential are left out; the report names each one under Credentials.' >&2
+  if ((desktop_documents_synced)); then
+    echo 'Desktop and Documents are left out: iCloud Drive holds a Desktop or Documents folder, so their sync looks on. Confirm it in System Settings > your name > iCloud > iCloud Drive > Desktop & Documents Folders, or back them up too.' >&2
+  fi
   for dir in "${ATUIN_HOME:-}" "$HOME/.local/share/atuin" "$HOME/.atuin"; do
     [[ -n $dir && -d $dir ]] || continue
     echo "atuin history is left out: \`$(tilde "$dir")\` also holds atuin's key. Export it with \`atuin history list --format '{time} {command}' >atuin-history.txt\` and back that file up." >&2
