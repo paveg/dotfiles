@@ -82,6 +82,10 @@ dir=$home/no-remote-repo
 fixture_git init -q "$dir"
 commit "$dir" notes 'never pushed'
 
+# A clone under ~/.config is not searched as a repository, so the unmanaged
+# files section must still name it.
+fixture_git init -q "$home/.config/cloned-tool"
+
 # The credential fixture's path is assembled here so that it never appears on a
 # command line, where the live credential guard would block it.
 marker='fixture-line-that-must-never-be-printed'
@@ -151,6 +155,7 @@ fi
 has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, not listed): 1'
 has git-summary "$(cat "$work_dir/out")" '| Git repositories | 6 | 5 |'
 
+has config-repo-listed "$(cat "$work_dir/out")" '- **needs action:** `~/.config/cloned-tool`'
 has credential-listed "$(cat "$work_dir/out")" "$key_name"
 if grep -qF -- "$marker" "$work_dir/out" "$work_dir/err"; then
   fail credential-contents-not-printed 'the fixture key contents appear in the output'

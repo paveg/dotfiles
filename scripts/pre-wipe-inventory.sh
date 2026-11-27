@@ -6,7 +6,8 @@
 # and the run always exits 0. It writes nothing itself, runs no fetch, asks the
 # tools it calls to stay offline (a tool may still update its own cache), and
 # for credential locations reports names, counts, and sizes only, never contents.
-# Usage: scripts/pre-wipe-inventory.sh >inventory.md
+# Usage: scripts/pre-wipe-inventory.sh >/tmp/inventory.md   (keep the report out
+#        of the checkout: it names private paths)
 # Env: HOME; GHQ_ROOT (default: `ghq root`, else ~/repos); AGENT_NOTES_DIR
 #      (default: ~/.local/share/agent-notes). Runs on macOS's bash 3.2.
 # SC2016: backticks inside single quotes are Markdown code spans in the report.
@@ -186,24 +187,26 @@ home_repos() {
   return 0
 }
 
-managed_paths=''
-managed_state='chezmoi not installed: only the new dotfiles'"'"' `home/` tree counts as managed'
+chezmoi_paths=''
+chezmoi_state='chezmoi not installed, so nothing counts as managed by it'
 if have chezmoi; then
-  if managed_paths=$(chezmoi managed 2>/dev/null); then
-    managed_state='managed means listed by `chezmoi managed` or present in the new dotfiles'"'"' `home/` tree'
+  if chezmoi_paths=$(chezmoi managed 2>/dev/null); then
+    chezmoi_state='managed means listed by `chezmoi managed`'
   else
-    managed_paths=''
-    managed_state='`chezmoi managed` failed: only the new dotfiles'"'"' `home/` tree counts as managed'
+    chezmoi_paths=''
+    chezmoi_state='`chezmoi managed` failed, so nothing counts as managed by it'
   fi
 fi
-managed_paths=$managed_paths$'\n'$(cd "$repo_dir/home" 2>/dev/null && find . -mindepth 1 | sed 's|^\./||')
+# What the new dotfiles link, approximated by the names under the checkout's
+# home/: close enough for the top-level names the unmanaged-files section checks.
+dotfiles_paths=$(cd "$repo_dir/home" 2>/dev/null && find . -mindepth 1 | sed 's|^\./||')
 
-covers() { # <path relative to HOME>   true when it or anything below it is managed
-  awk -v p="$1" '$0 == p || index($0, p "/") == 1 { found = 1; exit } END { exit !found }' <<<"$managed_paths"
+covers() { # <path relative to HOME> <managed paths>   true when it or anything below it is managed
+  awk -v p="$1" '$0 == p || index($0, p "/") == 1 { found = 1; exit } END { exit !found }' <<<"$2"
 }
 
-is_managed() { # <path relative to HOME>
-  grep -qxF -- "$1" <<<"$managed_paths"
+is_managed() { # <path relative to HOME> <managed paths>
+  grep -qxF -- "$1" <<<"$2"
 }
 
 report_unmanaged_below() { # <dir>   a wholly unmanaged directory is one item
@@ -213,12 +216,12 @@ report_unmanaged_below() { # <dir>   a wholly unmanaged directory is one item
     [[ ${entry##*/} == .DS_Store ]] && continue
     rel=${entry#"$HOME"/}
     if [[ -d $entry && ! -L $entry ]]; then
-      if covers "$rel"; then
+      if covers "$rel" "$chezmoi_paths"; then
         report_unmanaged_below "$entry"
       else
         needs_action "\`$(tilde "$entry")\`: not managed, $(file_count "$entry") file(s), $(size_of "$entry")"
       fi
-    elif ! is_managed "$rel"; then
+    elif ! is_managed "$rel" "$chezmoi_paths"; then
       needs_action "\`$(tilde "$entry")\`: not managed, $(size_of "$entry")"
     fi
   done
@@ -302,7 +305,7 @@ else
   note 'Claude Code session transcripts: none found'
 fi
 if [[ -d $claude_dir ]]; then
-  note "Entries under \`~/.claude\` no dotfiles manage ($managed_state):"
+  note "Entries under \`~/.claude\` chezmoi does not manage ($chezmoi_state):"
   report_unmanaged_below "$claude_dir"
 else
   note '`~/.claude`: not found'
@@ -413,11 +416,12 @@ else
   done < <(brew services list 2>/dev/null | tail -n +2 | awk '{ print $1 " " $2 }')
 fi
 
-section 'Installed software' "reinstall each listed item on the new machine, or add it to the dotfiles. Items marked as in \`nix/packages.nix\` come back with the first switch. Marking: $nix_state."
+section 'Installed software' "reinstall each listed item on the new machine, or add it to the dotfiles. Items marked as in \`nix/packages.nix\` come back with the first switch. Marking: $nix_state. Casks and App Store apps are never marked: that list holds CLI packages, and a cask can share a command's name."
 
-software() { # <title> <sed -E -n program> <command>...   one item per line; its first word names the package
-  local title=$1 program=$2 out line name
-  shift 2
+# <mark> is "nix" to mark items that nix/packages.nix covers, "apps" not to.
+software() { # <title> <mark> <sed -E -n program> <command>...   one item per line; its first word names the package
+  local title=$1 mark=$2 program=$3 out line name
+  shift 3
   subsection "$title"
   if ! have "$1"; then
     note "$1: not installed"
@@ -434,7 +438,7 @@ software() { # <title> <sed -E -n program> <command>...   one item per line; its
     name=${line%% *}
     name=${name##*/}
     name=${name%@*}
-    if nix_covers "$name"; then
+    if [[ $mark == nix ]] && nix_covers "$name"; then
       listed "\`$line\` (in \`nix/packages.nix\`)"
     else
       needs_action "\`$line\`"
@@ -444,15 +448,15 @@ software() { # <title> <sed -E -n program> <command>...   one item per line; its
 }
 
 mas_names='s/^[0-9]+[[:space:]]+//; s/[[:space:]]+\([^)]*\)[[:space:]]*$//; p'
-software '`brew leaves`' p brew leaves
-software '`brew list --cask`' p brew list --cask -1
-software '`mas list`' "$mas_names" mas list
-software '`devbox global list`' 's/^\* //p' devbox global list
-software 'global npm packages' 's|.*/node_modules/||p' npm ls -g --depth=0 --parseable
-software 'global pnpm packages' 's|.*/node_modules/||p' pnpm ls -g --depth=0 --parseable
-software '`uv tool list`' '/^-/!p' uv tool list
-software '`cargo install --list`' '/^[[:space:]]/!p' cargo install --list
-software '`mise ls`' 's/^([^ ]+) +([^ ]+).*/\1 \2/p' mise ls
+software '`brew leaves`' nix p brew leaves
+software '`brew list --cask`' apps p brew list --cask -1
+software '`mas list`' apps "$mas_names" mas list
+software '`devbox global list`' nix 's/^\* //p' devbox global list
+software 'global npm packages' nix 's|.*/node_modules/||p' npm ls -g --depth=0 --parseable
+software 'global pnpm packages' nix 's|.*/node_modules/||p' pnpm ls -g --depth=0 --parseable
+software '`uv tool list`' nix '/^-/!p' uv tool list
+software '`cargo install --list`' nix '/^[[:space:]]/!p' cargo install --list
+software '`mise ls`' nix 's/^([^ ]+) +([^ ]+).*/\1 \2/p' mise ls
 
 subsection 'Apps in `/Applications` from neither Homebrew nor the App Store'
 if [[ ! -d /Applications ]]; then
@@ -489,7 +493,7 @@ else
   note "Apps from Homebrew casks, the App Store, or Apple (counted, not listed): $covered"
 fi
 
-section 'Files no dotfiles manage' "for each listed name, back it up, add it to the dotfiles, or let it go. Names only; $managed_state. Names that other sections report are left out."
+section 'Files no dotfiles manage' "for each listed name, back it up, add it to the dotfiles, or let it go. Names only. A name counts as managed when chezmoi manages it or anything below it ($chezmoi_state), or when the new dotfiles' \`home/\` holds it. Names that other sections report are left out."
 ghq_parent=${ghq_root%/*}
 found=0
 for entry in "$HOME"/* "$HOME"/.[!.]* "$HOME"/.config/* "$HOME"/.config/.[!.]*; do
@@ -505,8 +509,9 @@ for entry in "$HOME"/* "$HOME"/.[!.]* "$HOME"/.config/* "$HOME"/.config/.[!.]*; 
       ;;
   esac
   [[ $ghq_parent == "$HOME" && $entry == "$ghq_root" ]] && continue
-  [[ -d $entry/.git ]] && continue
-  covers "$rel" && continue
+  [[ $rel != */* && -d $entry/.git ]] && continue
+  covers "$rel" "$chezmoi_paths" && continue
+  covers "$rel" "$dotfiles_paths" && continue
   found=1
   needs_action "\`~/$rel\`"
 done

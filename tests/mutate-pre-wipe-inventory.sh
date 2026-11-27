@@ -38,6 +38,7 @@ expect_caught 'clean repositories are listed' 'if [[ -z $findings ]]; then
     repo_clean' 'if [[ -z $findings && 1 == 2 ]]; then
     repo_clean'
 expect_caught 'clean repositories are left out of the summary' 'section_items[current]=$((section_items[current] + repo_clean))' ':'
+expect_caught 'a repository under ~/.config is left out of every section' '[[ $rel != */* && -d $entry/.git ]]' '[[ -d $entry/.git ]]'
 expect_caught 'a credential file is opened and printed' 'listing=$(ls -A "$1" 2>/dev/null)' 'listing=$(cat "$1"/* 2>/dev/null)'
 expect_caught 'git status may rewrite the index' 'git_ro() { GIT_OPTIONAL_LOCKS=0 git' 'git_ro() { git'
 expect_caught 'the script writes a file' 'export HOMEBREW_NO_AUTO_UPDATE=1' ': >"$HOME/.inventory-ran"; export HOMEBREW_NO_AUTO_UPDATE=1'
