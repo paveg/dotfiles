@@ -3,11 +3,13 @@
 # the work machine: home.packages, and on macOS the system packages, fonts, and
 # Homebrew casks and formulae, plus the Windows-side installs that design.md
 # names for wsl. Prints a table of each item, its licence, and the verdict.
-# A check fails on a licence with an NC (non-commercial) id, allowed by name or
-# not; on an unfree or non-redistributable one that flake.nix does not allow
-# by name; on a Nix package with no meta.license that nix/licenses.nix does not
-# record; and on an install from outside Nix that nix/licenses.nix has no entry
-# for. The licence of a package's dependencies is not checked.
+# A check fails on a licence with an NC (non-commercial) id or a full name that
+# says non-commercial, allowed by name or not; on an unfree or
+# non-redistributable one that flake.nix does not allow by name; on a Nix
+# package with no meta.license that nix/licenses.nix does not record; on an
+# install from outside Nix that nix/licenses.nix has no entry for; on a
+# `winget install` it cannot parse; and on a cask, brew, or mas line in
+# homebrew.extraConfig. The licence of a package's dependencies is not checked.
 # Usage: tests/licenses.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere).
