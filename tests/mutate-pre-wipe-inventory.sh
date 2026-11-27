@@ -56,22 +56,36 @@ expect_caught 'the bundle next step is wrong' 'name=${name%.git}.bundle' 'name=$
 expect_caught 'the push next step is wrong' '      text="\`git -C $quoted push $remote$6\`"' '      text=push'
 expect_caught 'uncommitted work is not committed first' "((\$3)) && steps='commit the uncommitted and untracked work'" ':'
 expect_caught 'env files the walk finds are dropped' "*) env_files=\$env_files\$path\$'\\n' ;;" '*) : ;;'
-expect_caught 'ignored files are not reported' '      finding "ignored files to back up: $count ($names)"' '      :'
+expect_caught 'ignored files are not reported' '      finding "ignored files no build re-creates: $count ($names)"' '      :'
 expect_caught 'ignored files get no next step' '(($8)) && text=' 'false && text='
-expect_caught 'a credential-named file left out of the backup is not listed' 'backup_candidates | grep -ziE "$credential_name" |' 'repo_ignored_files | grep -ziE "$credential_name" |'
-expect_caught 'credential-named files are offered for backup' 'grep -zviE "$credential_name" | while' 'cat | while'
-expect_caught 'backup paths are separated by newlines' "    printf '%s\0' \"\$path\"" "    printf '%s\n' \"\$path\""
-expect_caught 'backup candidates are found newline-separated' '-name .cache \) -prune -o ! -type d -print0 2>/dev/null' '-name .cache \) -prune -o ! -type d -print 2>/dev/null'
+expect_caught 'a credential-named ignored file is not listed under Credentials' 'repo_ignored_files | grep -ziE "$credential_name" |' ': | grep -ziE "$credential_name" |'
+expect_caught 'credential-named ignored files are offered to copy' 'grep -zviE "$credential_name" | while' 'cat | while'
 expect_caught 'ignored files are read newline-separated' 'git_ro -C "$1" ls-files -z --others' 'git_ro -C "$1" ls-files --others'
-expect_caught 'a path that is no file is offered for backup' '    [[ -f $path || -L $path ]] || continue' '    :'
-expect_caught 'a path in a credential location is offered for backup' '[[ $path == "$location" || $path == "$location"/* ]] && continue 2' ':'
-expect_caught 'build outputs are offered for backup' '|dist|build|' '|dist|'
+expect_caught 'an ignored file in a credential location is offered to copy' '[[ $path == "$location" || $path == "$location"/* ]] && continue 2' ':'
+expect_caught 'build outputs are offered to copy' '|dist|build|' '|dist|'
 expect_caught 'an ignored directory is offered whole' '(cd "$1" && find "${entry%/}" -name .git -prune -o ! -type d -print0 2>/dev/null)' 'printf "%s\0" "$entry"'
-expect_caught 'Claude Code memory is not offered for backup' 'for dir in "$claude_dir"/projects/*/memory ' 'for dir in '
-expect_caught 'the user folders are not offered for backup' '"$notes_dir" "${folders[@]/#/$HOME/}"' '"$notes_dir"'
-expect_caught 'Desktop and Documents are left out when sync is not known to be on' '((desktop_documents_synced)) || folders=(Desktop Documents Downloads Pictures)' ':'
-expect_caught 'synced Desktop and Documents are listed anyway' 'local dir folders=(Downloads Pictures)' 'local dir folders=(Desktop Documents Downloads Pictures)'
-expect_caught 'leaving out Desktop and Documents goes unsaid' "echo 'Desktop and Documents are left out:" ": 'Desktop and Documents are left out:"
+expect_caught 'Claude Code memory is no backup root' '"$claude_dir"/projects/*/memory # Claude Code memory' '# Claude Code memory'
+expect_caught 'the agent notes are no backup root' '"$notes_dir"                    # agent notes' '# agent notes'
+expect_caught 'Documents is a backup root' '"$notes_dir"                    # agent notes' '"$notes_dir" "$HOME/Documents" # agent notes'
+expect_caught 'a symlink below a backup root is followed' 'find "$real" "${prune[@]}" -type f -links 1' 'find -L "$real" "${prune[@]}" -type f -links 1'
+expect_caught 'a path that is no regular file is listed' 'find "$real" "${prune[@]}" -type f -links 1' 'find "$real" "${prune[@]}" ! -type d -links 1'
+expect_caught 'a file with a second hard link is listed' '-type f -links 1 -print0' '-type f -print0'
+expect_caught 'a symlinked credential location is not resolved' '[[ -e $location ]] && location=$(realpath' 'false && location=$(realpath'
+expect_caught 'a file in a credential location is listed' "&& why='it is in a credential location'" '&& :'
+expect_caught 'a credential-named file below a backup root is listed' '[[ $path =~ $credential_name ]] && why=' 'false && why='
+expect_caught 'a credential name is matched case-sensitively' '      shopt -s nocasematch' '      :'
+expect_caught 'without realpath the files are listed anyway' 'have realpath || why=' 'true || why='
+expect_caught 'backup paths are separated by newlines' "      printf '%s\0' \"\$path\"
+    else" "      printf '%s\n' \"\$path\"
+    else"
+expect_caught 'backup candidates are found newline-separated' '-type f -links 1 -print0 2>/dev/null' '-type f -links 1 -print 2>/dev/null'
+expect_caught 'a file left out goes unnamed in the report' '  needs_action "\`$(tilde "$path" | tr' '  : "\`$(tilde "$path" | tr'
+expect_caught 'the backup scope goes unsaid' "echo 'Only the files below Claude Code memory" ": 'Only the files below Claude Code memory"
+expect_caught 'the backup list runs git' '  backup_paths
+  exit 0' '  git -C "$HOME" status >/dev/null 2>&1; backup_paths
+  exit 0'
+expect_caught 'the user folders are not counted' '$(file_count "$HOME/$name") file(s), ' ''
+expect_caught 'the user folders are not said to be left to the owner' ' `--backup-paths` does not list them: what to copy from them is yours to decide by hand.' ''
 expect_caught 'the report follows the backup list' '  backup_paths
   exit 0' '  backup_paths'
 expect_caught 'the atuin export hint is missing' 'echo "atuin history is left out:' ': "atuin history is left out:'

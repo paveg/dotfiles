@@ -12,7 +12,9 @@
 # Usage: scripts/pre-wipe-inventory.sh >/tmp/inventory.md   (keep the report out
 #        of the checkout: it names private paths)
 #        scripts/pre-wipe-inventory.sh --backup-paths | tar --null -czf backup.tgz -T -
-#        (what cannot be re-created and is not a credential, NUL-separated)
+#        (the regular files below Claude Code memory and the agent notes,
+#        NUL-separated, and nothing else: the report lists the rest to copy by
+#        hand; this mode runs no git, ghq, chezmoi, or package manager)
 # Env: HOME; GHQ_ROOT (a colon-separated list; default: `ghq root --all`, else
 #      ~/repos); AGENT_NOTES_DIR (default: ~/.local/share/agent-notes). Runs on
 #      macOS's bash 3.2.
@@ -29,13 +31,6 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 real_path() { (cd "$1" 2>/dev/null && pwd -P); }
 
-ghq_roots=''
-if [[ -n ${GHQ_ROOT:-} ]]; then
-  ghq_roots=$(tr ':' '\n' <<<"$GHQ_ROOT")
-elif have ghq; then
-  ghq_roots=$(ghq root --all 2>/dev/null)
-fi
-[[ -n $ghq_roots ]] || ghq_roots=$HOME/repos
 home_real=$(real_path "$HOME")
 home_real=${home_real:-$HOME}
 notes_dir=${AGENT_NOTES_DIR:-$HOME/.local/share/agent-notes}
@@ -158,11 +153,11 @@ worktree_changes() { # <work tree>   prints "<tracked changes> <untracked files>
 # one is offered for backup.
 credential_locations=(.ssh .aws .kube .config/gcloud .config/op .gnupg .netrc .codex .claude/.credentials.json)
 # A file name that may hold a secret, matched against a whole path: such a file
-# is listed under Credentials and never offered for backup.
+# is never listed for backup, and the report names it.
 credential_name='/(\.env(\..*)?|\.envrc|\.dev\.vars|\.netrc|\.npmrc|\.pypirc|id_(rsa|dsa|ecdsa|ed25519)[^/]*|[^/]*(secret|credential|token|password)[^/]*|[^/]*[._]key|[^/]*\.(pem|p12|pfx|keychain-db))$'
 # Ignored paths a build or an install re-creates, matched against a path inside
-# a work tree. A fixed list: an ignored output named otherwise is offered for
-# backup, which costs space, not data.
+# a work tree. A fixed list: an ignored output named otherwise is reported,
+# which costs a line, not data.
 regenerable_ignored='(^|/)(node_modules|\.venv|venv|__pycache__|target|dist|build|\.next|\.nuxt|\.turbo|\.cache|\.parcel-cache|coverage|\.direnv|\.devbox|\.terraform|\.gradle|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox|\.DS_Store|[^/]*\.pyc)(/|$)'
 
 ignored_files() { # <work tree>   ignored files as NUL-separated absolute paths, without what a build re-creates
@@ -184,17 +179,84 @@ for location in "${credential_locations[@]}" .local/share/atuin .atuin; do
   refused_locations+=("$HOME/$location" "$home_real/$location")
 done
 [[ -n ${ATUIN_HOME:-} ]] && refused_locations+=("$ATUIN_HOME")
+# Each one's real path too, so that a symlinked ~/.ssh refuses what it points to.
+for location in "${refused_locations[@]}"; do
+  [[ -e $location ]] && location=$(realpath "$location" 2>/dev/null) && refused_locations+=("$location")
+done
 
-backup_safe() { # NUL-separated paths in; out, each file or link whose name suggests no secret and that no credential location holds
+credential_free() { # NUL-separated paths in; out, each one whose name suggests no secret and that no credential location holds
   local path location
   grep -zviE "$credential_name" | while IFS= read -r -d '' path; do
-    [[ -f $path || -L $path ]] || continue
     for location in "${refused_locations[@]}"; do
       [[ $path == "$location" || $path == "$location"/* ]] && continue 2
     done
     printf '%s\0' "$path"
   done
 }
+
+# What --backup-paths lists: the files below these roots, which only this disk
+# holds and no credential tool writes to.
+backup_roots=(
+  "$claude_dir"/projects/*/memory # Claude Code memory: kept on this disk only
+  "$notes_dir"                    # agent notes: kept outside every repository
+)
+
+# For each file below a backup root, NUL-separated: why it is left out (empty
+# when it is listed), then its path. find follows no symlink below the root's
+# real path, so each path it prints is that file's real path, inside the root.
+backup_scan() {
+  local root real path location why prune=(\( -name .git -o -name node_modules -o -name .cache \) -prune -o)
+  for root in "${backup_roots[@]}"; do
+    real=$(real_path "$root") || continue
+    find "$real" "${prune[@]}" -type f -links 1 -print0 2>/dev/null | {
+      shopt -s nocasematch
+      while IFS= read -r -d '' path; do
+        why=''
+        [[ $path =~ $credential_name ]] && why='its name suggests a secret'
+        for location in "${refused_locations[@]}"; do
+          [[ $path == "$location" || $path == "$location"/* ]] && why='it is in a credential location'
+        done
+        have realpath || why='realpath is not installed, so a symlinked credential location cannot be resolved'
+        printf '%s\0%s\0' "$why" "$path"
+      done
+    }
+    find "$real" "${prune[@]}" ! -type d ! \( -type f -links 1 \) -print0 2>/dev/null | while IFS= read -r -d '' path; do
+      if [[ -L $path ]]; then
+        why='a symlink, which is not followed'
+      elif [[ -f $path ]]; then
+        why='another hard link to it exists'
+      else
+        why='not a regular file'
+      fi
+      printf '%s\0%s\0' "$why" "$path"
+    done
+  done
+}
+
+# NUL-separated absolute paths for `tar --null -T -`, so a newline in a file
+# name cannot forge a second path.
+backup_paths() {
+  local why path dir
+  backup_scan | while IFS= read -r -d '' why && IFS= read -r -d '' path; do
+    if [[ -z $why ]]; then
+      printf '%s\0' "$path"
+    else
+      printf 'Left out: `%s`: %s\n' "$(tilde "$path" | tr '\n' '?')" "$why" >&2
+    fi
+  done | LC_ALL=C sort -zu
+  echo 'Only the files below Claude Code memory and the agent notes are listed. Desktop, Documents, Downloads, Pictures, and the files repositories ignore are not: the report sizes them, and what to copy from them is yours to decide by hand.' >&2
+  for dir in "${ATUIN_HOME:-}" "$HOME/.local/share/atuin" "$HOME/.atuin"; do
+    [[ -n $dir && -d $dir ]] || continue
+    echo "atuin history is left out: \`$(tilde "$dir")\` also holds atuin's key. Export it with \`atuin history list --format '{time} {command}' >atuin-history.txt\` and back that file up." >&2
+    break
+  done
+  return 0
+}
+
+if [[ ${1:-} == --backup-paths ]]; then
+  backup_paths
+  exit 0
+fi
 
 linked_worktrees() { # <`git worktree list --porcelain` output>   every work tree but the first entry's
   awk '
@@ -272,16 +334,16 @@ repo_findings() { # <main work tree or bare repository> <work|bare>   one line p
   git_unsaved=$unsaved
   while IFS= read -r worktree; do
     [[ -d $worktree ]] || continue
-    files=$(ignored_files "$worktree" | backup_safe | tr '\n\0' '?\n')
+    files=$(ignored_files "$worktree" | credential_free | tr '\n\0' '?\n')
     count=$(printf '%s' "$files" | count_lines)
     ((count > 0)) || continue
     ignored=$((ignored + count))
     names=$(while IFS= read -r file; do printf '`%s`\n' "${file#"$worktree"/}"; done <<<"$files" | LC_ALL=C sort |
       awk 'NR <= 5 { printf "%s%s", sep, $0; sep = ", " } END { if (NR > 5) printf ", and %d more", NR - 5 }')
     if [[ $worktree == "$dir" ]]; then
-      finding "ignored files to back up: $count ($names)"
+      finding "ignored files no build re-creates: $count ($names)"
     else
-      finding "linked worktree \`$(tilde "$worktree")\`: ignored files to back up: $count ($names)"
+      finding "linked worktree \`$(tilde "$worktree")\`: ignored files no build re-creates: $count ($names)"
     fi
   done < <(worktrees_of "$dir" "$kind")
   ((unsaved)) && next_step "$dir" "$remotes" "$dirty" "$stashes" "$off_branch" "$branches" "$git_unsaved" "$ignored"
@@ -312,7 +374,7 @@ next_step() { # <repository> <remotes> <dirty> <stashes> <commits on no branch> 
       text=$bundle
     fi
   fi
-  (($8)) && text="${text:+$text; }back up the ignored files \`--backup-paths\` lists"
+  (($8)) && text="${text:+$text; }copy by hand the ignored files to keep: \`--backup-paths\` does not list them"
   echo "next: $text"
 }
 
@@ -331,6 +393,13 @@ report_repo() { # <label> <main work tree or bare repository> <work|bare>
   while IFS= read -r line; do detail "$line"; done <<<"$findings"
 }
 
+ghq_roots=''
+if [[ -n ${GHQ_ROOT:-} ]]; then
+  ghq_roots=$(tr ':' '\n' <<<"$GHQ_ROOT")
+elif have ghq; then
+  ghq_roots=$(ghq root --all 2>/dev/null)
+fi
+[[ -n $ghq_roots ]] || ghq_roots=$HOME/repos
 ghq_roots_real=$(while IFS= read -r root; do real_path "$root"; done <<<"$ghq_roots")
 walk_roots=("$home_real")
 while IFS= read -r root; do
@@ -389,36 +458,6 @@ repo_ignored_files() { # every repository's ignored files, NUL-separated
       [[ -d $worktree ]] && ignored_files "$worktree"
     done < <(worktrees_of "$dir" "$kind")
   done <<<"$repo_list"
-  return 0
-}
-
-# Every file that cannot be re-created, credential-named ones included,
-# NUL-separated. A directory is given as its files, so that a credential-named
-# file inside it can be taken out.
-backup_candidates() {
-  local dir folders=(Downloads Pictures)
-  ((desktop_documents_synced)) || folders=(Desktop Documents Downloads Pictures)
-  for dir in "$claude_dir"/projects/*/memory "$notes_dir" "${folders[@]/#/$HOME/}"; do
-    [[ -d $dir ]] && find "$dir" \( -name .git -o -name node_modules -o -name .cache \) -prune -o ! -type d -print0 2>/dev/null
-  done
-  repo_ignored_files
-}
-
-# What cannot be re-created and is not a credential, NUL-separated absolute
-# paths for `tar --null -T -`, so a newline in a file name cannot forge a
-# second path. What it leaves out, the report lists under Credentials.
-backup_paths() {
-  local dir
-  backup_candidates | backup_safe | LC_ALL=C sort -zu
-  echo 'Files whose name suggests a credential are left out; the report names each one under Credentials.' >&2
-  if ((desktop_documents_synced)); then
-    echo 'Desktop and Documents are left out: iCloud Drive holds a Desktop or Documents folder, so their sync looks on. Confirm it in System Settings > your name > iCloud > iCloud Drive > Desktop & Documents Folders, or back them up too.' >&2
-  fi
-  for dir in "${ATUIN_HOME:-}" "$HOME/.local/share/atuin" "$HOME/.atuin"; do
-    [[ -n $dir && -d $dir ]] || continue
-    echo "atuin history is left out: \`$(tilde "$dir")\` also holds atuin's key. Export it with \`atuin history list --format '{time} {command}' >atuin-history.txt\` and back that file up." >&2
-    break
-  done
   return 0
 }
 
@@ -485,17 +524,13 @@ while IFS= read -r path; do
     *) env_files=$env_files$path$'\n' ;;
   esac
 done < <(walk)
-if [[ ${1:-} == --backup-paths ]]; then
-  backup_paths
-  exit 0
-fi
 
 printf '# Pre-wipe inventory\n\n'
 printf 'What wiping this machine would lose. Generated %s on %s, read-only: the script writes nothing and runs no fetch. Each item marked **needs action** is something to save, push, or confirm before the wipe; credential locations show names, counts, and sizes only.\n\n' "$(date '+%Y-%m-%d %H:%M')" "$(uname -s)"
-printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n- what to back up: run with `--backup-paths` for NUL-separated paths, for `tar --null -T -`\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
+printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n- what to back up: `--backup-paths` prints the files below Claude Code memory and the agent notes, NUL-separated for `tar --null -T -`; the rest of this report is yours to copy by hand\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
 have ghq || note 'ghq: not installed'
 
-section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch --prune` in a repository first if its remote may have moved: a branch deleted on the remote counts as pushed until its remote-tracking ref is pruned. Untracked files honour .gitignore; ignored files are listed when no build re-creates them and their name suggests no secret.'
+section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch --prune` in a repository first if its remote may have moved: a branch deleted on the remote counts as pushed until its remote-tracking ref is pruned. Untracked files honour .gitignore; ignored files are listed when no build re-creates them and their name suggests no secret; `--backup-paths` does not list them, so copy the ones to keep by hand.'
 note "Searched \`~\` and every ghq root for work trees (a \`.git\` directory or file) and bare repositories, skipping $prune_list; symlinks are not followed. Each submodule and each linked worktree's repository is checked as a repository of its own."
 notes_real=$(real_path "$notes_dir")
 while IFS=$'\t' read -r dir kind; do
@@ -539,6 +574,14 @@ if ((count > 0)); then
 else
   note 'Claude Code session transcripts: none found'
 fi
+note '`--backup-paths` lists the regular files below Claude Code memory and the agent notes, and nothing else. It leaves out these, to copy by hand or let go:'
+found=0
+while IFS= read -r -d '' why && IFS= read -r -d '' path; do
+  [[ -n $why ]] || continue
+  found=1
+  needs_action "\`$(tilde "$path" | tr '\n' '?')\`: left out of \`--backup-paths\`: $why"
+done < <(backup_scan)
+((found)) || note 'none'
 if [[ -d $claude_dir ]]; then
   note "Entries under \`~/.claude\` chezmoi does not manage ($chezmoi_state):"
   report_unmanaged_below "$claude_dir"
@@ -577,14 +620,14 @@ for path in "${credential_locations[@]}"; do
     note "\`~/$path\`: not found"
   fi
 done
-note "\`.env\` files (also \`.env.*\`, \`.envrc\`, \`.dev.vars\`) the repository walk reached, except tracked ones and \`.env.example\`, \`.env.sample\`, and \`.env.template\`, and each file \`--backup-paths\` leaves out because its name suggests a secret:"
+note "\`.env\` files (also \`.env.*\`, \`.envrc\`, \`.dev.vars\`) the repository walk reached, except tracked ones and \`.env.example\`, \`.env.sample\`, and \`.env.template\`, and each file a repository ignores whose name suggests a secret:"
 found=0
 while IFS= read -r file; do
   [[ -n $file ]] || continue
   git_ro -C "${file%/*}" ls-files --error-unmatch -- "${file##*/}" >/dev/null 2>&1 && continue
   found=1
   needs_action "$(describe_location "$file")"
-done < <({ printf '%s' "$env_files" | sed -E '/\.env\.(example|sample|template)$/d'; backup_candidates | grep -ziE "$credential_name" | tr '\n\0' '?\n'; } | LC_ALL=C sort -u)
+done < <({ printf '%s' "$env_files" | sed -E '/\.env\.(example|sample|template)$/d'; repo_ignored_files | grep -ziE "$credential_name" | tr '\n\0' '?\n'; } | LC_ALL=C sort -u)
 ((found)) || note 'none found'
 
 section 'Containers and VMs' 'export or recreate each listed image, volume, and VM; their data lives inside the VM disk and is lost with it.'
@@ -828,10 +871,10 @@ for entry in "$HOME"/* "$HOME"/.[!.]* "$HOME"/.config/* "$HOME"/.config/.[!.]*; 
 done
 ((found)) || note 'none found'
 
-section 'Large user folders' 'move what you want to keep to iCloud Drive, an external disk, or another machine.'
+section 'Large user folders' 'move what you want to keep to iCloud Drive, an external disk, or another machine. `--backup-paths` does not list them: what to copy from them is yours to decide by hand.'
 for name in Documents Desktop Downloads Pictures; do
   if [[ -d $HOME/$name ]]; then
-    needs_action "\`~/$name\`: $(size_of "$HOME/$name")"
+    needs_action "\`~/$name\`: $(file_count "$HOME/$name") file(s), $(size_of "$HOME/$name")"
   else
     note "\`~/$name\`: not found"
   fi
