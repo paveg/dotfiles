@@ -52,6 +52,8 @@ expect_caught 'commits only a reflog holds are not counted' '--all --reflog --no
 expect_caught 'commits on no branch are not named' '((off_branch > 0)) && finding' 'false && finding'
 expect_caught 'a linked worktree with changes is skipped' '((tracked + untracked > 0)) || continue' 'continue'
 expect_caught 'a repository clean filter runs' 'done < <(filter_overrides "$1")' 'done < <(:)'
+expect_caught 'commits only a reflog holds get no ref before the bundle' 'done < <(reflog_only_tips "$1")' 'done < <(:)'
+expect_caught 'the push next step drops commits only a reflog holds' '[[ -n $rescue && $text != "$bundle" ]] && text=' 'false && text='
 expect_caught 'the bundle next step is wrong' 'name=${name%.git}.bundle' 'name=${name%.git}.tar'
 expect_caught 'the push next step is wrong' '      text="\`git -C $quoted push $remote$6\`"' '      text=push'
 expect_caught 'uncommitted work is not committed first' "((\$3)) && steps='commit the uncommitted and untracked work'" ':'

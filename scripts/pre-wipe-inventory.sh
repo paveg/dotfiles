@@ -350,11 +350,21 @@ repo_findings() { # <main work tree or bare repository> <work|bare>   one line p
   return 0
 }
 
+# The newest commit of each line of history only a reflog holds. `git bundle
+# create --all` takes every ref and each worktree's HEAD, but no reflog.
+reflog_only_tips() { # <repository>
+  git_ro -C "$1" rev-list --parents --reflog --not --all 2>/dev/null |
+    awk '{ commit[NR] = $1; for (i = 2; i <= NF; i++) parent[$i] = 1 } END { for (n = 1; n <= NR; n++) if (!(commit[n] in parent)) print commit[n] }'
+}
+
 next_step() { # <repository> <remotes> <dirty> <stashes> <commits on no branch> <branches to push> <git work unsaved> <ignored files>
-  local quoted="'$1'" name=${1##*/} remote steps='' text=''
+  local quoted="'$1'" name=${1##*/} remote steps='' text='' rescue='' sha
   name=${name%.git}.bundle
   [[ $name == *[!A-Za-z0-9._-]* ]] && name="'$name'"
-  local bundle="\`git -C $quoted bundle create $name --all\`"
+  while IFS= read -r sha; do
+    rescue="$rescue\`git -C $quoted update-ref refs/rescue/$sha $sha\`, "
+  done < <(reflog_only_tips "$1")
+  local bundle="${rescue:+${rescue}then }\`git -C $quoted bundle create $name --all\`"
   if (($7)) && [[ -z $2 ]]; then
     text=$bundle
     (($3 || $4)) && text="commit the uncommitted and untracked work and each stash (a bundle holds commits only), then $bundle"
@@ -373,6 +383,7 @@ next_step() { # <repository> <remotes> <dirty> <stashes> <commits on no branch> 
     else
       text=$bundle
     fi
+    [[ -n $rescue && $text != "$bundle" ]] && text="$text; then, for the commits only a reflog holds, $bundle"
   fi
   (($8)) && text="${text:+$text; }copy by hand the ignored files to keep: \`--backup-paths\` does not list them"
   echo "next: $text"
