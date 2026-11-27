@@ -35,4 +35,6 @@ jobs:
       - name: Check each guard against its fixtures under an empty PATH
         run: tests/hooks.sh
       - name: Check that each guard check fails on a deliberately broken guard
+        # Linux only: the guards run on the same pinned Nix tools on both OSes, so a second run adds time, not coverage.
+        if: matrix.os == 'ubuntu-latest'
         run: tests/mutate-hooks.sh
