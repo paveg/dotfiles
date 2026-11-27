@@ -8,10 +8,15 @@ repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 script=$repo_dir/scripts/pre-wipe-inventory.sh
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+# The script reads nix/ and home/ beside its own directory, so each copy sits
+# in a scripts/ directory beside links to them.
+mkdir "$work/scripts"
+ln -s "$repo_dir/nix" "$work/nix"
+ln -s "$repo_dir/home" "$work/home"
 failures=0
 
 expect_caught() { # <description> <old> <new>
-  local copy=$work/pre-wipe-inventory.sh
+  local copy=$work/scripts/pre-wipe-inventory.sh
   OLD=$2 NEW=$3 python3 - "$script" "$copy" <<'PY'
 import os, sys
 text = open(sys.argv[1]).read()
@@ -27,7 +32,8 @@ PY
   fi
 }
 
-"$repo_dir/tests/pre-wipe-inventory.sh" >/dev/null || { echo "FAIL: the unmutated script fails its tests"; exit 1; }
+cp "$script" "$work/scripts/pre-wipe-inventory.sh"
+"$repo_dir/tests/pre-wipe-inventory.sh" "$work/scripts/pre-wipe-inventory.sh" >/dev/null || { echo "FAIL: an unmutated copy fails its tests"; exit 1; }
 expect_caught 'tracked changes are not reported' '((tracked > 0)) && { dirty=1; finding "tracked uncommitted changes: $tracked"; }' ':'
 expect_caught 'stashes are not reported' '    finding "stashes: $stashes"' '    :'
 expect_caught 'a branch ahead of its upstream is not reported' '[[ $count == 0 ]] || finding "branch \`${ref#refs/heads/}\`: $count commit(s) ahead' 'true || finding "branch \`${ref#refs/heads/}\`: $count commit(s) ahead'
