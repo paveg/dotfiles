@@ -1,3 +1,6 @@
 [user]
   name = Work Name
   email = work@example.com
+  # PLACEHOLDER, not a key: the real profile holds the public half of the work
+  # signing key in 1Password. Without it, work commits use the personal key.
+  signingkey = ssh-ed25519 AAAAPLACEHOLDER-work-signing-public-key

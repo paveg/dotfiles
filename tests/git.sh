@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Check the git files in <home-dir> (default home/) in a temporary HOME, with no
-# Nix switch: a repository resolves the personal identity, and one under the
-# work org's directory, or a linked worktree of one wherever it lives, resolves
+# Nix switch: a repository resolves the personal identity and signing key, and
+# one under the work org's directory, spelled in either case or reached through
+# a symlinked ~/repos, or a linked worktree of one wherever it lives, resolves
 # the work profile's, and commits are signed through 1Password's signer for
 # the OS. The work side comes from <work-profile-dir> (default
 # profiles/work.example/), placed where the work profile lives on work-mac.
@@ -17,11 +18,16 @@ repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 home_src=${1:-$repo_dir/home}
 profile_src=${2:-$repo_dir/profiles/work.example}
 git_bin=${GIT_BIN:-$(command -v git)}
-# The org directory that profiles/work.example/ names.
+# The org directory that profiles/work.example/ names, and the same name in
+# the other case that ghq keeps when the clone URL spells it that way.
 work_org=example-org
+work_org_other_case=Example-Org
 
+# The physical path, as a real HOME is: on macOS mktemp's /var is a symlink,
+# and git compares a PWD-named path with ~ resolved to the physical HOME.
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
+work_dir=$(cd "$work_dir" && pwd -P)
 
 checks=0
 failures=0
@@ -58,11 +64,15 @@ add_work_profile() { # <home>
   cp -R "$profile_src/." "$1/.config/dots-work/"
 }
 
-# The files under test: the global config in <home>, nothing from /etc.
+# The files under test: the global config in <home>, nothing from /etc. With
+# with_pwd set, PWD names the directory as reached, as an interactive shell
+# sets it; git then matches includeIf against that path, not only the
+# physical one.
 git_at() { # <home> <dir> <git-arg>...
   local home=$1 dir=$2
   shift 2
-  (cd "$dir" && env -i HOME="$home" PATH=/usr/bin:/bin GIT_CONFIG_NOSYSTEM=1 "$git_bin" "$@")
+  (cd "$dir" && env -i HOME="$home" PATH=/usr/bin:/bin GIT_CONFIG_NOSYSTEM=1 \
+    ${with_pwd:+"PWD=$PWD"} "$git_bin" "$@")
 }
 
 # Setup only: no global config at all, so creating a repository depends on
@@ -85,9 +95,23 @@ add_worktree() { # <repo> <worktree-dir> <branch>
   git_setup "$1" worktree add -q -b "$3" "$2"
 }
 
-identity_is() { # <name> <home> <dir> <want-name> <want-email>
-  is "$1-name" "$4" "$(git_at "$2" "$3" config --get user.name 2>&1)"
-  is "$1-email" "$5" "$(git_at "$2" "$3" config --get user.email 2>&1)"
+# Each identity is read four ways: from <dir> and through git -C from <home>,
+# each without PWD (as env -i, hooks and agents run git) and with it.
+identity_is() { # <name> <home> <dir> <want-name> <want-email> <want-signing-key>
+  local name=$1 home=$2 dir=$3 suffix field got with_pwd
+  local -a want=("$4" "$5" "$6") keys=(user.name user.email user.signingkey) labels=(name email signing-key)
+  for suffix in '' -pwd -C -C-pwd; do
+    with_pwd=
+    [[ $suffix == *pwd ]] && with_pwd=1
+    for field in 0 1 2; do
+      if [[ $suffix == -C* ]]; then
+        got=$(git_at "$home" "$home" -C "$dir" config --get "${keys[field]}" 2>&1)
+      else
+        got=$(git_at "$home" "$dir" config --get "${keys[field]}" 2>&1)
+      fi
+      is "$name-${labels[field]}$suffix" "${want[field]}" "$got"
+    done
+  done
 }
 
 file_value() { # <file> <key>
@@ -98,6 +122,8 @@ personal_name=$(file_value "$home_src/.config/git/personal.gitconfig" user.name)
 personal_email=$(file_value "$home_src/.config/git/personal.gitconfig" user.email)
 work_name=$(file_value "$profile_src/git/work.gitconfig" user.name)
 work_email=$(file_value "$profile_src/git/work.gitconfig" user.email)
+personal_key=$(file_value "$home_src/.config/git/personal.gitconfig" user.signingkey)
+work_key=$(file_value "$profile_src/git/work.gitconfig" user.signingkey)
 # An identity that is missing on both sides would compare equal.
 if [[ -n $personal_name && -n $personal_email ]]; then
   ok personal-identity-set
@@ -108,6 +134,13 @@ if [[ -n $work_name && -n $work_email && $work_email != "$personal_email" ]]; th
   ok work-identity-set
 else
   fail work-identity-set "work.gitconfig gives name '$work_name', email '$work_email'"
+fi
+# Without its own key, a work commit is signed with the personal key, which
+# GitHub shows as Unverified when the work email belongs to another account.
+if [[ -n $work_key && $work_key != "$personal_key" ]]; then
+  ok work-signing-key-set
+else
+  fail work-signing-key-set "work.gitconfig gives user.signingkey '$work_key'"
 fi
 
 home=$(new_home work-host darwin)
@@ -128,13 +161,36 @@ else
   fail setup-repositories "git could not create the repositories under $home"
 fi
 
-identity_is work-repo "$home" "$work_repo" "$work_name" "$work_email"
-identity_is work-worktree-inside "$home" "$work_repo/.claude/worktrees/agent" "$work_name" "$work_email"
-identity_is work-worktree-outside "$home" "$home/elsewhere/app-wt" "$work_name" "$work_email"
-identity_is personal-repo "$home" "$personal_repo" "$personal_name" "$personal_email"
+work=("$work_name" "$work_email" "$work_key")
+personal=("$personal_name" "$personal_email" "$personal_key")
+identity_is work-repo "$home" "$work_repo" "${work[@]}"
+identity_is work-worktree-inside "$home" "$work_repo/.claude/worktrees/agent" "${work[@]}"
+identity_is work-worktree-outside "$home" "$home/elsewhere/app-wt" "${work[@]}"
+identity_is personal-repo "$home" "$personal_repo" "${personal[@]}"
 # The include follows the repository, not the directory the worktree sits in.
-identity_is personal-worktree-in-org-dir "$home" "$org_dir/dotfiles-wt" "$personal_name" "$personal_email"
-identity_is outside-any-repo "$home" "$home" "$personal_name" "$personal_email"
+identity_is personal-worktree-in-org-dir "$home" "$org_dir/dotfiles-wt" "${personal[@]}"
+identity_is outside-any-repo "$home" "$home" "${personal[@]}"
+
+# ghq keeps the clone URL's case, and GitHub org names ignore case, so the
+# org directory on disk may differ in case from the profile's pattern.
+mixed=$(new_home mixed-case-host darwin)
+add_work_profile "$mixed"
+make_repo "$mixed/repos/github.com/$work_org_other_case/app"
+identity_is org-dir-other-case "$mixed" "$mixed/repos/github.com/$work_org_other_case/app" "${work[@]}"
+# Where the file system ignores case (APFS by default), the same repository
+# can also be reached under the pattern's spelling.
+if [[ -d $mixed/repos/github.com/$work_org/app ]]; then
+  identity_is org-dir-other-case-reached-as-pattern "$mixed" "$mixed/repos/github.com/$work_org/app" "${work[@]}"
+fi
+
+# ~/repos kept on another volume behind a symlink: without PWD, git sees only
+# the physical path, which does not start with ~/repos.
+linked=$(new_home symlinked-repos-host darwin)
+add_work_profile "$linked"
+mkdir -p "$work_dir/volume/repos"
+ln -s "$work_dir/volume/repos" "$linked/repos"
+make_repo "$work_dir/volume/repos/github.com/$work_org/app"
+identity_is repos-behind-symlink "$linked" "$linked/repos/github.com/$work_org/app" "${work[@]}"
 
 # Agent worktrees stay out of every repository's status.
 if git_at "$home" "$personal_repo" check-ignore -q .claude/worktrees/agent/file; then
@@ -148,7 +204,7 @@ is ghq-root '~/repos' "$(git_at "$home" "$home" config --get ghq.root 2>&1)"
 # ignored, and a repository under the org directory stays personal.
 bare=$(new_home personal-host wsl)
 make_repo "$bare/repos/github.com/$work_org/app"
-identity_is no-profile-org-repo "$bare" "$bare/repos/github.com/$work_org/app" "$personal_name" "$personal_email"
+identity_is no-profile-org-repo "$bare" "$bare/repos/github.com/$work_org/app" "${personal[@]}"
 if out=$(git_at "$bare" "$bare" config --list 2>&1); then
   ok no-profile-config-reads
 else
