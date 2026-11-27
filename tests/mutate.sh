@@ -382,6 +382,9 @@ expect_caught interactive-enter-clears-suggestion \
 expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command' \
   .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  vi nvim\n'
 
+expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command from the Nix profile' \
+  .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  rg \'rg --hidden\'\n'
+
 expect_caught piped-stdout-as-bare 'the mouse reporting reset writes escape bytes into a pipe' \
   .config/zsh/.zshrc '[[ -t 1 ]]' 'true'
 

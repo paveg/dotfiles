@@ -54,6 +54,24 @@ new_home() { # <name>
   echo "$home"
 }
 
+# A stub for each command the Nix profile installs, by the list
+# tests/packages.sh checks against the built profile, so an abbreviation that
+# shadows one is seen on a machine without Nix. Stubs that exist are kept.
+add_profile_stubs() { # <home>
+  local bin=$1/.nix-profile/bin commands=() cmd
+  eval "$(sed -n '/^commands=(/,/^)/p' "$repo_dir/tests/packages.sh")"
+  if ((${#commands[@]} == 0)); then
+    echo "no commands=( ) list in tests/packages.sh" >&2
+    exit 1
+  fi
+  for cmd in "${commands[@]}"; do
+    if [[ ! -e $bin/$cmd ]]; then
+      printf '#!/bin/sh\nexit 0\n' >"$bin/$cmd"
+      chmod +x "$bin/$cmd"
+    fi
+  done
+}
+
 # The commands `.zshrc` binds keys for. The fzf and atuin stubs print the same
 # shape of init script the real ones do: fzf binds Ctrl+t, Alt+c and Ctrl+r in
 # every keymap and then restores every option through `options=(...)`, which
@@ -427,8 +445,6 @@ if [[ $(field ENTER_CLEARS_SUGGESTION "$probe_text") == [1-9]* ]]; then
 else
   fail interactive-enter-clears-suggestion "Enter's widget is not in ZSH_AUTOSUGGEST_CLEAR_WIDGETS"
 fi
-is interactive-abbreviations-shadow-nothing "" \
-  "$(grep '^SHADOWED ' "$probe" 2>/dev/null | tr '\n' ' ' || true)"
 
 # "Aliases: none by default": compare with a HOME that has no zsh files at all,
 # so zsh's own aliases and anything /etc adds are not counted.
@@ -461,8 +477,10 @@ added=$(LC_ALL=C comm -13 <(echo "$before_tree") <(tree_of "$home") |
 is home-tree-adds-only-cache "" "$added"
 
 # The optional files: a work profile under the fixed ~/.config path, a local zsh
-# override in $ZDOTDIR, and the commands whose key bindings .zshrc sets up.
+# override in $ZDOTDIR, every command the Nix profile installs, and the ones
+# whose key bindings .zshrc sets up.
 fix_home=$(new_home fixtures)
+add_profile_stubs "$fix_home"
 add_command_stubs "$fix_home"
 add_fixtures "$fix_home"
 fix_vars=$(run_zsh "$fix_home" -c printenv 2>/dev/null) || true
@@ -477,6 +495,9 @@ is interactive-zshrc-local-from-zdotdir zdotdir "$(field LOCAL_RC "$fix_text")"
 # Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named).
 is interactive-ctrl-g-dots-widget "user:$(field CTRL_G "$fix_text")" \
   "$(field CTRL_G_TYPE "$fix_text")"
+# No abbreviation is a command on PATH, the Nix profile's included.
+is interactive-abbreviations-shadow-nothing "" \
+  "$(grep '^SHADOWED ' "$fix_probe" 2>/dev/null | tr '\n' ' ' || true)"
 
 # On a terminal, Ctrl+t and Alt+c run fzf's widgets, and Ctrl+r runs the widget
 # atuin's init script binds, which has to come after fzf's.
