@@ -56,7 +56,8 @@ new_home() { # <name>
 
 # The commands `.zshrc` binds keys for. The fzf and atuin stubs print the same
 # shape of init script the real ones do: fzf binds Ctrl+t, Alt+c and Ctrl+r in
-# every keymap, and atuin binds Ctrl+r unless it is told not to.
+# every keymap, and atuin binds Ctrl+r to atuin-search, as 18.24 names it,
+# unless it is told not to.
 add_command_stubs() { # <home>
   local bin=$1/.nix-profile/bin
   printf '#!/bin/sh\nexit 0\n' >"$bin/ghq"
@@ -80,11 +81,11 @@ esac
 STUB
   cat >"$bin/atuin" <<'STUB'
 #!/bin/sh
-echo '_atuin_search_widget() { : }'
-echo 'zle -N _atuin_search_widget'
+echo '_atuin_search() { : }'
+echo 'zle -N atuin-search _atuin_search'
 case " $* " in
 *" --disable-ctrl-r "*) ;;
-*) echo "bindkey '^r' _atuin_search_widget" ;;
+*) echo "bindkey -M emacs '^r' atuin-search" ;;
 esac
 STUB
   chmod +x "$bin/ghq" "$bin/fzf" "$bin/atuin"
@@ -424,7 +425,7 @@ is interactive-ctrl-g-dots-widget "user:$(field CTRL_G "$fix_text")" \
   "$(field CTRL_G_TYPE "$fix_text")"
 is interactive-ctrl-t-fzf-file-widget fzf-file-widget "$(field CTRL_T "$fix_text")"
 is interactive-alt-c-fzf-cd-widget fzf-cd-widget "$(field ALT_C "$fix_text")"
-is interactive-ctrl-r-atuin-widget _atuin_search_widget "$(field CTRL_R "$fix_text")"
+is interactive-ctrl-r-atuin-widget atuin-search "$(field CTRL_R "$fix_text")"
 
 # Each XDG variable the caller sets is kept, ZDOTDIR follows XDG_CONFIG_HOME,
 # and everything derived from an XDG directory follows it too. $HOME holds only
