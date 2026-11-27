@@ -132,7 +132,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 │   ├── .config/zsh/{.zshenv,.zprofile,.zshrc}
 │   ├── .config/atuin/config.toml
 │   ├── .config/mise/config.toml  # global settings; refuses the asdf backend
-│   ├── .config/git/{config,ignore,personal.gitconfig}
+│   ├── .config/git/{config,ignore,personal.gitconfig,darwin.gitconfig,wsl.gitconfig}
 │   ├── .config/ghtkn/{ghtkn.personal.yaml.tpl,gh-app.personal}
 │   ├── .config/1Password/ssh/agent.toml
 │   ├── .config/{nvim,ghostty}/
@@ -142,7 +142,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 │   ├── .claude/              # CLAUDE.md, rules/, agents/, references/, hooks/ (sources), settings.{common,personal}.json
 │   ├── .codex/               # config.toml source (written as a regular file at activation)
 │   └── .local/bin/
-├── profiles/work.example/    # shape of the work profile, empty values, used by CI
+├── profiles/work.example/    # shape of the work profile, placeholder values, used by CI
 ├── tests/
 ├── scripts/{bootstrap.sh,work-sync.sh,unattended-setup.sh}
 ├── templates/{tlaplus,lean}/  # flake templates for formal-methods projects
@@ -214,17 +214,24 @@ A token that none of layers 1-3 recognises (an internal token typed on the comma
 - With `useUserPackages = true`, packages land in `/etc/profiles/per-user/$USER/bin`, but only shell initialization adds that directory to PATH.
 - Only if an app turns out to run binaries without a shell: use `launchd.user.envVariables.PATH` (nix-darwin runs `launchctl setenv` for the primary user at switch time; the value is not expanded, so write absolute paths), or `sudo launchctl config user path` (applies to all users, needs a reboot).
 - Whether Orca starts zsh is checked by an acceptance criterion.
+- `nix/darwin.nix` sets `launchd.user.envVariables` to `ORCA_TELEMETRY_DISABLED=1` and `HOMEBREW_NO_ANALYTICS=1`, so apps started by launchd get them without a shell. The built system's `activate` runs `sudo --user=<user> -- launchctl setenv <name> '1'` for each (measured), and `tests/packages.sh` checks those lines. Neither is in `$ZDOTDIR/.zshenv` yet, so the equality check the Shell section requires for repeated variables has nothing to compare (see Open questions).
 
 ### Git
 
 ```gitconfig
-# home/.config/git/config (excerpt)
+# home/.config/git/config
 [ghq]
   root = ~/repos
 [core]
   excludesFile = ~/.config/git/ignore
+[gpg]
+  format = ssh
+[commit]
+  gpgsign = true
 [include]
-  path = ~/.config/git/personal.gitconfig
+  path = ~/.config/git/personal.gitconfig      # name, email, user.signingkey
+[include]
+  path = ~/.config/git/platform.gitconfig      # the 1Password signer for the OS
 [include]
   path = ~/.config/dots-work/git/include.gitconfig   # absent on personal hosts; git ignores it
 ```
@@ -235,8 +242,11 @@ A token that none of layers 1-3 recognises (an internal token typed on the comma
   path = ~/.config/dots-work/git/work.gitconfig
 ```
 
-- Identity switches per directory with `includeIf`. Linked worktrees created from a work repository also get the work identity (measured).
-- The `includeIf` names the GitHub org directory, so it lives in the work profile, not here.
+- Identity switches per directory with `includeIf`. Later includes win, so the work profile's include comes last. Linked worktrees created from a work repository also get the work identity (measured): `gitdir:` matches the repository's git directory, and a linked worktree's is `<main checkout>/.git/worktrees/<name>`, inside the org directory wherever the worktree itself sits. For the same reason a personal repository's worktree placed inside the org directory stays personal (measured). `onbranch:` matches the checked-out branch's name, not where a repository lives, so it cannot express this.
+- The `includeIf` names the GitHub org directory, so it lives in the work profile, not here. `profiles/work.example/git/` holds its shape with placeholder values (`example-org`, `work@example.com`); `tests/git.sh` places it where `work-mac` keeps the real one.
+- Commits are signed with an SSH key held in 1Password ([ADR 0005](adr/0005-commit-signing.md)): `gpg.format ssh`, `commit.gpgsign true`, and `user.signingkey` set to the public key itself, which 1Password matches to the private key it keeps, so no key file is read from disk. The signer differs by OS, so `nix/home.nix` links `home/.config/git/darwin.gitconfig` or `wsl.gitconfig` to `~/.config/git/platform.gitconfig` (see 1Password agent). The work profile may set its own `user.signingkey`.
+- The global ignore lists `.claude/worktrees/` only.
+- Tests (`tests/git.sh`, CI on Linux and macOS): in a temporary `HOME` holding the files under the names `nix/home.nix` links them to, with `GIT_CONFIG_NOSYSTEM=1`, a work repository, its worktrees inside and outside the org directory, a personal repository, a personal worktree inside the org directory, and a host without the work profile each resolve the expected identity, and each OS's file gives the signing settings a commit would use; nothing is signed. `tests/packages.sh` checks which file the built configuration links. `tests/mutate-git.sh` breaks one include, condition, or setting at a time.
 - Agent worktrees live in each repository's `.claude/worktrees/<name>`, where Claude Code's worktree isolation puts them (measured: all 10 linked worktrees across the local `paveg` clones sit there); the global ignore lists `.claude/worktrees/`. Where Orca creates its own worktrees is **Unverified**; the `includeIf` holds wherever a linked worktree lives (measured).
 
 ### Agent configuration
@@ -379,8 +389,8 @@ See [ADR 0002](adr/0002-vaults-and-work-profile.md).
 
 | Item | macOS | WSL2 |
 |---|---|---|
-| SSH agent | `IdentityAgent` pointing at 1Password's socket | Forward to Windows `ssh.exe` (`core.sshCommand ssh.exe`) |
-| Commit signing | `gpg.ssh.program` = `op-ssh-sign` | The snippet from the 1Password app's "Configure for Windows Subsystem for Linux (WSL)" |
+| SSH agent | `IdentityAgent` pointing at 1Password's socket | Forward to Windows `ssh.exe` (`core.sshCommand ssh.exe`, in `wsl.gitconfig`) |
+| Commit signing | `gpg.ssh.program` = `/Applications/1Password.app/Contents/MacOS/op-ssh-sign` (`darwin.gitconfig`) | `gpg.ssh.program` = `op-ssh-sign-wsl.exe` (`wsl.gitconfig`), by name; 1Password's WSL page puts it at `/mnt/c/Users/<Username>/AppData/Local/Microsoft/WindowsApps/op-ssh-sign-wsl.exe` from 1Password 8.11.18 |
 | `op` CLI | Desktop app integration (Touch ID) | Windows `op.exe`; the Linux-side `op` cannot use the desktop integration |
 
 Commit signing is decided in [ADR 0005](adr/0005-commit-signing.md).
@@ -388,6 +398,7 @@ Commit signing is decided in [ADR 0005](adr/0005-commit-signing.md).
 Known limits:
 
 - `op-ssh-sign` needs the GUI to unlock; it cannot sign headless.
+- On `wsl` the signer is named without a path, because its full path holds the Windows user's name. git looks a program name without a slash up on PATH, so it resolves only if the Windows PATH that WSL appends includes `%LOCALAPPDATA%\Microsoft\WindowsApps` (**Unverified**).
 - From some agent tool shells, the `op` desktop integration may not connect. The fallback is a session token from `op signin --raw`, passed with `--session`.
 - A CLI desktop-integration authorization is tied to the current TTY and expires after 10 minutes of inactivity, 12 hours at most (1Password's app-integration security page, by a review agent). Whether it works for processes without a TTY, and whether each signature prompts, are **Unverified**.
 
@@ -486,6 +497,7 @@ See [ADR 0004](adr/0004-github-auth-ghtkn.md).
 - Raycast keeps its settings in its own database, not in a file (`~/Library/Application Support/com.raycast.macos/`). The free plan has no Cloud Sync, which needs Pro. So:
   - Script Commands are plain scripts in `home/.config/raycast/scripts/`, which is added once in Raycast's settings as a script directory.
   - Settings, aliases, hotkeys, and extensions are exported with **Export Settings & Data** to an encrypted `.rayconfig` file, stored as a document in 1Password with its passphrase, and imported by hand on a new machine. It never enters this repository: the repository is public, and snippet and quicklink exports are not encrypted.
+- Each `hosts/<host>.nix` has `packages = pkgs: [ … ]`, which `nix/packages.nix` appends to the list above for that host alone. Today only `work-mac` adds one: `peco` (0.6.0, MIT in the locked nixpkgs, measured).
 - `hosts/work-mac.nix`: Keeper Secrets Manager CLI, aqua, internal tools. The KSM CLI is not in nixpkgs, and Keychain storage needs its pip `keyring` extra; without it the config falls back to a plain `keeper.ini`. Packaging it (a local derivation or another installer) is **Unverified**.
 - No other language runtimes.
 - Font (UDEV Gothic NF): `udev-gothic-nf` from nixpkgs on macOS; installed by hand on the Windows side for WSL2.
@@ -614,7 +626,8 @@ Each Nix network path reads certificates from a different place (checked against
   - the interactive shell writes no history file and creates `$XDG_CACHE_HOME/zsh`;
   - after the shells exit, every entry in `$HOME` is on an allowlist, which catches a stray history, completion dump, rc file, or `~/.atuin`;
   - each variable repeated for launchd or `environment.d` equals its value in `$ZDOTDIR/.zshenv`.
-- Package tests, on the built configuration and still without a switch: each build job evaluates its host's `pkgs` set and home-manager configuration, builds `home.path` and `home-files`, and checks that `home.packages` names exactly the attributes above plus the entries home-manager adds itself, that `allowUnfree` is false and the predicate admits `claude-code` and refuses every other name it is asked about (a prefix of `claude-code` and that name with a suffix among them), that every global tool is in the profile, that `env -i PATH=<profile>/bin:/usr/bin:/bin zsh -c 'command -v <tool>'` answers with the profile's copy rather than `/usr/bin`, that the profile PATH names serves that same profile (`/etc/profiles/per-user/<user>/bin` in the built system on macOS, the generation's `home-path` on `wsl`), that `~/.config/zsh` and `~/.config/mise` are real directories and that `~/.zshenv` and their entries resolve to `<home>/repos/github.com/paveg/dotfiles/home/<path>` in full, and that the global mise config refuses an `asdf:` tool with `mise settings get disable_backends` reading exactly `["asdf"]`. Every check has a mutant except the ones that guard the test harness itself and the `wsl` generation's own link to the profile. The per-user profile mutant runs in the macOS jobs, where that profile is built, and the host-independent ones on the Linux runner.
+- Git tests, without a switch, in the shell workflow on Linux and macOS: `tests/git.sh` and its mutants `tests/mutate-git.sh` (see Git).
+- Package tests, on the built configuration and still without a switch: each build job evaluates its host's `pkgs` set and home-manager configuration, builds `home.path` and `home-files`, and checks that `home.packages` names exactly the attributes above, plus the host's own and the entries home-manager adds itself, that `allowUnfree` is false and the predicate admits `claude-code` and refuses every other name it is asked about (a prefix of `claude-code` and that name with a suffix among them), that every global tool is in the profile, that `env -i PATH=<profile>/bin:/usr/bin:/bin zsh -c 'command -v <tool>'` answers with the profile's copy rather than `/usr/bin`, that the profile PATH names serves that same profile (`/etc/profiles/per-user/<user>/bin` in the built system on macOS, the generation's `home-path` on `wsl`), that `~/.config/zsh`, `~/.config/mise` and `~/.config/git` are real directories and that `~/.zshenv` and their entries resolve to `<home>/repos/github.com/paveg/dotfiles/home/<path>` in full (`~/.config/git/platform.gitconfig` to the file for the host's OS), and that the global mise config refuses an `asdf:` tool with `mise settings get disable_backends` reading exactly `["asdf"]`, and on macOS that the built system's `activate` sets each launchd variable in the user's domain. Every check has a mutant except the ones that guard the test harness itself and the `wsl` generation's own link to the profile. The per-user profile and launchd mutants run in the macOS jobs, where that system is built, the host-independent ones on the Linux runner, and the per-host ones in every job.
 - Licence check, by evaluation alone: each host job runs `tests/licenses.sh` for its host before it builds, and `tests/mutate-licenses.sh`, which breaks one condition at a time (zsh-abbr installed, with and without an allowance by name; an unfree package; a free but non-redistributable licence; the allowance emptied; an NC alternative in an `OR`; an unfree part of an `AND`; a licence list, a bare string, and a licence without its fields; a missing `meta.license`, an empty list, and an empty `AND`; a missing entry for a generated derivation, a `winget install`, or a Homebrew cask or formula; `allowUnfree` set with an unfree package; NC only in a full name, as a bare string, only in a short name, under `WITH` and `PLUS`, and on the font kept by hand; an unfree base under `WITH`; a `winget install` with `-e` or `--exact` before `--id`, with `--id=`, with two spaces after `winget` or after `install`, and with `-s msstore` before the id, and one with an unknown option or two packages; a cask given through `homebrew.extraConfig`), and also requires a pass for `bat`'s compound `OR` licence and for `NCSA`. The winget and by-hand mutants run in the `wsl` job and the system, font, and Homebrew ones in the macOS jobs.
 - Bootstrap tests run `scripts/bootstrap.sh` from the start with `DOTFILES_REF` set to the commit under test: `wsl` on a Linux runner as a newly created user with an empty home, and `personal-mac` and `work-mac` on a macOS runner, whose preinstalled Homebrew exercises `autoMigrate`. Whether a hosted macOS runner can run a nix-darwin switch is **Unverified**.
   - Human steps are stubbed by making each step's check pass, so the script's own logic runs unchanged:
@@ -681,6 +694,8 @@ Each Nix network path reads certificates from a different place (checked against
 - 1Password auto-lock timeout.
 - How to run the ghtkn agent on WSL2.
 - Where Orca creates its worktrees, and whether that location needs its own ignore entry.
+- Who writes `home/.ssh/config`. The global `~/.claude/settings.json` of the previous setup denies `Edit(**/.ssh/*)`, so no agent on this Mac can create the file at that path (measured), and `tests/deny-paths.sh`, which reads only `Read(...)` rules, does not notice. A source path outside `.ssh` would let agents edit the live `~/.ssh/config` through the out-of-store link, the edit that rule denies at `.ssh/*`. Until the owner decides, the ssh config is not tracked.
+- Whether `ORCA_TELEMETRY_DISABLED` and `HOMEBREW_NO_ANALYTICS` also go into `$ZDOTDIR/.zshenv`, so that the equality check for variables repeated in launchd applies to them.
 
 ## Rollout
 

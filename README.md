@@ -56,7 +56,7 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
-| [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system and login name, the nix-darwin and home-manager modules, the agent hook builds in `nix/agents.nix`, and in `nix/licenses.nix` the licences nixpkgs cannot give |
+| [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system, login name, and own packages, the nix-darwin and home-manager modules, the agent hook builds in `nix/agents.nix`, and in `nix/licenses.nix` the licences nixpkgs cannot give |
 | [`home/`](home/) | The files that land in `$HOME`, under their real names: zsh, mise, git, the reply-language hook, the guard hook sources under `home/.claude/hooks/`, which Nix builds into the store rather than links, and `home/.claude/settings.common.json`, which holds only the `Read(...)` deny rules so far and which nothing installs yet |
 | [`profiles/work.example/`](profiles/work.example/) | The shape of the work profile, with placeholder values, which the tests place where `work-mac` keeps the real one; the real profile comes from Keeper and never enters this repository |
 | [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
