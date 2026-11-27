@@ -201,6 +201,9 @@ expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG leaves out a *.yaml 
 expect_caught kubeconfig-skips-config-directory 'KUBECONFIG lists ~/.kube/config when it is a directory' \
   .config/zsh/.zshenv '$HOME/.kube/config(N-.)' '$HOME/.kube/config(N)'
 
+expect_caught kubeconfig-drops-names-with-colon 'KUBECONFIG lists a name that holds a colon' \
+  .config/zsh/.zshenv $'    kube_files=(${kube_files:#*:*})\n' ''
+
 expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG is set but not exported' \
   .config/zsh/.zshenv 'export KUBECONFIG=' 'KUBECONFIG='
 
