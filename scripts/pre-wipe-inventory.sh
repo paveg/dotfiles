@@ -249,9 +249,9 @@ repo_findings() { # <main work tree or bare repository> <work|bare>   one line p
     finding "stashes: $stashes"
   fi
   remotes=$(git_ro "${at[@]}" remote 2>/dev/null) || finding '`git remote` failed'
-  if total=$(git_ro "${at[@]}" rev-list --count ${heads[@]+"${heads[@]}"} --branches --tags --glob=refs/stash --not --remotes 2>/dev/null); then
+  if total=$(git_ro "${at[@]}" rev-list --count ${heads[@]+"${heads[@]}"} --all --reflog --not --remotes 2>/dev/null); then
     [[ -z $remotes ]] && ((total > 0)) && finding 'no remote'
-    ((total > 0)) && finding "commits on no remote ref: $total (from every worktree's HEAD, branch, tag, and the stash)"
+    ((total > 0)) && finding "commits on no remote ref: $total (from every ref, every worktree's HEAD, and every reflog)"
   else
     total=1
     finding '`git rev-list` failed, so commits on no remote ref are not counted'
