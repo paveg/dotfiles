@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # A new release waits a week before a pull request proposes it, so a
+    # compromised release has time to be found and pulled.
+    cooldown:
+      default-days: 7
