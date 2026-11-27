@@ -35,6 +35,11 @@ packages=(
   claude-code git ghq fzf ripgrep fd jq neovim just lazygit lefthook gitleaks
   kubectl kubernetes-helm k9s stern ghtkn mise atuin
 )
+# What hosts/<host>.nix adds for that host alone, as command and package.
+if [[ $host == work-mac ]]; then
+  commands+=(peco)
+  packages+=(peco)
+fi
 # home-manager puts these in home.packages itself, so the set under test is
 # not the whole list. Ceiling: a home-manager update that changes its own set
 # fails package-names, and the fix is to edit this list.

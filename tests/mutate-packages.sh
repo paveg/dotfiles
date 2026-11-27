@@ -7,9 +7,10 @@
 # guard this harness rather than the files under test, and generation-home-path
 # is home-manager's own link to the profile this test already built.
 # The per-user group reads the built macOS system, so it needs a mac; CI runs
-# it in the darwin jobs and the common group on the Linux runner.
+# it in the darwin jobs and the common group on the Linux runner. The per-host
+# group's mutants depend on the host, so every job runs it.
 # Usage: tests/mutate-packages.sh [group]
-#        group: all (default), common, per-user
+#        group: all (default), common, per-user, per-host
 # Env: DOTFILES_HOST and ZSH_BIN are passed through to tests/packages.sh.
 set -uo pipefail
 
@@ -88,10 +89,10 @@ if runs common; then
     nix/packages.nix $'    claude-code\n' ''
 
   expect_caught 'package-names' 'the real gh is added, which the wrapper needs the name of' \
-    nix/packages.nix $'    atuin\n  ];\n' $'    atuin\n    gh\n  ];\n'
+    nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    gh\n  ]\n'
 
   expect_caught 'package-names' 'a language runtime is installed globally' \
-    nix/packages.nix $'    atuin\n  ];\n' $'    atuin\n    nodejs\n  ];\n'
+    nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    nodejs\n  ]\n'
 
   expect_caught 'unfree-admitted build-profile' 'the unfree allowance no longer names claude-code' \
     flake.nix '[ "claude-code" ]' '[ ]'
@@ -164,6 +165,23 @@ if runs per-user; then
     expect_caught 'launchd-ORCA_TELEMETRY_DISABLED launchd-HOMEBREW_NO_ANALYTICS' \
       'the variables go to the system domain, not the user'"'"'s' \
       nix/darwin.nix 'launchd.user.envVariables = {' 'launchd.envVariables = {'
+  fi
+fi
+
+# The host's own packages: what one host adds must not reach another.
+if runs per-host; then
+  if [[ $host == work-mac ]]; then
+    expect_caught 'bin-peco zsh-peco package-names' 'work-mac loses peco' \
+      hosts/work-mac.nix 'packages = pkgs: [ pkgs.peco ];' 'packages = pkgs: [ ];'
+
+    expect_caught 'bin-peco zsh-peco package-names' 'the host list is never added to the profile' \
+      nix/packages.nix $'  ]\n  ++ host.packages pkgs;\n' $'  ];\n'
+  else
+    expect_caught package-names "$host gets peco too" \
+      "hosts/$host.nix" 'packages = pkgs: [ ];' 'packages = pkgs: [ pkgs.peco ];'
+
+    expect_caught package-names 'peco moves into the list every host gets' \
+      nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    peco\n  ]\n'
   fi
 fi
 
