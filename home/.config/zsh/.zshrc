@@ -11,6 +11,14 @@ bindkey -e
 
 mkdir -p $XDG_CACHE_HOME/zsh
 
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path $XDG_CACHE_HOME/zsh/zcompcache
+
+# The prefix of each PATH entry .zshenv adds, which covers every Nix profile.
+fpath=(${^_dots_path:h}/share/zsh/site-functions(N/) $fpath)
+
 autoload -Uz compinit
 # -i: never ask about insecure directories, which would read from stdin without a tty.
 compinit -i -d $XDG_CACHE_HOME/zsh/zcompdump

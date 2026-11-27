@@ -262,6 +262,13 @@ expect_caught home-tree-adds-only-cache 'the completion dump lands outside the c
 expect_caught caller-cache-holds-completion-dump 'completion is never initialized' \
   .config/zsh/.zshrc 'compinit -i -d $XDG_CACHE_HOME/zsh/zcompdump' ''
 
+expect_caught interactive-profile-completion-registered \
+  "the Nix profiles' completions are left off fpath" \
+  .config/zsh/.zshrc $'fpath=(${^_dots_path:h}/share/zsh/site-functions(N/) $fpath)\n' ''
+
+expect_caught interactive-skip-global-compinit "Ubuntu's global compinit is left on" \
+  .config/zsh/.zshenv $'skip_global_compinit=1\n' ''
+
 expect_caught 'interactive-promptsubst-off interactive-prompt-without-command-substitution' \
   'the prompt runs a command on every redraw' \
   .config/zsh/.zshrc "PROMPT='%~ %# '" \

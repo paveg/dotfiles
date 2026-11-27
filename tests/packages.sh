@@ -4,7 +4,8 @@
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile, the zsh
 # and mise directories are real directories whose files link into the checkout,
-# and the global mise config refuses the asdf backend.
+# the global mise config refuses the asdf backend, and on macOS the generated
+# /etc/zshrc leaves completion and the prompt to $ZDOTDIR/.zshrc.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -214,6 +215,17 @@ else
       per_user=$system/etc/profiles/per-user/$user/bin/$cmd
       is "per-user-$cmd" "$profile/bin/$cmd" "$(readlink "$per_user" 2>>"$work_dir/readlink.err")"
     done
+    # $ZDOTDIR/.zshrc runs the one compinit and sets the prompt, so the
+    # generated /etc/zshrc, read before it, does neither. The header proves the
+    # file is nix-darwin's and not missing.
+    etc_zshrc=$system/etc/zshrc
+    if grep -q '^# /etc/zshrc: DO NOT EDIT' "$etc_zshrc" 2>/dev/null; then
+      ok etc-zshrc-generated
+      is etc-zshrc-no-compinit "" "$(grep compinit "$etc_zshrc" | tr '\n' ' ')"
+      is etc-zshrc-no-promptinit "" "$(grep promptinit "$etc_zshrc" | tr '\n' ' ')"
+    else
+      fail etc-zshrc-generated "$etc_zshrc is missing or not nix-darwin's"
+    fi
   fi
 fi
 

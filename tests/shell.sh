@@ -42,13 +42,15 @@ field() { # <name> <text>
 
 # A fresh HOME holding this repository's files plus a fake Nix user profile, so
 # that a machine without Nix still has to resolve `git` from a Nix profile
-# rather than from /usr/bin.
+# rather than from /usr/bin, and a completion from the profile's
+# site-functions, under a name no system ships.
 new_home() { # <name>
   local home=$work_dir/$1
-  mkdir -p "$home/.nix-profile/bin"
+  mkdir -p "$home/.nix-profile/bin" "$home/.nix-profile/share/zsh/site-functions"
   cp -R "$home_src/." "$home/"
   printf '#!/bin/sh\necho fake-nix-profile-git\n' >"$home/.nix-profile/bin/git"
   chmod +x "$home/.nix-profile/bin/git"
+  printf '#compdef dots-stub-command\n' >"$home/.nix-profile/share/zsh/site-functions/_dots_stub"
   echo "$home"
 }
 
@@ -102,6 +104,8 @@ write_probe() { # <script> <out-file>
   for option in interactivecomments autocd autopushd pushdignoredups beep histignoredups; do
     if [[ -o \$option ]]; then print -r -- "OPTION_\$option=on"; else print -r -- "OPTION_\$option=off"; fi
   done
+  print -r -- "COMPLETION_STUB=\${_comps[dots-stub-command]-none}"
+  print -r -- "SKIP_GLOBAL_COMPINIT=\${skip_global_compinit-}"
   ctrl_g=\$(bindkey '^g'); ctrl_g=\${ctrl_g##* }
   ctrl_r=\$(bindkey '^r'); ctrl_r=\${ctrl_r##* }
   print -r -- "CTRL_G=\$ctrl_g"
@@ -283,6 +287,13 @@ for option in interactivecomments autocd autopushd pushdignoredups histignoredup
   is "interactive-option-$option" on "$(field "OPTION_$option" "$probe_text")"
 done
 is interactive-option-no-beep off "$(field OPTION_beep "$probe_text")"
+
+# The one compinit in .zshrc sees each Nix profile's site-functions, where gh
+# and the other packages put their completions. Ubuntu's /etc/zsh/zshrc runs a
+# compinit of its own, dumping into $ZDOTDIR, unless skip_global_compinit is set.
+is interactive-profile-completion-registered _dots_stub \
+  "$(field COMPLETION_STUB "$probe_text")"
+is interactive-skip-global-compinit 1 "$(field SKIP_GLOBAL_COMPINIT "$probe_text")"
 
 # "Aliases: none by default": compare with a HOME that has no zsh files at all,
 # so zsh's own aliases and anything /etc adds are not counted.

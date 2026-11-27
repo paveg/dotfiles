@@ -12,6 +12,10 @@ _dots_path=(
 path=($_dots_path $path)
 
 export EDITOR=nvim
+
+# Ubuntu's /etc/zsh/zshrc runs a compinit of its own, dumping into $ZDOTDIR,
+# unless this is set; .zshrc runs the one compinit.
+skip_global_compinit=1
 export ATUIN_HOME=$XDG_DATA_HOME/atuin
 
 if [[ -r $HOME/.config/dots-work/env/static.env ]]; then

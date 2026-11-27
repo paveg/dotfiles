@@ -3,9 +3,10 @@
 # tests/packages.sh that cover it to fail. A surviving mutant means those checks
 # prove nothing. The per-tool checks are mutated through `git` (which /usr/bin
 # also has) and `claude` (which it does not). These checks have no mutant:
-# host-user, profile-facts, build-home-files, build-system and build-generation
-# guard this harness rather than the files under test, and generation-home-path
-# is home-manager's own link to the profile this test already built.
+# host-user, profile-facts, build-home-files, build-system, build-generation and
+# etc-zshrc-generated guard this harness rather than the files under test, and
+# generation-home-path is home-manager's own link to the profile this test
+# already built.
 # The per-user group reads the built macOS system, so it needs a mac; CI runs
 # it in the darwin jobs and the common group on the Linux runner.
 # Usage: tests/mutate-packages.sh [group]
@@ -140,6 +141,15 @@ if runs per-user; then
   else
     expect_caught 'per-user-git per-user-claude' 'the packages never reach the per-user profile' \
       nix/darwin.nix $'    useUserPackages = true;\n' ''
+
+    expect_caught etc-zshrc-no-compinit "nix-darwin's /etc/zshrc runs compinit before .zshrc" \
+      nix/darwin.nix $'    enableCompletion = false;\n' ''
+
+    expect_caught etc-zshrc-no-compinit "nix-darwin's /etc/zshrc runs bashcompinit" \
+      nix/darwin.nix $'    enableBashCompletion = false;\n' ''
+
+    expect_caught etc-zshrc-no-promptinit "nix-darwin's /etc/zshrc loads a prompt theme" \
+      nix/darwin.nix $'    promptInit = "";\n' ''
   fi
 fi
 
