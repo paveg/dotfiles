@@ -365,6 +365,18 @@ expect_caught interactive-ctrl-r-atuin-widget "atuin is told to leave Ctrl+r alo
 expect_caught interactive-abbreviation-expands 'an abbreviation is left as typed' \
   .config/zsh/.zshrc '    LBUFFER=${dots_abbreviations[$LBUFFER]}' '    :'
 
+expect_caught interactive-abbreviation-ll 'll is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  ll \'eza -l --git\'\n' ''
+
+expect_caught interactive-abbreviation-la 'la lists without hidden files' \
+  .config/zsh/.zshrc "la 'eza -la --git'" "la 'eza -l --git'"
+
+expect_caught interactive-abbreviation-lt 'lt is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  lt \'eza --tree --level=2\'\n' ''
+
+expect_caught interactive-abbreviation-b 'b is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  b bat\n' ''
+
 expect_caught interactive-abbreviation-not-with-text-right \
   'a word with text to its right expands, so Ctrl+a then g runs gitit status' \
   .config/zsh/.zshrc ' && -z $RBUFFER' ''
