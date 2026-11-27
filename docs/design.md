@@ -150,7 +150,7 @@ Repositories live at `~/repos/github.com/<owner>/<repo>`, managed with ghq (`ghq
 │   └── .local/bin/
 ├── profiles/work.example/    # shape of the work profile, placeholder values, no company values, used by CI (claude/settings.work.json and git/ so far)
 ├── tests/
-├── scripts/{bootstrap.sh,work-sync.sh,unattended-setup.sh}
+├── scripts/{bootstrap.sh,work-sync.sh,unattended-setup.sh,pre-wipe-inventory.sh}
 ├── templates/{tlaplus,lean}/  # flake templates for formal-methods projects
 ├── spec/                     # TLA+ models and check.sh (TLC plus one mutant per property)
 ├── docs/
@@ -737,7 +737,7 @@ Each Nix network path reads certificates from a different place (checked against
 ## Rollout
 
 1. Create this repository with the minimum: flake, `.zshenv`, `.zshrc`, git, ssh, `~/.claude`. Create the personal GitHub App for ghtkn. Create the lock-update GitHub App described in CI and store its secrets.
-2. Switch `personal-mac`. Remove the Tailscale GUI app first (it is installed today), so that the only `tailscaled` is the open-source one nix-darwin runs (ADR 0010). It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point. Remove the native Claude Code install (`~/.local/bin/claude`, `~/.local/share/claude`) once the Nix one works, so only one `claude` exists (ADR 0011).
+2. Switch `personal-mac`. If it is wiped and bootstrapped fresh instead, first run `scripts/pre-wipe-inventory.sh`, which lists without changing anything what the wipe would lose, and settle every item it marks as needing action; `work-mac` uses it the same way before step 5. Remove the Tailscale GUI app first (it is installed today), so that the only `tailscaled` is the open-source one nix-darwin runs (ADR 0010). It runs upstream Nix with devbox global on top, so first list what devbox global provides (today it supplies `gh`, `ghq`, `fzf`, `rg`, gitleaks, kubectl, helm, aqua, and just, measured) and confirm each one has a home in the Packages section (aqua goes to `work-mac` only, `gh` becomes the wrapper), judged by P6, then switch to Determinate Nix and run the first switch. devbox global is gone from this point. Remove the native Claude Code install (`~/.local/bin/claude`, `~/.local/share/claude`) once the Nix one works, so only one `claude` exists (ADR 0011).
 3. Run it for one to two weeks; pull in from the old repository only what is missed, judged by P6.
 4. Roll out to WSL2 (enable systemd first).
 5. Roll out to `work-mac`: set up KSM, pull the work profile, verify CA handling.

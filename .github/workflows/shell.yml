@@ -9,6 +9,7 @@ on:
       - "nix/ssh_config"
       - "profiles/**"
       - "tests/**"
+      - "scripts/pre-wipe-inventory.sh"
       - ".github/workflows/shell.yml"
 
 permissions:
@@ -46,3 +47,7 @@ jobs:
         run: |
           tests/ssh.sh
           tests/mutate-ssh.sh
+      - name: Check the pre-wipe inventory and that each of its tests fails on a broken copy
+        run: |
+          tests/pre-wipe-inventory.sh
+          tests/mutate-pre-wipe-inventory.sh
