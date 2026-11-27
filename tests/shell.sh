@@ -388,6 +388,13 @@ mkdir -p "$kube_dir_config_home/.kube/config"
 touch "$kube_dir_config_home/.kube/homelab.yaml"
 is kubeconfig-skips-config-directory "$kube_dir_config_home/.kube/homelab.yaml" \
   "$(field KUBECONFIG "$(run_zsh "$kube_dir_config_home" -c printenv 2>/dev/null)")"
+# A name with a colon would split the list, and its tail would name a file
+# relative to the working directory.
+kube_colon_home=$(new_home kube-colon)
+mkdir -p "$kube_colon_home/.kube"
+touch "$kube_colon_home/.kube/config" "$kube_colon_home/.kube/team:prod.yaml"
+is kubeconfig-drops-names-with-colon "$kube_colon_home/.kube/config" \
+  "$(field KUBECONFIG "$(run_zsh "$kube_colon_home" -c printenv 2>/dev/null)")"
 is kube-dir-env-unchanged-apart-from-kubeconfig "" \
   "$(diff <(grep -v '^KUBECONFIG=' <<<"$kube_vars_before" | LC_ALL=C sort) \
     <(grep -v '^KUBECONFIG=' <<<"$kube_vars" | LC_ALL=C sort) | tr '\n' ' ')"
