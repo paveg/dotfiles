@@ -3,9 +3,10 @@
 # tests/packages.sh that cover it to fail. A surviving mutant means those checks
 # prove nothing. The per-tool checks are mutated through `git` (which /usr/bin
 # also has) and `claude` (which it does not). These checks have no mutant:
-# host-user, profile-facts, build-home-files, build-system and build-generation
-# guard this harness rather than the files under test, and generation-home-path
-# is home-manager's own link to the profile this test already built.
+# host-user, profile-facts, build-home-files, build-system, build-generation and
+# etc-zshrc-generated guard this harness rather than the files under test, and
+# generation-home-path is home-manager's own link to the profile this test
+# already built.
 # The per-user group reads the built macOS system, so it needs a mac; CI runs
 # it in the darwin jobs and the common group on the Linux runner. The per-host
 # group's mutants depend on the host, so every job runs it.
@@ -88,6 +89,10 @@ if runs common; then
   expect_caught 'bin-claude zsh-claude package-names' 'Claude Code is dropped from the list' \
     nix/packages.nix $'    claude-code\n' ''
 
+  expect_caught 'package-names plugin-zsh-syntax-highlighting' \
+    'the syntax-highlighting plugin is dropped from the list' \
+    nix/packages.nix $'    zsh-syntax-highlighting\n' ''
+
   expect_caught 'package-names' 'the real gh is added, which the wrapper needs the name of' \
     nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    gh\n  ]\n'
 
@@ -111,8 +116,10 @@ if runs common; then
     flake.nix 'builtins.elem (nixpkgs.lib.getName pkg) [ "claude-code" ]' \
     'nixpkgs.lib.hasPrefix "claude-code" (nixpkgs.lib.getName pkg)'
 
-  expect_caught 'real-dir-.config/zsh' 'the zsh directory is linked as a whole' \
-    nix/home.nix $'      "zsh/.zshenv"\n      "zsh/.zprofile"\n      "zsh/.zshrc"\n' $'      "zsh"\n'
+  expect_caught 'real-dir-.config/zsh real-dir-.config/mise real-dir-.config/atuin' \
+    'the zsh directory is linked as a whole' \
+    nix/home.nix $'      "zsh/.zshenv"\n      "zsh/.zprofile"\n      "zsh/.zshrc"\n      "mise/config.toml"\n      "atuin/config.toml"\n' \
+    $'      "zsh"\n'
 
   expect_caught 'real-dir-.config/mise' 'the mise directory is linked as a whole' \
     nix/home.nix '"mise/config.toml"' '"mise"'
@@ -129,7 +136,10 @@ if runs common; then
   expect_caught 'link-.config/git/platform.gitconfig' 'the other OS'"'"'s signer is linked' \
     nix/home.nix 'then "darwin" else "wsl"' 'then "wsl" else "darwin"'
 
-  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml link-.config/git/config' \
+  expect_caught 'link-.config/atuin/config.toml real-dir-.config/atuin' 'the atuin config is not linked' \
+    nix/home.nix $'      "atuin/config.toml"\n' ''
+
+  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml link-.config/atuin/config.toml link-.config/git/config' \
     'the files are copied into the store instead of linked out of it' \
     nix/home.nix '    source = link ".config/${path}";' '    source = ../home/.config/${path};'
 
@@ -147,6 +157,9 @@ if runs common; then
 
   expect_caught 'mise-disable-backends' 'the global mise config disables a backend the projects use' \
     home/.config/mise/config.toml 'disable_backends = ["asdf"]' 'disable_backends = ["asdf", "aqua"]'
+
+  expect_caught 'atuin-reads-config' 'the atuin config sets a style atuin does not have' \
+    home/.config/atuin/config.toml 'style = "compact"' 'style = "bogus"'
 fi
 
 if runs per-user; then
@@ -165,6 +178,19 @@ if runs per-user; then
     expect_caught 'launchd-ORCA_TELEMETRY_DISABLED launchd-HOMEBREW_NO_ANALYTICS' \
       'the variables go to the system domain, not the user'"'"'s' \
       nix/darwin.nix 'launchd.user.envVariables = {' 'launchd.envVariables = {'
+
+    expect_caught 'plugin-zsh-autosuggestions plugin-zsh-syntax-highlighting' \
+      'the per-user profile does not link the plugin directories' \
+      nix/darwin.nix $'    "/share/zsh-autosuggestions"\n    "/share/zsh-syntax-highlighting"\n' ''
+
+    expect_caught etc-zshrc-no-compinit "nix-darwin's /etc/zshrc runs compinit before .zshrc" \
+      nix/darwin.nix $'    enableCompletion = false;\n' ''
+
+    expect_caught etc-zshrc-no-compinit "nix-darwin's /etc/zshrc runs bashcompinit" \
+      nix/darwin.nix $'    enableBashCompletion = false;\n' ''
+
+    expect_caught etc-zshrc-no-promptinit "nix-darwin's /etc/zshrc loads a prompt theme" \
+      nix/darwin.nix $'    promptInit = "";\n' ''
   fi
 fi
 

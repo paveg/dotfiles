@@ -23,6 +23,7 @@ in
       "zsh/.zprofile"
       "zsh/.zshrc"
       "mise/config.toml"
+      "atuin/config.toml"
       "git/config"
       "git/ignore"
       "git/personal.gitconfig"

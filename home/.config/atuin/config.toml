@@ -1,0 +1,19 @@
+# atuin's default sync address is https://api.atuin.sh, and its update check
+# calls the same host; history stays on this machine.
+auto_sync = false
+update_check = false
+
+search_mode = "fuzzy"
+filter_mode = "global"
+# Leaving the search puts the typed query on the command line, not the line
+# as it was before the search.
+exit_mode = "return-query"
+
+style = "compact"
+inline_height = 30
+invert = true
+show_help = true
+show_tabs = true
+show_preview = true
+max_preview_height = 4
+history_format = "{time} {command}"
