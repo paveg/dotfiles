@@ -1,0 +1,77 @@
+name: repo-checks
+
+# No path filter: every pull request reports these checks, so they can be
+# required for merging.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      # Without --log-opts gitleaks scans every ref (git log --all), so a leak
+      # on an unrelated branch would fail every pull request.
+      - name: Scan the whole history of the checked-out commit
+        run: nix shell --inputs-from . nixpkgs#gitleaks --command gitleaks git --redact --verbose --log-opts=HEAD .
+
+  deny-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check that no tracked path matches an agent Read deny rule
+        run: tests/deny-paths.sh
+      - name: Check that the deny-path check refuses what it must
+        run: tests/mutate-deny-paths.sh
+
+  diff-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject leftover conflict markers and whitespace errors
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            git diff --check "origin/$BASE_REF...HEAD"
+          elif [ "$BEFORE" = 0000000000000000000000000000000000000000 ]; then
+            git diff --check "$(git hash-object -t tree /dev/null)" HEAD
+          else
+            git diff --check "$BEFORE" HEAD
+          fi
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Lint every workflow
+        run: nix shell --inputs-from . nixpkgs#actionlint --command actionlint
+
+  zizmor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Audit every workflow and the Dependabot config
+        run: nix shell --inputs-from . nixpkgs#zizmor --command zizmor --offline .
