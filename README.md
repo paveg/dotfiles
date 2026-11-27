@@ -20,7 +20,7 @@ Nix-based dotfiles for agent-first development on macOS and WSL2. One command tu
 | Agent guardrails | Sandbox, `permissions.deny`, and a few hooks built with `writeShellApplication` | [ADR 0007](docs/adr/0007-agent-guardrails.md) |
 | Shell history | atuin, with tokens kept out of anything an AI reads | [ADR 0009](docs/adr/0009-shell-history-atuin.md) |
 | Working away from the desk | `personal-mac` stays awake, runs `orca serve`, and is reached over Tailscale from Orca's mobile app | [ADR 0010](docs/adr/0010-unattended-host-reachability.md) |
-| Repository checks | treefmt-nix, gitleaks, and `git diff --check`, run by lefthook and CI | [ADR 0008](docs/adr/0008-repo-checks-lefthook-treefmt.md) |
+| Repository checks | gitleaks, `git diff --check`, a check that every tracked path stays readable to the agents, actionlint, and zizmor, in CI on every pull request; treefmt-nix and lefthook are planned | [ADR 0008](docs/adr/0008-repo-checks-lefthook-treefmt.md) |
 
 ## Hosts
 
@@ -57,10 +57,10 @@ The full list is in [`docs/design.md`](docs/design.md#principles).
 | [`docs/verification.md`](docs/verification.md) | Evidence for every factual statement in the design |
 | [`docs/diagrams/`](docs/diagrams/) | Rendered diagrams (PNG); their Excalidraw sources are not tracked |
 | [`flake.nix`](flake.nix), [`hosts/`](hosts/), [`nix/`](nix/) | The flake, each host's system and login name, the nix-darwin and home-manager modules, and the agent hook builds in `nix/agents.nix` |
-| [`home/`](home/) | The files that land in `$HOME`, under their real names: zsh, mise, the reply-language hook, and the guard hook sources under `home/.claude/hooks/`, which Nix builds into the store rather than links |
+| [`home/`](home/) | The files that land in `$HOME`, under their real names: zsh, mise, the reply-language hook, the guard hook sources under `home/.claude/hooks/`, which Nix builds into the store rather than links, and `home/.claude/settings.common.json`, which holds only the `Read(...)` deny rules so far and which nothing installs yet |
 | [`spec/`](spec/) | TLA+ models checked with TLC; `check.sh` also confirms that each property catches a deliberately broken model |
-| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME`, `packages.sh` checks the built profile, `reply-language.sh` checks the reply-language hook, `hooks.sh` runs each built guard hook against its fixtures under an empty PATH, and each has a `mutate*.sh` that breaks one condition at a time to show the checks fail, except the ones that guard the harness itself (mutants that need `/etc` to reorder the login PATH run only where it does, as on macOS) |
-| [`.github/workflows/`](.github/workflows/) | CI: `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell and reply-language tests on Linux and macOS, `hooks.yml` builds the guard hooks and runs their tests there, `nix.yml` builds every host and runs the package tests on what it built |
+| [`tests/`](tests/) | Tests that need no Nix switch; `shell.sh` starts zsh in a temporary `HOME`, `packages.sh` checks the built profile, `reply-language.sh` checks the reply-language hook, `hooks.sh` runs each built guard hook against its fixtures under an empty PATH, `deny-paths.sh` fails when a tracked path matches an agent `Read(...)` deny rule, and each has a `mutate*.sh` that breaks one condition at a time to show the checks fail, except the ones that guard the harness itself (mutants that need `/etc` to reorder the login PATH run only where it does, as on macOS) |
+| [`.github/`](.github/) | CI, and Dependabot for GitHub Actions versions (`dependabot.yml`): `repo-checks.yml` runs gitleaks, the deny-path check, `git diff --check`, actionlint, and zizmor on every pull request, one job each, `spec.yml` runs `spec/check.sh`, `shell.yml` runs the shell and reply-language tests on Linux and macOS, `hooks.yml` builds the guard hooks and runs their tests there, `nix.yml` builds every host and runs the package tests on what it built |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repository |
 
 The rest of the planned layout (for example `scripts/`, `templates/`, `profiles/`, and further files under `nix/` and `home/`) is in [design: Repository layout](docs/design.md#repository-layout).
