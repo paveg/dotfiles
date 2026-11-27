@@ -66,7 +66,12 @@ if (( $+commands[fzf] )); then
   FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range :300 {}'"
   FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
   FZF_ALT_C_OPTS="--preview 'eza --tree --icons --level=2 --color=always {} | head -n 50'"
-  eval "$(fzf --zsh)"
+  # Its script restores every option on the way out, zle included, which a
+  # shell without a terminal ($TTY empty) refuses with an error. The zle option
+  # itself still reads on while startup files run.
+  if [[ -n $TTY ]]; then
+    eval "$(fzf --zsh)"
+  fi
 fi
 
 if (( $+commands[zoxide] )); then

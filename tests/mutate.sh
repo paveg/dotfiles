@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Break one condition of the shell files at a time and require the checks in
 # tests/shell.sh that cover it to fail. A surviving mutant means those checks
-# prove nothing. Every check has a mutant here except the `-ran` checks, which
-# guard this harness rather than the files under test, and
+# prove nothing. Every check has a mutant here except the `-ran` checks and
+# terminal-shell-ran-with-zle, which guard this harness rather than the files
+# under test, and
 # fixtures-interactive-shell-log-quiet, whose run has every optional file in
 # place and so cannot see one being read when it is missing.
 # Env: ZSH_BIN overrides the zsh to test.
@@ -315,7 +316,16 @@ expect_caught interactive-ctrl-g-dots-widget 'the ghq widget is bound to another
 
 expect_caught 'interactive-ctrl-t-fzf-file-widget interactive-alt-c-fzf-cd-widget' \
   "fzf's key bindings are never loaded" \
-  .config/zsh/.zshrc $'  eval "$(fzf --zsh)"\n' ''
+  .config/zsh/.zshrc $'  if [[ -n $TTY ]]; then\n    eval "$(fzf --zsh)"\n  fi\n' ''
+
+expect_caught no-terminal-stderr-as-bare \
+  "fzf's key bindings load without a terminal, and its option restore fails on zle" \
+  .config/zsh/.zshrc $'  if [[ -n $TTY ]]; then\n    eval "$(fzf --zsh)"\n  fi\n' \
+  $'  eval "$(fzf --zsh)"\n'
+
+expect_caught no-terminal-stderr-as-bare \
+  "fzf's key bindings wait for the zle option, which reads on while .zshrc runs" \
+  .config/zsh/.zshrc '[[ -n $TTY ]]' '[[ -o zle ]]'
 
 expect_caught interactive-ctrl-r-atuin-widget "fzf's key bindings load after atuin's and take Ctrl+r" \
   .config/zsh/.zshrc '  eval "$(atuin init zsh --disable-up-arrow)"' \

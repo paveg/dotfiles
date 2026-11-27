@@ -56,8 +56,9 @@ new_home() { # <name>
 
 # The commands `.zshrc` binds keys for. The fzf and atuin stubs print the same
 # shape of init script the real ones do: fzf binds Ctrl+t, Alt+c and Ctrl+r in
-# every keymap, and atuin binds Ctrl+r to atuin-search, as 18.24 names it,
-# unless it is told not to.
+# every keymap and then restores every option through `options=(...)`, which
+# fails on zle in a shell without one, and atuin binds Ctrl+r to atuin-search,
+# as 18.24 names it, unless it is told not to.
 add_command_stubs() { # <home>
   local bin=$1/.nix-profile/bin
   printf '#!/bin/sh\nexit 0\n' >"$bin/ghq"
@@ -65,6 +66,9 @@ add_command_stubs() { # <home>
 #!/bin/sh
 case " $* " in
 *" --zsh "*) cat <<'ZSH' ;;
+zmodload zsh/parameter
+fzf_saved_options="options=(${(j: :)${(kv)options[@]}})"
+{
 fzf-file-widget() { : }
 fzf-cd-widget() { : }
 fzf-history-widget() { : }
@@ -76,6 +80,10 @@ for keymap in emacs vicmd viins; do
   bindkey -M $keymap '^[c' fzf-cd-widget
   bindkey -M $keymap '^R' fzf-history-widget
 done
+} always {
+  eval $fzf_saved_options
+  unset fzf_saved_options
+}
 ZSH
 esac
 STUB
@@ -123,6 +131,7 @@ write_probe() { # <script> <out-file>
   out=$(printf '%q' "$2")
   cat >"$1" <<EOF
 {
+  if [[ -o zle ]]; then print -r -- "ZLE=on"; else print -r -- "ZLE=off"; fi
   print -r -- "SAVEHIST=\$SAVEHIST"
   print -r -- "HISTFILE=\${HISTFILE-}"
   print -r -- "HISTSIZE=\$HISTSIZE"
@@ -177,8 +186,28 @@ run_interactive() { # <home> <out-file> <log> [NAME=value]...
   shift 3
   write_probe "$out.zsh" "$out"
   (cd "$work_dir" &&
-    env -i HOME="$home" TERM=dumb PATH="$base_path" "$@" "$zsh_bin" -i \
+    detached env -i HOME="$home" TERM=dumb PATH="$base_path" "$@" "$zsh_bin" -i \
       <"$out.zsh" >"$log" 2>&1) || true
+}
+
+# The same probe in an interactive shell on a terminal of its own, which zsh's
+# zpty module gives on Linux and macOS alike, so that zle is on, as at a desk.
+run_on_terminal() { # <home> <out-file> <log>
+  local home=$1 out=$2 log=$3
+  write_probe "$out.zsh" "$out"
+  (cd "$work_dir" && "$zsh_bin" -fc '
+    zmodload zsh/zpty || exit 1
+    zpty probe "${(j: :)${(q)@}}" || exit 1
+    while zpty -r probe line; do print -rn -- "$line"; done
+    zpty -d probe' run-on-terminal \
+    env -i HOME="$home" TERM=xterm-256color PATH="$base_path" \
+    "$zsh_bin" -i -c "source $(printf %q "$out.zsh")" >"$log" 2>&1) || true
+}
+
+# Without a controlling terminal, as under CI or an agent: zsh turns zle on
+# whenever it can open /dev/tty, even with stdin redirected.
+detached() { # <command>...
+  python3 -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$@"
 }
 
 # Lines in a shell's output that report a failure. zsh writes these when a file
@@ -436,14 +465,30 @@ run_interactive "$fix_home" "$fix_probe" "$fix_log"
 ran_and_quiet fixtures-interactive-shell "$fix_probe" "$fix_log"
 fix_text=$(cat "$fix_probe" 2>/dev/null) || true
 is interactive-zshrc-local-from-zdotdir zdotdir "$(field LOCAL_RC "$fix_text")"
-# Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named),
-# Ctrl+t and Alt+c run fzf's widgets, and Ctrl+r runs the widget atuin's init
-# script binds, which has to come after fzf's.
+# Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named).
 is interactive-ctrl-g-dots-widget "user:$(field CTRL_G "$fix_text")" \
   "$(field CTRL_G_TYPE "$fix_text")"
-is interactive-ctrl-t-fzf-file-widget fzf-file-widget "$(field CTRL_T "$fix_text")"
-is interactive-alt-c-fzf-cd-widget fzf-cd-widget "$(field ALT_C "$fix_text")"
-is interactive-ctrl-r-atuin-widget atuin-search "$(field CTRL_R "$fix_text")"
+
+# On a terminal, Ctrl+t and Alt+c run fzf's widgets, and Ctrl+r runs the widget
+# atuin's init script binds, which has to come after fzf's.
+term_probe=$work_dir/terminal.vars
+term_log=$work_dir/terminal.log
+run_on_terminal "$fix_home" "$term_probe" "$term_log"
+term_text=$(cat "$term_probe" 2>/dev/null) || true
+is terminal-shell-ran-with-zle on "$(field ZLE "$term_text")"
+is interactive-ctrl-t-fzf-file-widget fzf-file-widget "$(field CTRL_T "$term_text")"
+is interactive-alt-c-fzf-cd-widget fzf-cd-widget "$(field ALT_C "$term_text")"
+is interactive-ctrl-r-atuin-widget atuin-search "$(field CTRL_R "$term_text")"
+
+# With no terminal, an interactive shell prints on stderr only what one with no
+# zsh files prints: fzf's init script restores options through one that cannot
+# change there.
+no_terminal_stderr() { # <home>
+  (cd "$work_dir" && detached env -i HOME="$1" TERM=xterm-256color PATH="$base_path" \
+    "$zsh_bin" -i -c 'echo hi' </dev/null 2>&1 >/dev/null) || true
+}
+is no-terminal-stderr-as-bare "$(no_terminal_stderr "$bare_home")" \
+  "$(no_terminal_stderr "$fix_home")"
 
 # Each XDG variable the caller sets is kept, ZDOTDIR follows XDG_CONFIG_HOME,
 # and everything derived from an XDG directory follows it too. $HOME holds only
