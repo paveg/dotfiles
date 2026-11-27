@@ -177,6 +177,37 @@ for tool in git awk basename cat cut date dirname du find grep head ls sed sort 
   ln -s "$(command -v "$tool")" "$stub_bin/$tool"
 done
 
+# A second run puts package managers on PATH as stubs that log every call. The
+# script must read the files each one keeps instead of running it, apart from
+# `npm root -g`, `uv tool dir`, and `ghq root --all`, which print a directory.
+tools_bin=$work_dir/tools
+calls=$work_dir/calls
+brew_prefix=$root/homebrew
+mkdir -p "$tools_bin" "$brew_prefix/bin"
+stub() { # <path> [<arguments the stub answers> <answer>]
+  printf '#!/bin/sh\n[ "$*" = "%s" ] && [ -n "%s" ] && { echo "%s"; exit 0; }\necho "${0##*/} $*" >>%s\n' "${2:-}" "${2:-}" "${3:-}" "$calls" >"$1"
+  chmod +x "$1"
+}
+stub "$brew_prefix/bin/brew"
+for tool in devbox mise cargo pnpm colima limactl nix; do stub "$tools_bin/$tool"; done
+stub "$tools_bin/npm" 'root -g' "$root/npm-global/lib/node_modules"
+stub "$tools_bin/uv" 'tool dir' "$root/uv-tools"
+stub "$tools_bin/ghq" 'root --all' "$ghq_root
+$second_root"
+for dir in Cellar/fixture-formula/1.0 Cellar/fzf/0.1 Cellar/fixture-dependency/2.0 Caskroom/fixture-cask/3.0; do
+  mkdir -p "$brew_prefix/$dir"
+done
+printf '{\n  "installed_on_request": true\n}\n' | tee "$brew_prefix/Cellar/fzf/0.1/INSTALL_RECEIPT.json" >"$brew_prefix/Cellar/fixture-formula/1.0/INSTALL_RECEIPT.json"
+printf '{\n  "installed_on_request": false\n}\n' >"$brew_prefix/Cellar/fixture-dependency/2.0/INSTALL_RECEIPT.json"
+mkdir -p "$home/.local/share/devbox/global/default" "$root/npm-global/lib/node_modules/fixture-npm" \
+  "$root/npm-global/lib/node_modules/@scope/fixture-scoped" "$root/pnpm/global/5/node_modules/fixture-pnpm" \
+  "$root/uv-tools/fixture-uv" "$home/.cargo" "$home/.local/share/mise/installs/fixture-tool/1.0" \
+  "$home/.colima/_lima/colima" "$home/.lima/fixture-vm"
+printf '{\n  "packages": [\n    "fixture-devbox@latest"\n  ]\n}\n' >"$home/.local/share/devbox/global/default/devbox.json"
+printf '{"installs":{"fixture-crate 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)":{"bins":["fixture"]}}}\n' >"$home/.cargo/.crates2.json"
+ln -s 1.0 "$home/.local/share/mise/installs/fixture-tool/latest"
+touch "$home/.colima/_lima/colima/lima.yaml" "$home/.lima/fixture-vm/lima.yaml"
+
 snapshot() { # prints every path under the temporary tree and a checksum of each file
   (
     cd "$root"
@@ -185,12 +216,12 @@ snapshot() { # prints every path under the temporary tree and a checksum of each
   )
 }
 
-block_of() { # <label>   prints the report's bullet for a repository and its sub-bullets
+block_of() { # <label> [report]   prints the report's bullet for a repository and its sub-bullets
   awk -v label="\`$1\`" '
     index($0, label) && /^- / { inside = 1; print; next }
     inside && /^  / { print; next }
     { inside = 0 }
-  ' "$work_dir/out"
+  ' "${2:-$work_dir/out}"
 }
 
 has() { # <name> <text> <fixed string>
@@ -201,6 +232,8 @@ snapshot >"$work_dir/before"
 status=0
 env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C \
   "$bash_bin" "$script" >"$work_dir/out" 2>"$work_dir/err" || status=$?
+env -i HOME="$home" PATH="$tools_bin:$brew_prefix/bin:$stub_bin" PNPM_HOME="$root/pnpm" LC_ALL=C \
+  "$bash_bin" "$script" >"$work_dir/out-tools" 2>"$work_dir/err-tools" || status=$?
 snapshot >"$work_dir/after"
 
 if [[ $status == 0 ]]; then ok exit-0; else fail exit-0 "exit $status"; fi
@@ -210,9 +243,23 @@ if grep -q 'command not found' "$work_dir/err"; then
 else
   ok missing-tools-probed
 fi
-for tool in ghq docker colima lima Homebrew brew mas devbox npm pnpm uv cargo mise; do
+for tool in ghq docker Homebrew brew mas npm uv; do
   has "not-installed-$tool" "$(cat "$work_dir/out")" "- $tool: not installed"
 done
+
+if [[ -s $calls ]]; then fail tools-not-run "$(head -5 "$calls" | tr '\n' ' ')"; else ok tools-not-run; fi
+software=$(sed -n '/^## Installed software/,/^## Files no dotfiles/p' "$work_dir/out-tools")
+for item in '`fixture-formula`' '`fixture-cask`' '`fixture-devbox@latest`' '`fixture-npm`' '`@scope/fixture-scoped`' \
+  '`fixture-pnpm`' '`fixture-uv`' '`fixture-crate 1.2.3`' '`fixture-tool 1.0`'; do
+  has "software-read-$item" "$software" "**needs action:** $item"
+done
+has nix-package-marked "$software" '`fzf` (in `nix/packages.nix`)'
+if grep -qF fixture-dependency <<<"$software"; then fail formula-dependency-left-out 'a dependency is listed'; else ok formula-dependency-left-out; fi
+if grep -qF '`fixture-tool latest`' <<<"$software"; then fail mise-alias-left-out 'a version alias is listed'; else ok mise-alias-left-out; fi
+vms=$(sed -n '/^## Containers and VMs/,/^## Local databases/p' "$work_dir/out-tools")
+has colima-vm-read "$vms" 'lima VM `colima`'
+has lima-vm-read "$vms" 'lima VM `fixture-vm`'
+has ghq-root-all "$(block_of example.com/owner/second-root-repo "$work_dir/out-tools")" '  - no remote'
 
 has tracked-change "$(block_of example.com/owner/tracked-change)" 'tracked uncommitted changes: 1'
 has stashed-work "$(block_of example.com/owner/stashed-work)" 'stashes: 1'

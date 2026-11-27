@@ -3,21 +3,26 @@
 # git that is not committed or not pushed, notes and agent state, history,
 # credential locations, containers, local databases, software to reinstall,
 # files no dotfiles manage, and LaunchAgents. The report is Markdown on stdout
-# and the run always exits 0. It writes nothing itself, runs no fetch, asks the
-# tools it calls to stay offline (a tool may still update its own cache), and
-# for credential locations reports names, counts, and sizes only, never contents.
+# and the run always exits 0. It writes nothing itself and runs no fetch. It
+# reads package managers' and VMs' files instead of running them; the tools it
+# does run are git (read-only, with every configured filter emptied), chezmoi,
+# ghq, docker, mas, defaults, `npm root -g`, and `uv tool dir`. Run on an empty
+# HOME, the one path it adds is ~/.npm, the empty cache directory npm creates
+# when it starts. For credential locations it reports names, counts, and sizes
+# only, never contents.
 # Usage: scripts/pre-wipe-inventory.sh >/tmp/inventory.md   (keep the report out
 #        of the checkout: it names private paths)
-# Env: HOME; GHQ_ROOT (default: `ghq root`, else ~/repos); AGENT_NOTES_DIR
-#      (default: ~/.local/share/agent-notes). Runs on macOS's bash 3.2.
+# Env: HOME; GHQ_ROOT (a colon-separated list; default: `ghq root --all`, else
+#      ~/repos); AGENT_NOTES_DIR (default: ~/.local/share/agent-notes). Runs on
+#      macOS's bash 3.2.
 # SC2016: backticks inside single quotes are Markdown code spans in the report.
-# shellcheck disable=SC2016
+# SC2329: the package readers are called by name through software().
+# shellcheck disable=SC2016,SC2329
 set -uo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 
-export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1
-export NPM_CONFIG_UPDATE_NOTIFIER=false DO_NOT_TRACK=1 MISE_OFFLINE=1 GIT_TERMINAL_PROMPT=0
+export NPM_CONFIG_UPDATE_NOTIFIER=false DO_NOT_TRACK=1 GIT_TERMINAL_PROMPT=0
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -345,25 +350,14 @@ report_unmanaged_below() { # <dir>   a wholly unmanaged directory is one item
   done
 }
 
-nix_names=''
-nix_state='nix not installed: no item is marked as covered by `nix/packages.nix`'
-if have nix; then
-  # The package list evaluated against the nixpkgs that flake.lock pins, taken
-  # from the local store only (--offline), so the probe never downloads.
-  if nix_names=$(DOTFILES_REPO=$repo_dir nix --extra-experimental-features 'nix-command flakes' eval --offline --raw --impure --expr '
-      let
-        repo = builtins.getEnv "DOTFILES_REPO";
-        lock = builtins.fromJSON (builtins.readFile (repo + "/flake.lock"));
-        pkgs = import (builtins.fetchTree lock.nodes.nixpkgs.locked) { };
-        names = p: [ (pkgs.lib.getName p) ] ++ pkgs.lib.optional (p.meta ? mainProgram) p.meta.mainProgram;
-      in
-      builtins.concatStringsSep "\n" (pkgs.lib.concatMap names (import (repo + "/nix/packages.nix") { inherit pkgs; }).home.packages)
-    ' 2>/dev/null) && [[ -n $nix_names ]]; then
-    nix_state='items whose name matches a package name or command in `nix/packages.nix` are marked; the match is by exact name, so an alias (for example `helm` for `kubernetes-helm`) is matched only through its command name'
-  else
-    nix_names=''
-    nix_state='`nix eval` of `nix/packages.nix` failed (the pinned nixpkgs may not be in the local store): no item is marked as covered'
-  fi
+# The attribute names in the `with pkgs; [ ... ]` list, read from the file:
+# evaluating it fetches the pinned nixpkgs from GitHub when the local fetcher
+# cache lacks it, even with --offline.
+nix_names=$(awk '/with pkgs; \[/ { inside = 1; next } inside && /\]/ { exit } inside { sub(/#.*/, ""); for (i = 1; i <= NF; i++) print $i }' "$repo_dir/nix/packages.nix" 2>/dev/null)
+if [[ -n $nix_names ]]; then
+  nix_state='items whose name matches a package name in `nix/packages.nix` are marked; the names are read from the file, so a command named unlike its package (for example `rg` for `ripgrep`) is not marked'
+else
+  nix_state='no package name could be read from `nix/packages.nix`: no item is marked as covered'
 fi
 
 nix_covers() { [[ -n $nix_names ]] && grep -qxF -- "$1" <<<"$nix_names"; }
@@ -487,31 +481,21 @@ elif docker info >/dev/null 2>&1; then
 else
   note 'docker: the daemon is not running, so images and volumes are not listed (check with `docker info`)'
 fi
-# colima and lima keep each VM's disk on this machine whether it runs or not,
-# so their instances are listed either way.
-if ! have colima; then
-  note 'colima: not installed'
-else
-  colima status >/dev/null 2>&1 || note 'colima: not running (check with `colima status`); its VMs are listed below anyway'
-  found=0
-  while IFS= read -r line; do
-    [[ -n $line ]] && { found=1; needs_action "colima VM: \`$line\`"; }
-  done < <(colima list 2>/dev/null | tail -n +2 | awk '{ print $1 " (" $2 ")" }')
-  ((found)) || note 'colima: no VMs'
-fi
-if ! have limactl; then
-  note 'lima: not installed'
-else
-  found=0
-  while IFS= read -r line; do
-    [[ -n $line ]] && { found=1; needs_action "lima instance: \`$line\`"; }
-  done < <(limactl list --format '{{.Name}} ({{.Status}})' 2>/dev/null)
-  ((found)) || note 'lima: no instances (check with `limactl list`)'
-fi
+# colima and lima keep each VM's disk on this machine whether it runs or not.
+# A VM is a directory holding lima.yaml, so it is found without running either.
+found=0
+for vm in "${LIMA_HOME:-$HOME/.lima}"/*/lima.yaml "${COLIMA_HOME:-$HOME/.colima}"/_lima/*/lima.yaml; do
+  [[ -f $vm ]] || continue
+  found=1
+  vm=${vm%/lima.yaml}
+  needs_action "lima VM \`${vm##*/}\` in \`$(tilde "${vm%/*}")\`: $(size_of "$vm")"
+done
+((found)) || note 'colima and lima: no VM in `~/.colima/_lima` or `~/.lima`'
 
 section 'Local databases' 'dump each listed data directory (for example `pg_dumpall`, `mysqldump`, or a Redis snapshot) before the wipe.'
+# The prefix is the directory the brew on PATH sits in, so finding it runs no brew.
 brew_prefix=''
-have brew && brew_prefix=$(brew --prefix 2>/dev/null)
+have brew && brew_prefix=$(command -v brew) && brew_prefix=${brew_prefix%/bin/brew}
 if [[ -z $brew_prefix ]]; then
   note 'Homebrew: not installed'
 else
@@ -522,21 +506,25 @@ else
     needs_action "\`$dir\`: $(size_of "$dir")"
   done
   ((found)) || note "no postgres, mysql, or redis data under \`$brew_prefix/var\`"
-  subsection '`brew services list`'
-  while IFS= read -r line; do
-    [[ -n $line ]] && listed "\`$line\`"
-  done < <(brew services list 2>/dev/null | tail -n +2 | awk '{ print $1 " " $2 }')
+  subsection 'Homebrew services (`homebrew.mxcl.*` launchd plists)'
+  found=0
+  for plist in "$HOME"/Library/LaunchAgents/homebrew.mxcl.*.plist /Library/LaunchDaemons/homebrew.mxcl.*.plist; do
+    [[ -e $plist ]] || continue
+    found=1
+    listed "\`${plist##*/}\`"
+  done
+  ((found)) || note 'none'
 fi
 
 section 'Installed software' "reinstall each listed item on the new machine, or add it to the dotfiles. Items marked as in \`nix/packages.nix\` come back with the first switch. Marking: $nix_state. Casks and App Store apps are never marked: that list holds CLI packages, and a cask can share a command's name."
 
 # <mark> is "nix" to mark items that nix/packages.nix covers, "apps" not to.
-software() { # <title> <mark> <sed -E -n program> <command>...   one item per line; its first word names the package
-  local title=$1 mark=$2 program=$3 out line name
-  shift 3
+software() { # <title> <mark> <why there is nothing to read, or empty> <sed -E -n program> <command>...   one item per line; its first word names the package
+  local title=$1 mark=$2 absent=$3 program=$4 out line name
+  shift 4
   subsection "$title"
-  if ! have "$1"; then
-    note "$1: not installed"
+  if [[ -n $absent ]]; then
+    note "$absent"
     return
   fi
   if ! out=$("$@" 2>/dev/null | sed -E -n "$program"); then
@@ -559,32 +547,115 @@ software() { # <title> <mark> <sed -E -n program> <command>...   one item per li
   ((found)) || note 'none'
 }
 
+not_installed() { have "$1" || echo "$1: not installed"; }
+
+entries() { # <path>...   the name of each one that exists
+  local entry
+  for entry in "$@"; do
+    [[ -e $entry ]] && printf '%s\n' "${entry##*/}"
+  done
+  return 0
+}
+
+node_packages() { # <node_modules dir>...   a scoped package as @scope/name
+  local dir entry
+  for dir in "$@"; do
+    for entry in "$dir"/* "$dir"/@*/*; do
+      [[ -d $entry && ${entry##*/} != @* ]] && printf '%s\n' "${entry#"$dir"/}"
+    done
+  done
+  return 0
+}
+
+# Package managers are read from the files they keep rather than run: run on a
+# fresh HOME they fetch indexes, migrate state, or write logs. npm and uv are
+# asked only for a directory.
+brew_formulae() { # installed on request: what `brew leaves` approximates
+  { grep -l '"installed_on_request": *true' "$brew_prefix"/Cellar/*/*/INSTALL_RECEIPT.json 2>/dev/null || [[ $? == 1 ]]; } |
+    awk -F/ '{ print $(NF - 2) }' | LC_ALL=C sort -u
+}
+
+devbox_json=${XDG_DATA_HOME:-$HOME/.local/share}/devbox/global/default/devbox.json
+devbox_packages() {
+  if have jq; then
+    jq -r '.packages | if type == "array" then .[] else keys[] end' "$devbox_json"
+  else
+    # Without jq, one quoted package per line, the layout devbox writes.
+    sed -n '/"packages"/,/]/p' "$devbox_json" | sed -E -n 's/^[[:space:]]*"([^"]+)",?[[:space:]]*$/\1/p'
+  fi
+}
+
+npm_packages() {
+  local dir
+  dir=$(npm_config_logs_max=0 npm root -g 2>/dev/null) && node_packages "$dir"
+}
+
+if [[ -n ${PNPM_HOME:-} ]]; then
+  pnpm_home=$PNPM_HOME
+elif [[ $(uname -s) == Darwin ]]; then
+  pnpm_home=$HOME/Library/pnpm
+else
+  pnpm_home=${XDG_DATA_HOME:-$HOME/.local/share}/pnpm
+fi
+
+uv_tools() {
+  local dir
+  dir=$(UV_NO_CACHE=1 uv tool dir 2>/dev/null) && entries "$dir"/*
+}
+
+cargo_home=${CARGO_HOME:-$HOME/.cargo}
+cargo_crates() {
+  if [[ -f $cargo_home/.crates2.json ]]; then
+    { grep -oE '"[^" ]+ [^" ]+ \([^"]*\)":' "$cargo_home/.crates2.json" || [[ $? == 1 ]]; } | sed -E 's/^"([^ ]+) ([^ ]+).*/\1 \2/'
+  else
+    entries "$cargo_home"/bin/*
+  fi
+}
+
+mise_installs=${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/installs
+mise_tools() { # <tool> <version>; a symlink is a version alias such as `latest`
+  local install tool
+  for install in "$mise_installs"/*/*; do
+    [[ -d $install && ! -L $install ]] || continue
+    tool=${install%/*}
+    printf '%s %s\n' "${tool##*/}" "${install##*/}"
+  done
+  return 0
+}
+
+brew_absent=''
+[[ -n $brew_prefix ]] || brew_absent='brew: not installed'
+devbox_absent=''
+[[ -f $devbox_json ]] || devbox_absent="devbox: no global \`devbox.json\` at \`$(tilde "$devbox_json")\`"
+pnpm_absent=''
+[[ -d $pnpm_home/global ]] || pnpm_absent="pnpm: no global packages in \`$(tilde "$pnpm_home")/global\`"
+cargo_absent=''
+[[ -f $cargo_home/.crates2.json || -d $cargo_home/bin ]] || cargo_absent="cargo: no installed crates in \`$(tilde "$cargo_home")\`"
+mise_absent=''
+[[ -d $mise_installs ]] || mise_absent="mise: no installs in \`$(tilde "$mise_installs")\`"
+
 mas_names='s/^[0-9]+[[:space:]]+//; s/[[:space:]]+\([^)]*\)[[:space:]]*$//; p'
-software '`brew leaves`' nix p brew leaves
-software '`brew list --cask`' apps p brew list --cask -1
-software '`mas list`' apps "$mas_names" mas list
-software '`devbox global list`' nix 's/^\* //p' devbox global list
-software 'global npm packages' nix 's|.*/node_modules/||p' npm ls -g --depth=0 --parseable
-software 'global pnpm packages' nix 's|.*/node_modules/||p' pnpm ls -g --depth=0 --parseable
-software '`uv tool list`' nix '/^-/!p' uv tool list
-software '`cargo install --list`' nix '/^[[:space:]]/!p' cargo install --list
-software '`mise ls`' nix 's/^([^ ]+) +([^ ]+).*/\1 \2/p' mise ls
+software 'Homebrew formulae installed on request (`Cellar`)' nix "$brew_absent" p brew_formulae
+software 'Homebrew casks (`Caskroom`)' apps "$brew_absent" p entries "$brew_prefix"/Caskroom/*
+software '`mas list`' apps "$(not_installed mas)" "$mas_names" mas list
+software "devbox global packages (\`$(tilde "$devbox_json")\`)" nix "$devbox_absent" p devbox_packages
+software 'global npm packages (`npm root -g`)' nix "$(not_installed npm)" p npm_packages
+software "global pnpm packages (\`$(tilde "$pnpm_home")/global\`)" nix "$pnpm_absent" p node_packages "$pnpm_home"/global/*/node_modules
+software 'uv tools (`uv tool dir`)' nix "$(not_installed uv)" p uv_tools
+software "cargo crates (\`$(tilde "$cargo_home")\`)" nix "$cargo_absent" p cargo_crates
+software "mise installs (\`$(tilde "$mise_installs")\`)" nix "$mise_absent" p mise_tools
 
 subsection 'Apps in `/Applications` from neither Homebrew nor the App Store'
 if [[ ! -d /Applications ]]; then
   note '`/Applications`: not found'
 else
-  cask_apps=''
+  # A cask's version directory links to the app it installed; a cask whose
+  # directory holds no link is recognised by its token alone.
   cask_tokens=''
-  if have brew; then
-    cask_tokens=$(brew list --cask -1 2>/dev/null)
-    if ! have jq; then
-      note 'jq: not installed, so a cask app is recognised only when its name matches the cask token; some cask apps may be listed below'
-    else
-      cask_apps=$(brew info --cask --installed --json=v2 2>/dev/null |
-        jq -r '.casks[].artifacts[] | objects | .app // empty | .[] | if type == "string" then . elif type == "object" then (.target // empty) else empty end' 2>/dev/null |
-        sed 's|.*/||')
-    fi
+  cask_apps=''
+  if [[ -n $brew_prefix ]]; then
+    cask_tokens=$(entries "$brew_prefix"/Caskroom/*)
+    cask_apps=$(entries "$brew_prefix"/Caskroom/*/*/*.app)
   fi
   mas_apps=''
   have mas && mas_apps=$(mas list 2>/dev/null | sed -E -n "$mas_names")
