@@ -173,6 +173,34 @@ expect_caught "unfree-$h-jq non-redistributable-$h-jq" \
   nix/packages.nix $'    jq\n' \
   $'    (jq.overrideAttrs (old: { meta = old.meta // { license = "MIT"; }; }))\n'
 
+expect_caught "non-commercial-$h-jq !unfree-$h-jq" \
+  'a licence is the bare string CC-BY-NC-4.0, allowed by name' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = "CC-BY-NC-4.0"; }; }))\n' \
+  flake.nix '[ "claude-code" ]' '[ "claude-code" "jq" ]'
+
+expect_caught "non-commercial-$h-jq !unfree-$h-jq" \
+  'a licence has NC in its short name only, allowed by name' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.ocamlpro_nc; }; }))\n' \
+  flake.nix '[ "claude-code" ]' '[ "claude-code" "jq" ]'
+
+expect_caught "unfree-$h-jq non-redistributable-$h-jq" \
+  'a WITH licence has an unfree base' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.WITH lib.licenses.unfree lib.licenses.classpathException20; }; }))\n'
+
+expect_caught "non-commercial-$h-jq !unfree-$h-jq" \
+  'a WITH licence has a non-commercial base, allowed by name' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.WITH lib.licenses.cc-by-nc-40 lib.licenses.classpathException20; }; }))\n' \
+  flake.nix '[ "claude-code" ]' '[ "claude-code" "jq" ]'
+
+expect_caught "non-commercial-$h-jq unfree-$h-jq non-redistributable-$h-jq" \
+  'a PLUS licence has a non-commercial base' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.PLUS lib.licenses.cc-by-nc-40; }; }))\n'
+
 expect_caught "unfree-$h-jq non-redistributable-$h-jq" \
   'a hand-written licence says neither whether it is free nor redistributable' \
   nix/packages.nix $'    jq\n' \
@@ -251,6 +279,10 @@ if [[ $host == wsl ]]; then
   expect_caught 'non-commercial-wsl-StablyAI.Orca' \
     'an install from outside Nix is recorded with a non-commercial licence' \
     nix/licenses.nix '"StablyAI.Orca" = mit;' '"StablyAI.Orca" = cc-by-nc-40;'
+
+  expect_caught 'non-commercial-wsl-udev-gothic-nf' \
+    'an install kept by hand is recorded with a non-commercial licence' \
+    nix/licenses.nix 'udev-gothic-nf = ofl;' 'udev-gothic-nf = cc-by-nc-40;'
 else
   skip "the winget mutants need wsl, and this run is on $host"
 fi
