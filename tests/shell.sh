@@ -186,6 +186,9 @@ write_probe() { # <script> <out-file>
     print -r -- "\$LBUFFER"
   }
   print -r -- "ABBREVIATION_GST=\$(expanded start '' gst '')"
+  for name in ll la lt b; do
+    print -r -- "ABBREVIATION_\$name=\$(expanded start '' \$name '')"
+  done
   print -r -- "ABBREVIATION_TEXT_RIGHT=\$(expanded start '' g 'it status')"
   print -r -- "ABBREVIATION_CONTINUATION=\$(expanded cont 'echo "first'\$'\\n' gst '')"
   print -r -- "ABBREVIATION_VARED=\$(expanded vared '' g '')"
@@ -440,6 +443,10 @@ is interactive-skip-global-compinit 1 "$(field SKIP_GLOBAL_COMPINIT "$probe_text
 # Abbreviations expand when Space or Enter runs a user widget, and, like an
 # alias would, only for names that are not already a command.
 is interactive-abbreviation-expands 'git status' "$(field ABBREVIATION_GST "$probe_text")"
+is interactive-abbreviation-ll 'eza -l --git' "$(field ABBREVIATION_ll "$probe_text")"
+is interactive-abbreviation-la 'eza -la --git' "$(field ABBREVIATION_la "$probe_text")"
+is interactive-abbreviation-lt 'eza --tree --level=2' "$(field ABBREVIATION_lt "$probe_text")"
+is interactive-abbreviation-b bat "$(field ABBREVIATION_b "$probe_text")"
 # Only a whole command line expands: not a word with text to its right (Ctrl+a
 # to fix a typo), not a line inside an open quote or a heredoc, not vared. The
 # probe sets the zle parameters as a widget sees them (measured under a pty):
