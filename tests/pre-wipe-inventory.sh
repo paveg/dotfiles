@@ -549,6 +549,9 @@ leaked=$(while IFS= read -r -d '' record; do if [[ $record == "$home/Documents"/
 if [[ -n $leaked ]]; then fail ssh-in-documents-not-listed "$leaked"; else ok ssh-in-documents-not-listed; fi
 # shellcheck disable=SC2088
 has refused-memory-root "$left_out" '`~/.claude/projects/-linked/memory`: left out of `--backup-paths`: its real path `~/.config/gh`'
+# A root other than Claude Code memory and the agent notes is refused too, and named.
+refused=$(grep -E 'left out of `--backup-paths`: (its real path|AGENT_NOTES_DIR resolves)' <<<"$left_out" || true)
+if [[ $(grep -c . <<<"$refused") == 1 ]]; then ok refused-roots-only-the-linked-one; else fail refused-roots-only-the-linked-one "$refused"; fi
 records_outside() { # <paths file> <dir>...   each record below none of the dirs
   local record dir
   while IFS= read -r -d '' record; do
