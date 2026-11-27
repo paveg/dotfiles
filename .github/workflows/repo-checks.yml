@@ -50,10 +50,12 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = pull_request ]; then
             git diff --check "origin/$BASE_REF...HEAD"
-          elif [ "$BEFORE" = 0000000000000000000000000000000000000000 ]; then
-            git diff --check "$(git hash-object -t tree /dev/null)" HEAD
-          else
+          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             git diff --check "$BEFORE" HEAD
+          else
+            # A push with no previous commit, or after a force-push whose
+            # previous commit the clone does not have: check the whole tree.
+            git diff --check "$(git hash-object -t tree /dev/null)" HEAD
           fi
 
   actionlint:
