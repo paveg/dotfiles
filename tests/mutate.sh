@@ -254,8 +254,9 @@ expect_caught interactive-histsize-keeps-a-session \
   'in-memory history holds one line, so up-arrow is useless' \
   .config/zsh/.zshrc 'HISTSIZE=100000' 'HISTSIZE=1'
 
-# Ceiling: a switched nix-darwin host's /etc/zshrc runs `bindkey -e` and sets
-# HIST_IGNORE_DUPS itself, so there those two mutants survive.
+# Ceiling: on a switched nix-darwin host, /etc/zshrc runs `bindkey -e` and sets
+# HIST_IGNORE_DUPS, and /etc/zshenv puts ~/.nix-profile's site-functions on
+# fpath, so there the keymap, HIST_IGNORE_DUPS and fpath mutants survive.
 expect_caught interactive-keymap-emacs 'EDITOR=nvim leaves zsh in the vi keymap' \
   .config/zsh/.zshrc $'bindkey -e\n' ''
 
@@ -335,6 +336,10 @@ expect_caught interactive-space-expands-abbreviations 'Space inserts a space wit
 
 expect_caught interactive-enter-expands-abbreviations 'Enter runs the line without expanding' \
   .config/zsh/.zshrc $'bindkey \'^m\' dots-abbreviation-accept\n' ''
+
+expect_caught interactive-enter-clears-suggestion \
+  "zsh-autosuggestions redraws its suggestion on the line Enter accepted" \
+  .config/zsh/.zshrc $'ZSH_AUTOSUGGEST_CLEAR_WIDGETS+=(dots-abbreviation-accept)\n' ''
 
 expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command' \
   .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  vi nvim\n'

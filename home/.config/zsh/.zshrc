@@ -130,6 +130,9 @@ for dots_plugin in zsh-autosuggestions zsh-syntax-highlighting; do
   fi
 done
 unset dots_plugin dots_plugin_files
+# zsh-autosuggestions would otherwise draw its suggestion again on the line the
+# Enter widget has just accepted.
+ZSH_AUTOSUGGEST_CLEAR_WIDGETS+=(dots-abbreviation-accept)
 
 if [[ -r $ZDOTDIR/.zshrc.local ]]; then
   source $ZDOTDIR/.zshrc.local

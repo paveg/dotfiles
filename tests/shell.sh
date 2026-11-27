@@ -147,6 +147,7 @@ write_probe() { # <script> <out-file>
   enter=\$(bindkey '^m'); enter=\${enter##* }
   print -r -- "SPACE_TYPE=\${widgets[\$space]-none}"
   print -r -- "ENTER_TYPE=\${widgets[\$enter]-none}"
+  print -r -- "ENTER_CLEARS_SUGGESTION=\${ZSH_AUTOSUGGEST_CLEAR_WIDGETS[(Ie)\$enter]}"
   for name in \${(k)dots_abbreviations}; do
     if (( \$+commands[\$name] || \$+builtins[\$name] )); then print -r -- "SHADOWED \$name"; fi
   done
@@ -362,6 +363,13 @@ case $(field ENTER_TYPE "$probe_text") in
 user:*) ok interactive-enter-expands-abbreviations ;;
 *) fail interactive-enter-expands-abbreviations "Enter runs $(field ENTER_TYPE "$probe_text")" ;;
 esac
+# zsh-autosuggestions restores its suggestion after a widget it does not know
+# accepts the line, which leaves the suggestion drawn on the accepted line.
+if [[ $(field ENTER_CLEARS_SUGGESTION "$probe_text") == [1-9]* ]]; then
+  ok interactive-enter-clears-suggestion
+else
+  fail interactive-enter-clears-suggestion "Enter's widget is not in ZSH_AUTOSUGGEST_CLEAR_WIDGETS"
+fi
 is interactive-abbreviations-shadow-nothing "" \
   "$(grep '^SHADOWED ' "$probe" 2>/dev/null | tr '\n' ' ' || true)"
 
