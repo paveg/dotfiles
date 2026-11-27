@@ -6,7 +6,12 @@ let
   platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "wsl";
 in
 {
-  imports = [ ./packages.nix ];
+  imports = [
+    ./packages.nix
+    ./agents-home.nix
+  ];
+
+  _module.args.linkHome = link;
 
   home.username = host.user;
   home.homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/${host.user}" else "/home/${host.user}";
