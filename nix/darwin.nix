@@ -17,6 +17,13 @@
     promptInit = "";
   };
 
+  # The per-user profile links only environment.pathsToLink, and .zshrc sources
+  # the plugins from these two directories in it.
+  environment.pathsToLink = [
+    "/share/zsh-autosuggestions"
+    "/share/zsh-syntax-highlighting"
+  ];
+
   home-manager = {
     useGlobalPkgs = true;
     # Packages land in /etc/profiles/per-user/<user>/bin, which $ZDOTDIR/.zshenv

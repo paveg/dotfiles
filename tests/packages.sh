@@ -2,10 +2,11 @@
 # Check what the built configuration gives a host, with no Nix switch: the
 # package set is exactly the one the design names, unfree packages are admitted
 # by name only, every global CLI tool is in the home-manager profile and wins
-# over /usr/bin, the profile that PATH names serves that same profile, the zsh
-# and mise directories are real directories whose files link into the checkout,
-# the global mise config refuses the asdf backend, and on macOS the generated
-# /etc/zshrc leaves completion and the prompt to $ZDOTDIR/.zshrc.
+# over /usr/bin, the profile that PATH names serves that same profile and the
+# zsh plugins, the zsh and mise directories are real directories whose files
+# link into the checkout, the global mise config refuses the asdf backend, and
+# on macOS the generated /etc/zshrc leaves completion and the prompt to
+# $ZDOTDIR/.zshrc.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -24,7 +25,7 @@ nix_bin=(nix --extra-experimental-features 'nix-command flakes')
 # Command names, not package names: what a caller types is the behaviour under
 # test. `gh` is not here; it becomes a wrapper in a later change.
 commands=(
-  claude git ghq fzf rg fd jq nvim just lazygit lefthook gitleaks
+  claude git ghq fzf rg fd bat eza zoxide jq nvim just lazygit lefthook gitleaks
   kubectl helm k9s stern ghtkn mise atuin
 )
 # The same set by nixpkgs attribute name, from docs/design.md "Packages", so a
@@ -32,9 +33,12 @@ commands=(
 # absent on purpose: the wrapper takes that name, and the package would collide
 # with it.
 packages=(
-  claude-code git ghq fzf ripgrep fd jq neovim just lazygit lefthook gitleaks
+  claude-code git ghq fzf ripgrep fd bat eza zoxide zsh-autosuggestions
+  zsh-syntax-highlighting jq neovim just lazygit lefthook gitleaks
   kubectl kubernetes-helm k9s stern ghtkn mise atuin
 )
+# $ZDOTDIR/.zshrc sources share/<plugin>/<plugin>.zsh from the profiles on PATH.
+plugins=(zsh-autosuggestions zsh-syntax-highlighting)
 # home-manager puts these in home.packages itself, so the set under test is
 # not the whole list. Ceiling: a home-manager update that changes its own set
 # fails package-names, and the fix is to edit this list.
@@ -206,6 +210,7 @@ if [[ $host == wsl ]]; then
   else
     is generation-home-path "$profile" "$(readlink "$generation/home-path" 2>"$work_dir/readlink.err")"
   fi
+  path_profile=$profile
 else
   system=$(build_attr "darwinConfigurations.$host.system" system)
   if [[ -z $system ]]; then
@@ -215,6 +220,7 @@ else
       per_user=$system/etc/profiles/per-user/$user/bin/$cmd
       is "per-user-$cmd" "$profile/bin/$cmd" "$(readlink "$per_user" 2>>"$work_dir/readlink.err")"
     done
+    path_profile=$system/etc/profiles/per-user/$user
     # $ZDOTDIR/.zshrc runs the one compinit and sets the prompt, so the
     # generated /etc/zshrc, read before it, does neither. The header proves the
     # file is nix-darwin's and not missing.
@@ -227,6 +233,18 @@ else
       fail etc-zshrc-generated "$etc_zshrc is missing or not nix-darwin's"
     fi
   fi
+fi
+
+# nix-darwin's per-user profile links only environment.pathsToLink, so a
+# package can be in home.path and still be missing from the profile on PATH.
+if [[ -n ${path_profile-} ]]; then
+  for plugin in "${plugins[@]}"; do
+    if [[ -r $path_profile/share/$plugin/$plugin.zsh ]]; then
+      ok "plugin-$plugin"
+    else
+      fail "plugin-$plugin" "$path_profile/share/$plugin/$plugin.zsh is not readable"
+    fi
+  done
 fi
 
 if [[ -n $home_files ]]; then

@@ -88,6 +88,10 @@ if runs common; then
   expect_caught 'bin-claude zsh-claude package-names' 'Claude Code is dropped from the list' \
     nix/packages.nix $'    claude-code\n' ''
 
+  expect_caught 'package-names plugin-zsh-syntax-highlighting' \
+    'the syntax-highlighting plugin is dropped from the list' \
+    nix/packages.nix $'    zsh-syntax-highlighting\n' ''
+
   expect_caught 'package-names' 'the real gh is added, which the wrapper needs the name of' \
     nix/packages.nix $'    atuin\n  ];\n' $'    atuin\n    gh\n  ];\n'
 
@@ -141,6 +145,10 @@ if runs per-user; then
   else
     expect_caught 'per-user-git per-user-claude' 'the packages never reach the per-user profile' \
       nix/darwin.nix $'    useUserPackages = true;\n' ''
+
+    expect_caught 'plugin-zsh-autosuggestions plugin-zsh-syntax-highlighting' \
+      'the per-user profile does not link the plugin directories' \
+      nix/darwin.nix $'    "/share/zsh-autosuggestions"\n    "/share/zsh-syntax-highlighting"\n' ''
 
     expect_caught etc-zshrc-no-compinit "nix-darwin's /etc/zshrc runs compinit before .zshrc" \
       nix/darwin.nix $'    enableCompletion = false;\n' ''
