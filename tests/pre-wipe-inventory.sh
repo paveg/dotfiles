@@ -12,7 +12,7 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 script=${1:-$repo_dir/scripts/pre-wipe-inventory.sh}
 bash_bin=/bin/bash
-work_dir=$(mktemp -d)
+work_dir=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$work_dir"' EXIT
 
 checks=0
@@ -34,13 +34,14 @@ fail() { # <name> <detail>
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=fixture GIT_AUTHOR_EMAIL=fixture@example.com
 export GIT_COMMITTER_NAME=fixture GIT_COMMITTER_EMAIL=fixture@example.com
-fixture_git() { git -c init.defaultBranch=main -c commit.gpgsign=false "$@"; }
+fixture_git() { git -c init.defaultBranch=main -c commit.gpgsign=false -c protocol.file.allow=always "$@"; }
 
 root=$work_dir/root
 home=$root/home
 ghq_root=$root/ghq
+second_root=$root/ghq-second
 remotes=$work_dir/remotes
-mkdir -p "$home" "$ghq_root/example.com/owner" "$remotes"
+mkdir -p "$home" "$ghq_root/example.com/owner" "$second_root/example.com/owner" "$remotes"
 
 commit() { # <repo> <file> <text>
   printf '%s\n' "$3" >>"$1/$2"
@@ -82,9 +83,75 @@ dir=$home/no-remote-repo
 fixture_git init -q "$dir"
 commit "$dir" notes 'never pushed'
 
-# A clone under ~/.config is not searched as a repository, so the unmanaged
-# files section must still name it.
+# A clone under ~/.config with no commits: counted as a clean repository, and
+# still named by the unmanaged files section.
 fixture_git init -q "$home/.config/cloned-tool"
+
+dir=$(pushed_repo detached-head)
+fixture_git -C "$dir" checkout -q --detach
+commit "$dir" README 'only on a detached HEAD'
+
+dir=$(pushed_repo tag-only)
+commit "$dir" README 'only on a tag'
+fixture_git -C "$dir" tag -a local-tag -m 'local tag'
+fixture_git -C "$dir" reset -q --hard origin/main
+
+dir=$(pushed_repo linked-detached)
+fixture_git -C "$dir" worktree add -q --detach "$home/wt/linked-detached"
+commit "$home/wt/linked-detached" README 'only on the linked worktree'
+
+mkdir -p "$home/.cache/gitdirs"
+fixture_git init -q --separate-git-dir="$home/.cache/gitdirs/gitfile.git" "$ghq_root/example.com/owner/gitfile"
+commit "$ghq_root/example.com/owner/gitfile" notes 'repository with a .git file'
+
+# Bare repositories that hold the only copy; a worktree of one has an uncommitted change.
+for name in bare-only bare-alone; do
+  fixture_git init -q --bare "$ghq_root/example.com/owner/$name.git"
+  fixture_git clone -q "$ghq_root/example.com/owner/$name.git" "$work_dir/$name-clone" 2>/dev/null
+  commit "$work_dir/$name-clone" README 'only in the bare repository'
+  fixture_git -C "$work_dir/$name-clone" push -q origin main 2>/dev/null
+done
+fixture_git --git-dir="$ghq_root/example.com/owner/bare-only.git" worktree add -q "$ghq_root/example.com/owner/bare-worktree" main 2>/dev/null
+printf 'uncommitted\n' >>"$ghq_root/example.com/owner/bare-worktree/README"
+
+for dir in "$ghq_root/gitlab.com/group/sub1/sub2/deep-repo" "$home/work/work-repo" \
+  "$home/.local/share/chezmoi" "$second_root/example.com/owner/second-root-repo"; do
+  fixture_git init -q "$dir"
+  commit "$dir" notes 'never pushed'
+done
+
+# Submodules whose own repository holds the unsaved work.
+fixture_git init -q --bare "$remotes/library.git"
+fixture_git clone -q "$remotes/library.git" "$work_dir/library" 2>/dev/null
+commit "$work_dir/library" lib 'v1'
+fixture_git -C "$work_dir/library" push -q -u origin main 2>/dev/null
+for name in sub-untracked sub-unpushed sub-stash; do
+  dir=$(pushed_repo "$name")
+  fixture_git -C "$dir" submodule -q add "$remotes/library.git" sub 2>/dev/null
+  fixture_git -C "$dir" commit -q -m 'add sub'
+  fixture_git -C "$dir" push -q 2>/dev/null
+done
+printf 'new\n' >"$ghq_root/example.com/owner/sub-untracked/sub/untracked-file"
+commit "$ghq_root/example.com/owner/sub-unpushed/sub" lib 'only in the submodule'
+printf 'stashed\n' >>"$ghq_root/example.com/owner/sub-stash/sub/lib"
+fixture_git -C "$ghq_root/example.com/owner/sub-stash/sub" stash push -q -m fixture
+
+# A `.git` git cannot read must be listed, not counted as clean.
+mkdir -p "$home/broken-repo/.git"
+
+# A clean filter the repository configures; `git status` runs it on a file
+# whose mtime changed, and the filter leaves a marker the snapshot catches.
+filter_marker=$root/filter-ran
+filter_script=$work_dir/filter
+printf '#!/bin/sh\necho ran >>%s\nexec /bin/cat\n' "$filter_marker" >"$filter_script"
+chmod +x "$filter_script"
+dir=$(pushed_repo filter-repo)
+printf '* filter=probe\n' >"$dir/.gitattributes"
+fixture_git -C "$dir" add .gitattributes
+fixture_git -C "$dir" commit -q -m attributes
+fixture_git -C "$dir" push -q 2>/dev/null
+fixture_git -C "$dir" config filter.probe.clean "$filter_script"
+touch -t 202001010000 "$dir/README"
 
 # A macOS folder no other section reports, and an atuin data directory, which
 # holds atuin's key.
@@ -128,7 +195,7 @@ has() { # <name> <text> <fixed string>
 
 snapshot >"$work_dir/before"
 status=0
-env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root" LC_ALL=C \
+env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C \
   "$bash_bin" "$script" >"$work_dir/out" 2>"$work_dir/err" || status=$?
 snapshot >"$work_dir/after"
 
@@ -156,8 +223,35 @@ if grep -qF clean-repo "$work_dir/out"; then
 else
   ok clean-repo-not-listed
 fi
-has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, not listed): 1'
-has git-summary "$(cat "$work_dir/out")" '| Git repositories | 6 | 5 |'
+has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, not listed): 5'
+has git-summary "$(cat "$work_dir/out")" '| Git repositories | 25 | 20 |'
+
+has detached-head "$(block_of example.com/owner/detached-head)" 'commits on no remote ref: 1'
+has detached-head-no-branch "$(block_of example.com/owner/detached-head)" 'on no branch (a detached HEAD or only a tag): 1'
+has tag-only "$(block_of example.com/owner/tag-only)" 'commits on no remote ref: 1'
+has linked-worktree-head "$(block_of example.com/owner/linked-detached)" 'commits on no remote ref: 1'
+has git-file-repo "$(block_of example.com/owner/gitfile)" 'commits on no remote ref: 1'
+has bare-only-copy "$(block_of example.com/owner/bare-only.git)" '  - no remote'
+has bare-without-worktree "$(block_of example.com/owner/bare-alone.git)" '  - no remote'
+has bare-worktree "$(block_of example.com/owner/bare-only.git)" 'example.com/owner/bare-worktree`: 1 tracked uncommitted change(s)'
+has deep-repo "$(block_of gitlab.com/group/sub1/sub2/deep-repo)" '  - no remote'
+# shellcheck disable=SC2088
+has work-repo "$(block_of '~/work/work-repo')" '  - no remote'
+# shellcheck disable=SC2088
+has chezmoi-source "$(block_of '~/.local/share/chezmoi')" '  - no remote'
+has second-ghq-root "$(block_of example.com/owner/second-root-repo)" '  - no remote'
+has submodule-untracked "$(block_of example.com/owner/sub-untracked/sub)" 'untracked files: 1'
+has submodule-unpushed "$(block_of example.com/owner/sub-unpushed/sub)" 'commits on no remote ref: 1'
+has submodule-stash "$(block_of example.com/owner/sub-stash/sub)" 'stashes: 1'
+# shellcheck disable=SC2088
+has unreadable-repo "$(block_of '~/broken-repo')" 'git cannot read this repository'
+if [[ -e $filter_marker ]]; then fail filter-not-run 'a repository clean filter ran'; else ok filter-not-run; fi
+
+# shellcheck disable=SC2088
+has next-step-bundle "$(block_of '~/no-remote-repo')" "next: \`git -C '$home/no-remote-repo' bundle create no-remote-repo.bundle --all\`"
+has next-step-push "$(block_of example.com/owner/local-branch)" "next: \`git -C '$ghq_root/example.com/owner/local-branch' push origin feature-without-upstream\`"
+has next-step-commit-first "$(block_of example.com/owner/tracked-change)" 'next: commit the uncommitted and untracked work'
+has next-step-no-branch "$(block_of example.com/owner/detached-head)" 'put the commits on no branch on a branch or tag'
 
 has config-repo-listed "$(cat "$work_dir/out")" '- **needs action:** `~/.config/cloned-tool`'
 has music-listed "$(cat "$work_dir/out")" '- **needs action:** `~/Music`'

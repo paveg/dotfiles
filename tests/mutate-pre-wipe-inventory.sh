@@ -28,12 +28,26 @@ PY
 }
 
 "$repo_dir/tests/pre-wipe-inventory.sh" >/dev/null || { echo "FAIL: the unmutated script fails its tests"; exit 1; }
-expect_caught 'tracked changes are not reported' '((count > 0)) && echo "tracked uncommitted changes: $count"' ':'
-expect_caught 'stashes are not reported' '((count > 0)) && echo "stashes: $count"' ':'
-expect_caught 'a branch ahead of its upstream is not reported' '((count > 0)) && echo "branch \`${ref#refs/heads/}\`: $count commit(s) ahead' 'false && echo "branch \`${ref#refs/heads/}\`: $count commit(s) ahead'
-expect_caught 'a branch with no upstream is not reported' '((count > 0)) && echo "branch \`${ref#refs/heads/}\`: no upstream' 'false && echo "branch \`${ref#refs/heads/}\`: no upstream'
-expect_caught 'a repository with no remote is not reported' "&& echo 'no remote'" '&& :'
-expect_caught 'repositories directly under HOME are not searched' 'done < <(home_repos)' 'done < <(:)'
+expect_caught 'tracked changes are not reported' '((tracked > 0)) && { dirty=1; finding "tracked uncommitted changes: $tracked"; }' ':'
+expect_caught 'stashes are not reported' '    finding "stashes: $stashes"' '    :'
+expect_caught 'a branch ahead of its upstream is not reported' '[[ $count == 0 ]] || finding "branch \`${ref#refs/heads/}\`: $count commit(s) ahead' 'true || finding "branch \`${ref#refs/heads/}\`: $count commit(s) ahead'
+expect_caught 'a branch with no upstream is not reported' '[[ $count == 0 ]] || finding "branch \`${ref#refs/heads/}\`: no upstream' 'true || finding "branch \`${ref#refs/heads/}\`: no upstream'
+expect_caught 'a repository with no remote is not reported' "&& finding 'no remote'" '&& :'
+expect_caught 'a repository git cannot read is counted as clean' "echo 'git cannot read this repository'" ':'
+expect_caught 'a .git file is not taken for a work tree' '-o -name .git -print -prune' '-o -name .git -type d -print -prune'
+expect_caught 'bare repositories are not found' '*/HEAD) add_repo "${path%/HEAD}" bare ;;' '*/HEAD) : ;;'
+expect_caught 'the walk stops at a fixed depth' 'find "${walk_roots[@]}" \(' 'find "${walk_roots[@]}" -maxdepth 5 \('
+expect_caught 'ghq roots outside HOME are not walked' '&& walk_roots+=("$root")' '&& :'
+expect_caught 'a ghq root list is read as one path' "ghq_roots=\$(tr ':' '\n' <<<\"\$GHQ_ROOT\")" 'ghq_roots=$GHQ_ROOT'
+expect_caught 'a repository found twice is reported twice' 'grep -qxF -- "$common" <<<"$seen_repos" && return 0' ':'
+expect_caught 'worktree HEADs are not counted' 'heads+=("$sha")' ':'
+expect_caught 'commits only on a tag are not counted' '--branches --tags --glob=refs/stash --not --remotes' '--branches --glob=refs/stash --not --remotes'
+expect_caught 'commits on no branch are not named' '((off_branch > 0)) && finding' 'false && finding'
+expect_caught 'a linked worktree with changes is skipped' '((tracked + untracked > 0)) || continue' 'continue'
+expect_caught 'a repository clean filter runs' 'done < <(filter_overrides "$1")' 'done < <(:)'
+expect_caught 'the bundle next step is wrong' 'name=${name%.git}.bundle' 'name=${name%.git}.tar'
+expect_caught 'the push next step is wrong' '    echo "next: \`git -C $quoted push $remote$6\`"' '    echo "next: push"'
+expect_caught 'uncommitted work is not committed first' "((\$3)) && steps='commit the uncommitted and untracked work'" ':'
 expect_caught 'clean repositories are listed' 'if [[ -z $findings ]]; then
     repo_clean' 'if [[ -z $findings && 1 == 2 ]]; then
     repo_clean'

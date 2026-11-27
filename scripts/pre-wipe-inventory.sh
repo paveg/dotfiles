@@ -21,13 +21,17 @@ export NPM_CONFIG_UPDATE_NOTIFIER=false DO_NOT_TRACK=1 MISE_OFFLINE=1 GIT_TERMIN
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
+real_path() { (cd "$1" 2>/dev/null && pwd -P); }
+
+ghq_roots=''
 if [[ -n ${GHQ_ROOT:-} ]]; then
-  ghq_root=$GHQ_ROOT
-elif have ghq && ghq_root=$(ghq root 2>/dev/null) && [[ -n $ghq_root ]]; then
-  :
-else
-  ghq_root=$HOME/repos
+  ghq_roots=$(tr ':' '\n' <<<"$GHQ_ROOT")
+elif have ghq; then
+  ghq_roots=$(ghq root --all 2>/dev/null)
 fi
+[[ -n $ghq_roots ]] || ghq_roots=$HOME/repos
+home_real=$(real_path "$HOME")
+home_real=${home_real:-$HOME}
 notes_dir=${AGENT_NOTES_DIR:-$HOME/.local/share/agent-notes}
 claude_dir=$HOME/.claude
 
@@ -71,8 +75,9 @@ subsection() { # <title>
 # shellcheck disable=SC2088
 tilde() { # <path>
   case $1 in
-    "$HOME") printf '~' ;;
+    "$HOME" | "$home_real") printf '~' ;;
     "$HOME"/*) printf '~/%s' "${1#"$HOME"/}" ;;
+    "$home_real"/*) printf '~/%s' "${1#"$home_real"/}" ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -120,50 +125,130 @@ describe_location() { # <path>   names, counts, and sizes only; never opens a fi
 # and a repository's fsmonitor hook, which would run a program, stays off.
 git_ro() { GIT_OPTIONAL_LOCKS=0 git -c core.fsmonitor=false "$@"; }
 
-repo_findings() { # <work tree>   prints one line per thing the wipe would lose
-  local dir=$1 out count ref upstream track worktree
-  if ! git_ro -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+# `-c` arguments, one per line, that empty every filter the repository's
+# configuration names, so `git status` runs no clean or smudge program.
+filter_overrides() { # <work tree>
+  local name
+  git_ro -C "$1" config --name-only --get-regexp '^filter\.' 2>/dev/null | sed 's/^filter\.//; s/\.[^.]*$//' | LC_ALL=C sort -u |
+    while IFS= read -r name; do
+      printf -- '-c\nfilter.%s.%s\n' "$name" clean= "$name" smudge= "$name" process= "$name" required=false
+    done
+}
+
+worktree_changes() { # <work tree>   prints "<tracked changes> <untracked files>"
+  local tracked untracked arg overrides=()
+  while IFS= read -r arg; do overrides+=("$arg"); done < <(filter_overrides "$1")
+  # Each submodule is reported as its own repository, so the parent's status
+  # neither counts nor enters a submodule's work tree.
+  tracked=$(git_ro ${overrides[@]+"${overrides[@]}"} -C "$1" status --porcelain --untracked-files=no --ignore-submodules=dirty 2>/dev/null) || return 1
+  untracked=$(git_ro -C "$1" ls-files --others --exclude-standard 2>/dev/null) || return 1
+  printf '%s %s\n' "$(printf '%s' "$tracked" | count_lines)" "$(printf '%s' "$untracked" | count_lines)"
+}
+
+repo_findings() { # <main work tree or bare repository> <work|bare>   one line per thing the wipe would lose, then the next step
+  local dir=$1 kind=$2 out count ref upstream track worktree tracked untracked remotes sha
+  local unsaved=0 dirty=0 stashes=0 total=0 off_branch=0 branches='' at=() heads=()
+  finding() { unsaved=1; echo "$1"; }
+  if [[ $kind == bare ]]; then at=(--git-dir="$dir"); else at=(-C "$dir"); fi
+  if ! git_ro "${at[@]}" rev-parse --git-dir >/dev/null 2>&1; then
     echo 'git cannot read this repository'
+    echo 'next: check it by hand'
     return
   fi
-  if out=$(git_ro -C "$dir" status --porcelain --untracked-files=no 2>/dev/null); then
-    count=$(printf '%s' "$out" | count_lines)
-    ((count > 0)) && echo "tracked uncommitted changes: $count"
-  else
-    echo 'git status failed'
+  out=$(git_ro "${at[@]}" worktree list --porcelain 2>/dev/null) || finding '`git worktree list` failed, so linked worktrees are not checked'
+  while IFS= read -r sha; do heads+=("$sha"); done < <(sed -n 's/^HEAD //p' <<<"$out" | grep -v '^0*$')
+  if [[ $kind == work ]]; then
+    if read -r tracked untracked < <(worktree_changes "$dir") && [[ -n $untracked ]]; then
+      ((tracked > 0)) && { dirty=1; finding "tracked uncommitted changes: $tracked"; }
+      ((untracked > 0)) && { dirty=1; finding "untracked files: $untracked"; }
+    else
+      dirty=1
+      finding 'git status failed'
+    fi
   fi
-  count=$(git_ro -C "$dir" ls-files --others --exclude-standard 2>/dev/null | count_lines)
-  ((count > 0)) && echo "untracked files: $count"
-  count=$(git_ro -C "$dir" stash list 2>/dev/null | count_lines)
-  ((count > 0)) && echo "stashes: $count"
-  [[ -z $(git_ro -C "$dir" remote 2>/dev/null) ]] && echo 'no remote'
+  while IFS= read -r worktree; do
+    [[ -d $worktree ]] || continue
+    if read -r tracked untracked < <(worktree_changes "$worktree") && [[ -n $untracked ]]; then
+      ((tracked + untracked > 0)) || continue
+      finding "linked worktree \`$(tilde "$worktree")\`: $tracked tracked uncommitted change(s), $untracked untracked file(s)"
+    else
+      finding "linked worktree \`$(tilde "$worktree")\`: git status failed"
+    fi
+    dirty=1
+  done < <(awk '
+    /^worktree / { path = substr($0, 10); n++; bare = 0 }
+    /^bare$/ { bare = 1 }
+    /^$/ { if (n > 1 && !bare) print path; path = "" }
+    END { if (path != "" && n > 1 && !bare) print path }
+  ' <<<"$out")
+  if git_ro "${at[@]}" rev-parse -q --verify refs/stash >/dev/null 2>&1; then
+    stashes=$(git_ro "${at[@]}" log --walk-reflogs --format=%H refs/stash -- 2>/dev/null | count_lines)
+    ((stashes > 0)) || stashes=1
+    finding "stashes: $stashes"
+  fi
+  remotes=$(git_ro "${at[@]}" remote 2>/dev/null) || finding '`git remote` failed'
+  if total=$(git_ro "${at[@]}" rev-list --count ${heads[@]+"${heads[@]}"} --branches --tags --glob=refs/stash --not --remotes 2>/dev/null); then
+    [[ -z $remotes ]] && ((total > 0)) && finding 'no remote'
+    ((total > 0)) && finding "commits on no remote ref: $total (from every worktree's HEAD, branch, tag, and the stash)"
+  else
+    total=1
+    finding '`git rev-list` failed, so commits on no remote ref are not counted'
+  fi
   while IFS=$'\t' read -r ref upstream track; do
     [[ -n $ref ]] || continue
     if [[ -z $upstream || $track == '[gone]' ]]; then
-      count=$(git_ro -C "$dir" rev-list --count "$ref" --not --remotes 2>/dev/null)
-      ((count > 0)) && echo "branch \`${ref#refs/heads/}\`: no upstream, $count commit(s) on no remote branch"
+      count=$(git_ro "${at[@]}" rev-list --count "$ref" --not --remotes 2>/dev/null) || count=failed
+      [[ $count == 0 ]] || finding "branch \`${ref#refs/heads/}\`: no upstream, $count commit(s) on no remote branch"
     else
-      count=$(git_ro -C "$dir" rev-list --count "$upstream..$ref" 2>/dev/null)
-      ((count > 0)) && echo "branch \`${ref#refs/heads/}\`: $count commit(s) ahead of \`${upstream#refs/remotes/}\`"
+      count=$(git_ro "${at[@]}" rev-list --count "$upstream..$ref" 2>/dev/null) || count=failed
+      [[ $count == 0 ]] || finding "branch \`${ref#refs/heads/}\`: $count commit(s) ahead of \`${upstream#refs/remotes/}\`"
     fi
-  done < <(git_ro -C "$dir" for-each-ref --format='%(refname)%09%(upstream)%09%(upstream:track)' refs/heads 2>/dev/null)
-  while IFS= read -r worktree; do
-    [[ -d $worktree ]] || continue
-    count=$(git_ro -C "$worktree" status --porcelain 2>/dev/null | count_lines)
-    ((count > 0)) && echo "linked worktree \`$(tilde "$worktree")\`: $count uncommitted or untracked path(s)"
-  done < <(git_ro -C "$dir" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | tail -n +2)
+    [[ $count == 0 ]] || branches="$branches ${ref#refs/heads/}"
+  done < <(git_ro "${at[@]}" for-each-ref --format='%(refname)%09%(upstream)%09%(upstream:track)' refs/heads 2>/dev/null)
+  off_branch=$(git_ro "${at[@]}" rev-list --count ${heads[@]+"${heads[@]}"} --tags --not --branches --remotes 2>/dev/null) || off_branch=0
+  ((off_branch > 0)) && finding "on no branch (a detached HEAD or only a tag): $off_branch"
+  ((unsaved)) && next_step "$dir" "$remotes" "$dirty" "$stashes" "$off_branch" "$branches"
   return 0
+}
+
+next_step() { # <repository> <remotes> <dirty> <stashes> <commits on no branch> <branches to push>
+  local quoted="'$1'" name=${1##*/} remote steps=''
+  name=${name%.git}.bundle
+  [[ $name == *[!A-Za-z0-9._-]* ]] && name="'$name'"
+  local bundle="\`git -C $quoted bundle create $name --all\`"
+  if [[ -z $2 ]]; then
+    if (($3 || $4)); then
+      echo "next: commit the uncommitted and untracked work and each stash (a bundle holds commits only), then $bundle"
+    else
+      echo "next: $bundle"
+    fi
+    return
+  fi
+  remote=origin
+  grep -qx origin <<<"$2" || remote=$(head -n 1 <<<"$2")
+  (($3)) && steps='commit the uncommitted and untracked work'
+  (($4)) && steps="${steps:+$steps, }turn each stash into a branch (\`git stash branch <name>\`)"
+  (($5)) && steps="${steps:+$steps, }put the commits on no branch on a branch or tag"
+  if [[ -z $steps && -n $6 ]]; then
+    echo "next: \`git -C $quoted push $remote$6\`"
+  elif [[ -n $steps && -n $6 ]]; then
+    echo "next: $steps, then push what holds them, and \`git -C $quoted push $remote$6\`"
+  elif [[ -n $steps ]]; then
+    echo "next: $steps, then push the branch or tag that holds them"
+  else
+    echo "next: $bundle"
+  fi
 }
 
 repo_count=0
 repo_clean=0
 repo_dirs=''
 
-report_repo() { # <label> <work tree>
+report_repo() { # <label> <main work tree or bare repository> <work|bare>
   local findings line
   repo_count=$((repo_count + 1))
   repo_dirs=$repo_dirs$2$'\n'
-  findings=$(repo_findings "$2")
+  findings=$(repo_findings "$2" "$3")
   if [[ -z $findings ]]; then
     repo_clean=$((repo_clean + 1))
     return
@@ -172,19 +257,51 @@ report_repo() { # <label> <work tree>
   while IFS= read -r line; do detail "$line"; done <<<"$findings"
 }
 
-# Each repository's main work tree. Linked worktrees and submodules have a .git
-# file, not a directory, so they are reached through their repository instead.
-repos_under() { # <root> <depth>
-  find "$1" -maxdepth "$2" -name node_modules -prune -o -type d -name .git -prune -print 2>/dev/null | sed 's|/\.git$||' | LC_ALL=C sort
+ghq_roots_real=$(while IFS= read -r root; do real_path "$root"; done <<<"$ghq_roots")
+walk_roots=("$home_real")
+while IFS= read -r root; do
+  [[ -n $root && $root != "$home_real" && $root != "$home_real"/* ]] && walk_roots+=("$root")
+done <<<"$ghq_roots_real"
+prune_list='`~/Library/Caches`, `~/.Trash`, and every `.cache`, `node_modules`, and `nix/store` directory'
+
+# Every work tree (its `.git` is a directory or, for a linked worktree, a
+# submodule, or `--separate-git-dir`, a file) and every bare-repository candidate.
+walk() {
+  find "${walk_roots[@]}" \( -path "$home_real/Library/Caches" -o -path "$home_real/.Trash" -o -name .cache -o -name node_modules -o -path '*/nix/store' \) -prune \
+    -o -name .git -print -prune -o -name HEAD -type f -print 2>/dev/null
 }
 
-home_repos() {
-  local dir
-  [[ -d $HOME/.git ]] && echo "$HOME"
-  for dir in "$HOME"/* "$HOME"/.[!.]*; do
-    [[ -d $dir/.git && $dir != "$ghq_root" ]] && echo "$dir"
-  done
-  return 0
+repo_list=''
+seen_repos=''
+
+add_repo() { # <work tree or bare-repository candidate> <work|bare>   one entry per repository, keyed by its common git dir
+  local dir=$1 kind=$2 out git_dir common
+  if [[ $kind == bare ]]; then
+    [[ -d $dir/objects && -d $dir/refs ]] || return 0
+    [[ $(git_ro --git-dir="$dir" rev-parse --is-bare-repository 2>/dev/null) == true ]] || return 0
+    common=$(real_path "$dir")
+  elif out=$(git_ro -C "$dir" rev-parse --path-format=absolute --git-dir --git-common-dir 2>/dev/null); then
+    git_dir=$(real_path "${out%%$'\n'*}")
+    common=$(real_path "${out#*$'\n'}")
+    if [[ $git_dir != "$common" ]]; then
+      out=$(git_ro -C "$dir" worktree list --porcelain 2>/dev/null | sed '/^$/q')
+      dir=$(sed -n 's/^worktree //p' <<<"$out")
+      grep -qx bare <<<"$out" && kind=bare
+    fi
+  else
+    common=$dir
+  fi
+  grep -qxF -- "$common" <<<"$seen_repos" && return 0
+  seen_repos=$seen_repos$common$'\n'
+  repo_list=$repo_list$dir$'\t'$kind$'\n'
+}
+
+repo_label() { # <path>   relative to the ghq root that holds it, else from ~
+  local root
+  while IFS= read -r root; do
+    [[ -n $root && $1 == "$root"/* ]] && { printf '%s' "${1#"$root"/}"; return; }
+  done <<<"$ghq_roots_real"
+  tilde "$1"
 }
 
 chezmoi_paths=''
@@ -252,21 +369,21 @@ nix_covers() { [[ -n $nix_names ]] && grep -qxF -- "$1" <<<"$nix_names"; }
 
 printf '# Pre-wipe inventory\n\n'
 printf 'What wiping this machine would lose. Generated %s on %s, read-only: the script writes nothing and runs no fetch. Each item marked **needs action** is something to save, push, or confirm before the wipe; credential locations show names, counts, and sizes only.\n\n' "$(date '+%Y-%m-%d %H:%M')" "$(uname -s)"
-printf -- '- HOME: `%s`\n- ghq root: `%s`\n- agent notes: `%s`\n' "$HOME" "$(tilde "$ghq_root")" "$(tilde "$notes_dir")"
+printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
 have ghq || note 'ghq: not installed'
 
-section 'Git repositories' 'commit and push, or delete, what each listed repository holds. Ahead counts compare with the remote refs from the last fetch, so run `git fetch` in a repository first if its remote may have moved. Untracked files honour .gitignore; ignored files are not counted.'
-if [[ -d $ghq_root ]]; then
-  note "Searched \`$(tilde "$ghq_root")\` to 5 levels, and the directories directly under \`~\`."
-  while IFS= read -r dir; do
-    [[ -n $dir ]] && report_repo "${dir#"$ghq_root"/}" "$dir"
-  done < <(repos_under "$ghq_root" 5)
-else
-  note "ghq root \`$(tilde "$ghq_root")\`: not found; searched only the directories directly under \`~\`."
-fi
-while IFS= read -r dir; do
-  [[ -n $dir ]] && report_repo "$(tilde "$dir")" "$dir"
-done < <(home_repos)
+section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch` in a repository first if its remote may have moved. Untracked files honour .gitignore; ignored files are not counted.'
+note "Searched \`~\` and every ghq root for work trees (a \`.git\` directory or file) and bare repositories, skipping $prune_list; symlinks are not followed. Each submodule and each linked worktree's repository is checked as a repository of its own."
+while IFS= read -r path; do
+  case $path in
+    */.git) add_repo "${path%/.git}" work ;;
+    */HEAD) add_repo "${path%/HEAD}" bare ;;
+  esac
+done < <(walk)
+notes_real=$(real_path "$notes_dir")
+while IFS=$'\t' read -r dir kind; do
+  [[ -n $dir && $dir != "$notes_real" ]] && report_repo "$(repo_label "$dir")" "$dir" "$kind"
+done < <(printf '%s' "$repo_list" | LC_ALL=C sort)
 section_items[current]=$((section_items[current] + repo_clean))
 note "Clean repositories (counted, not listed): $repo_clean"
 
@@ -497,7 +614,6 @@ else
 fi
 
 section 'Files no dotfiles manage' "for each listed name, back it up, add it to the dotfiles, or let it go. Names only. A name counts as managed when chezmoi manages it or anything below it ($chezmoi_state), or when the new dotfiles' \`home/\` holds it. Names that other sections report, and the macOS bookkeeping files \`.Trash\`, \`.DS_Store\`, and \`.CFUserTextEncoding\`, are left out."
-ghq_parent=${ghq_root%/*}
 found=0
 for entry in "$HOME"/* "$HOME"/.[!.]* "$HOME"/.config/* "$HOME"/.config/.[!.]*; do
   [[ -e $entry || -L $entry ]] || continue
@@ -510,7 +626,7 @@ for entry in "$HOME"/* "$HOME"/.[!.]* "$HOME"/.config/* "$HOME"/.config/.[!.]*; 
       continue
       ;;
   esac
-  [[ $ghq_parent == "$HOME" && $entry == "$ghq_root" ]] && continue
+  grep -qxF -- "$entry" <<<"$ghq_roots" && continue
   [[ $rel != */* && -d $entry/.git ]] && continue
   covers "$rel" "$chezmoi_paths" && continue
   covers "$rel" "$dotfiles_paths" && continue
