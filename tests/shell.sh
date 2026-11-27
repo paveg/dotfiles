@@ -224,13 +224,27 @@ run_interactive() { # <home> <out-file> <log> [NAME=value]...
 
 # The same probe in an interactive shell on a terminal of its own, which zsh's
 # zpty module gives on Linux and macOS alike, so that zle is on, as at a desk.
+# A shell still running after the deadline, such as one waiting at a prompt for
+# a key, is killed and leaves $terminal_timeout in <log>. `zpty -t` is not used
+# to see the exit: it blocks until the shell prints something.
+terminal_timeout="timed out waiting for the interactive shell"
 run_on_terminal() { # <home> <out-file> <log>
   local home=$1 out=$2 log=$3
   write_probe "$out.zsh" "$out"
-  (cd "$work_dir" && "$zsh_bin" -fc '
-    zmodload zsh/zpty || exit 1
+  (cd "$work_dir" && TIMEOUT_MESSAGE=$terminal_timeout "$zsh_bin" -fc '
+    zmodload zsh/zpty zsh/zselect || exit 1
     zpty probe "${(j: :)${(q)@}}" || exit 1
-    while zpty -r probe line; do print -rn -- "$line"; done
+    fd=$REPLY deadline=$((SECONDS + 30))
+    while ((SECONDS < deadline)); do
+      zpty -r -t probe line
+      case $? in
+      0) print -rn -- "$line" ;;
+      2) zpty -d probe; exit 0 ;;
+      *) zselect -t 10 -r $fd ;;
+      esac
+    done
+    print
+    print -r -- "$TIMEOUT_MESSAGE"
     zpty -d probe' run-on-terminal \
     env -i HOME="$home" TERM=xterm-256color PATH="$base_path" \
     "$zsh_bin" -i -c "source $(printf %q "$out.zsh")" >"$log" 2>&1) || true
@@ -517,7 +531,12 @@ term_probe=$work_dir/terminal.vars
 term_log=$work_dir/terminal.log
 run_on_terminal "$fix_home" "$term_probe" "$term_log"
 term_text=$(cat "$term_probe" 2>/dev/null) || true
-is terminal-shell-ran-with-zle on "$(field ZLE "$term_text")"
+if grep -qxF "$terminal_timeout" "$term_log"; then
+  fail terminal-shell-ran-with-zle \
+    "$terminal_timeout; log: $(tail -c 200 "$term_log" | tr '\r\n' '  ')"
+else
+  is terminal-shell-ran-with-zle on "$(field ZLE "$term_text")"
+fi
 is interactive-ctrl-t-fzf-file-widget fzf-file-widget "$(field CTRL_T "$term_text")"
 is interactive-alt-c-fzf-cd-widget fzf-cd-widget "$(field ALT_C "$term_text")"
 is interactive-ctrl-r-atuin-widget atuin-search "$(field CTRL_R "$term_text")"
