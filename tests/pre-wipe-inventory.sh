@@ -169,6 +169,34 @@ env_name=.env.local
 printf '%s\n' "$marker" >"$home/work/work-repo/$env_name"
 printf '%s\n' "$marker" >"$home/wt/linked-detached/$env_name"
 
+# What only this disk holds and --backup-paths must offer: Claude Code memory,
+# agent notes, the user folders, and ignored files no build re-creates. A
+# credential-named file sits beside each so the list can be seen to leave it out.
+pem_name=server.pem
+mkdir -p "$home/.claude/projects/-fixture/memory" "$home/.local/share/agent-notes" "$home/Documents" "$home/Downloads"
+printf 'memory\n' >"$home/.claude/projects/-fixture/memory/MEMORY.md"
+printf 'memory\n' >"$home/.claude/projects/-fixture/memory/token-rotation.md"
+printf 'note\n' >"$home/.local/share/agent-notes/note.md"
+printf '%s\n' "$marker" >"$home/.local/share/agent-notes/$env_name"
+printf 'document\n' >"$home/Documents/report.txt"
+printf 'download\n' >"$home/Downloads/file.zip"
+dir=$(pushed_repo ignored-files)
+printf 'local-notes.md\ndata/\nbuild/\n%s\n' "$env_name" >"$dir/.gitignore"
+fixture_git -C "$dir" add .gitignore
+fixture_git -C "$dir" commit -q -m ignore
+fixture_git -C "$dir" push -q 2>/dev/null
+mkdir -p "$dir/data" "$dir/build"
+printf 'notes\n' >"$dir/local-notes.md"
+printf 'db\n' >"$dir/data/app.sqlite"
+printf '%s\n' "$marker" >"$dir/data/$pem_name"
+printf '%s\n' "$marker" >"$dir/$env_name"
+printf 'output\n' >"$dir/build/output.bin"
+unicode_repo="$ghq_root/example.com/owner/uni code ñ"
+fixture_git init -q "$unicode_repo"
+printf 'notes.txt\n' >"$unicode_repo/.gitignore"
+commit "$unicode_repo" .gitignore 'ignore notes'
+printf 'notes\n' >"$unicode_repo/notes.txt"
+
 # Only git and the utilities a POSIX script needs; no brew, docker, nix, or the
 # other optional tools, so every optional probe takes its "not installed" path.
 stub_bin=$work_dir/bin
@@ -234,6 +262,8 @@ env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C 
   "$bash_bin" "$script" >"$work_dir/out" 2>"$work_dir/err" || status=$?
 env -i HOME="$home" PATH="$tools_bin:$brew_prefix/bin:$stub_bin" PNPM_HOME="$root/pnpm" LC_ALL=C \
   "$bash_bin" "$script" >"$work_dir/out-tools" 2>"$work_dir/err-tools" || status=$?
+env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C \
+  "$bash_bin" "$script" --backup-paths >"$work_dir/paths" 2>"$work_dir/err-paths" || status=$?
 snapshot >"$work_dir/after"
 
 if [[ $status == 0 ]]; then ok exit-0; else fail exit-0 "exit $status"; fi
@@ -275,7 +305,7 @@ else
   ok clean-repo-not-listed
 fi
 has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, not listed): 5'
-has git-summary "$(cat "$work_dir/out")" '| Git repositories | 25 | 20 |'
+has git-summary "$(cat "$work_dir/out")" '| Git repositories | 27 | 22 |'
 
 has detached-head "$(block_of example.com/owner/detached-head)" 'commits on no remote ref: 1'
 has detached-head-no-branch "$(block_of example.com/owner/detached-head)" 'on no branch (a detached HEAD or only a tag): 1'
@@ -318,6 +348,37 @@ if grep -qF -- "$marker" "$work_dir/out" "$work_dir/err"; then
 else
   ok credential-contents-not-printed
 fi
+
+ignored_repo=$ghq_root/example.com/owner/ignored-files
+has ignored-files-named "$(block_of example.com/owner/ignored-files)" 'ignored files to back up: 2 (`data/app.sqlite`, `local-notes.md`)'
+has ignored-files-next-step "$(block_of example.com/owner/ignored-files)" 'next: back up the ignored files `--backup-paths` lists'
+has ignored-credential-listed "$credentials" "\`$ghq_root/example.com/owner/ignored-files/data/$pem_name\`"
+paths=$(cat "$work_dir/paths")
+for path in "$home/.claude/projects/-fixture/memory/MEMORY.md" "$home/.local/share/agent-notes/note.md" \
+  "$home/Documents/report.txt" "$home/Downloads/file.zip" "$ignored_repo/local-notes.md" \
+  "$ignored_repo/data/app.sqlite" "$unicode_repo/notes.txt"; do
+  if grep -qxF -- "$path" <<<"$paths"; then ok "backup-path ${path#"$root"/}"; else fail "backup-path ${path#"$root"/}" 'not listed'; fi
+done
+for name in "$key_name" "$env_name" "$pem_name" output.bin atuin "$marker"; do
+  if grep -qF -- "$name" <<<"$paths"; then fail "backup-paths-leave-out $name" "$(grep -F -- "$name" <<<"$paths" | head -2 | tr '\n' ' ')"; else ok "backup-paths-leave-out $name"; fi
+done
+# A file left out because its name suggests a credential must still be named.
+while IFS= read -r file; do
+  if grep -qxF -- "$file" <<<"$paths" || grep -qF -- "\`~/${file#"$home"/}\`" <<<"$credentials"; then
+    ok "backup-or-credential ${file#"$home"/}"
+  else
+    fail "backup-or-credential ${file#"$home"/}" 'neither offered for backup nor named under Credentials'
+  fi
+done < <(find "$home/.claude/projects/-fixture/memory" "$home/.local/share/agent-notes" "$home/Documents" "$home/Downloads" -name .git -prune -o -type f -print)
+not_paths=$(while IFS= read -r line; do [[ -e $line ]] || printf '%s\n' "$line"; done <<<"$paths")
+if [[ -z $not_paths ]]; then ok backup-paths-only-paths; else fail backup-paths-only-paths "$(head -2 <<<"$not_paths" | tr '\n' ' ')"; fi
+if tar -cf "$work_dir/backup.tar" -T "$work_dir/paths" 2>/dev/null && tar -tf "$work_dir/backup.tar" >"$work_dir/archived"; then
+  # bsdtar lists a name in decomposed Unicode, so only its ASCII parts are matched.
+  has tar-takes-the-list "$(grep -F 'owner/uni code ' "$work_dir/archived")" '/notes.txt'
+else
+  fail tar-takes-the-list 'tar could not archive the list'
+fi
+has atuin-export-hint "$(cat "$work_dir/err-paths")" 'atuin history list'
 
 if diff "$work_dir/before" "$work_dir/after" >"$work_dir/diff"; then
   ok nothing-changed

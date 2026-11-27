@@ -12,6 +12,8 @@
 # only, never contents.
 # Usage: scripts/pre-wipe-inventory.sh >/tmp/inventory.md   (keep the report out
 #        of the checkout: it names private paths)
+#        scripts/pre-wipe-inventory.sh --backup-paths | tar -czf backup.tgz -T -
+#        (what cannot be re-created and is not a credential, one path per line)
 # Env: HOME; GHQ_ROOT (a colon-separated list; default: `ghq root --all`, else
 #      ~/repos); AGENT_NOTES_DIR (default: ~/.local/share/agent-notes). Runs on
 #      macOS's bash 3.2.
@@ -39,6 +41,9 @@ home_real=$(real_path "$HOME")
 home_real=${home_real:-$HOME}
 notes_dir=${AGENT_NOTES_DIR:-$HOME/.local/share/agent-notes}
 claude_dir=$HOME/.claude
+icloud="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
+desktop_documents_synced=0
+[[ -d $icloud/Desktop || -d $icloud/Documents ]] && desktop_documents_synced=1
 
 section_titles=()
 section_items=()
@@ -150,9 +155,47 @@ worktree_changes() { # <work tree>   prints "<tracked changes> <untracked files>
   printf '%s %s\n' "$(printf '%s' "$tracked" | count_lines)" "$(printf '%s' "$untracked" | count_lines)"
 }
 
+# A file name that may hold a secret, matched against a whole path: such a file
+# is listed under Credentials and never offered for backup.
+credential_name='/(\.env(\..*)?|\.envrc|\.dev\.vars|\.netrc|\.npmrc|\.pypirc|id_(rsa|dsa|ecdsa|ed25519)[^/]*|[^/]*(secret|credential|token|password)[^/]*|[^/]*[._]key|[^/]*\.(pem|p12|pfx|keychain-db))$'
+# Ignored paths a build or an install re-creates, matched against a path inside
+# a work tree. A fixed list: an ignored output named otherwise is offered for
+# backup, which costs space, not data.
+regenerable_ignored='(^|/)(node_modules|\.venv|venv|__pycache__|target|dist|build|\.next|\.nuxt|\.turbo|\.cache|\.parcel-cache|coverage|\.direnv|\.devbox|\.terraform|\.gradle|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox|\.DS_Store|[^/]*\.pyc)(/|$)'
+
+ignored_files() { # <work tree>   ignored files as absolute paths, without what a build re-creates
+  local entry
+  git_ro -c core.quotePath=false -C "$1" ls-files --others --ignored --exclude-standard --directory 2>/dev/null |
+    grep -vE "$regenerable_ignored" |
+    while IFS= read -r entry; do
+      if [[ $entry == */ ]]; then
+        (cd "$1" && find "${entry%/}" -name .git -prune -o ! -type d -print 2>/dev/null)
+      else
+        printf '%s\n' "$entry"
+      fi
+    done | grep -vE "$regenerable_ignored" |
+    while IFS= read -r entry; do printf '%s/%s\n' "$1" "$entry"; done
+}
+
+linked_worktrees() { # <`git worktree list --porcelain` output>   every work tree but the first entry's
+  awk '
+    /^worktree / { path = substr($0, 10); n++; bare = 0 }
+    /^bare$/ { bare = 1 }
+    /^$/ { if (n > 1 && !bare) print path; path = "" }
+    END { if (path != "" && n > 1 && !bare) print path }
+  ' <<<"$1"
+}
+
+worktrees_of() { # <main work tree or bare repository> <work|bare>   every work tree, the main one first
+  local at=(-C "$1")
+  [[ $2 == bare ]] && at=(--git-dir="$1")
+  [[ $2 == work ]] && printf '%s\n' "$1"
+  linked_worktrees "$(git_ro "${at[@]}" worktree list --porcelain 2>/dev/null)"
+}
+
 repo_findings() { # <main work tree or bare repository> <work|bare>   one line per thing the wipe would lose, then the next step
-  local dir=$1 kind=$2 out count ref upstream track worktree tracked untracked remotes sha
-  local unsaved=0 dirty=0 stashes=0 total=0 off_branch=0 branches='' at=() heads=()
+  local dir=$1 kind=$2 out count ref upstream track worktree tracked untracked remotes sha files file names
+  local unsaved=0 dirty=0 stashes=0 total=0 off_branch=0 branches='' git_unsaved ignored=0 at=() heads=()
   finding() { unsaved=1; echo "$1"; }
   if [[ $kind == bare ]]; then at=(--git-dir="$dir"); else at=(-C "$dir"); fi
   if ! git_ro "${at[@]}" rev-parse --git-dir >/dev/null 2>&1; then
@@ -180,12 +223,7 @@ repo_findings() { # <main work tree or bare repository> <work|bare>   one line p
       finding "linked worktree \`$(tilde "$worktree")\`: git status failed"
     fi
     dirty=1
-  done < <(awk '
-    /^worktree / { path = substr($0, 10); n++; bare = 0 }
-    /^bare$/ { bare = 1 }
-    /^$/ { if (n > 1 && !bare) print path; path = "" }
-    END { if (path != "" && n > 1 && !bare) print path }
-  ' <<<"$out")
+  done < <(linked_worktrees "$out")
   if git_ro "${at[@]}" rev-parse -q --verify refs/stash >/dev/null 2>&1; then
     stashes=$(git_ro "${at[@]}" log --walk-reflogs --format=%H refs/stash -- 2>/dev/null | count_lines)
     ((stashes > 0)) || stashes=1
@@ -212,37 +250,51 @@ repo_findings() { # <main work tree or bare repository> <work|bare>   one line p
   done < <(git_ro "${at[@]}" for-each-ref --format='%(refname)%09%(upstream)%09%(upstream:track)' refs/heads 2>/dev/null)
   off_branch=$(git_ro "${at[@]}" rev-list --count ${heads[@]+"${heads[@]}"} --tags --not --branches --remotes 2>/dev/null) || off_branch=0
   ((off_branch > 0)) && finding "on no branch (a detached HEAD or only a tag): $off_branch"
-  ((unsaved)) && next_step "$dir" "$remotes" "$dirty" "$stashes" "$off_branch" "$branches"
+  git_unsaved=$unsaved
+  while IFS= read -r worktree; do
+    [[ -d $worktree ]] || continue
+    files=$(ignored_files "$worktree" | grep -viE "$credential_name")
+    count=$(printf '%s' "$files" | count_lines)
+    ((count > 0)) || continue
+    ignored=$((ignored + count))
+    names=$(while IFS= read -r file; do printf '`%s`\n' "${file#"$worktree"/}"; done <<<"$files" | LC_ALL=C sort |
+      awk 'NR <= 5 { printf "%s%s", sep, $0; sep = ", " } END { if (NR > 5) printf ", and %d more", NR - 5 }')
+    if [[ $worktree == "$dir" ]]; then
+      finding "ignored files to back up: $count ($names)"
+    else
+      finding "linked worktree \`$(tilde "$worktree")\`: ignored files to back up: $count ($names)"
+    fi
+  done < <(worktrees_of "$dir" "$kind")
+  ((unsaved)) && next_step "$dir" "$remotes" "$dirty" "$stashes" "$off_branch" "$branches" "$git_unsaved" "$ignored"
   return 0
 }
 
-next_step() { # <repository> <remotes> <dirty> <stashes> <commits on no branch> <branches to push>
-  local quoted="'$1'" name=${1##*/} remote steps=''
+next_step() { # <repository> <remotes> <dirty> <stashes> <commits on no branch> <branches to push> <git work unsaved> <ignored files>
+  local quoted="'$1'" name=${1##*/} remote steps='' text=''
   name=${name%.git}.bundle
   [[ $name == *[!A-Za-z0-9._-]* ]] && name="'$name'"
   local bundle="\`git -C $quoted bundle create $name --all\`"
-  if [[ -z $2 ]]; then
-    if (($3 || $4)); then
-      echo "next: commit the uncommitted and untracked work and each stash (a bundle holds commits only), then $bundle"
+  if (($7)) && [[ -z $2 ]]; then
+    text=$bundle
+    (($3 || $4)) && text="commit the uncommitted and untracked work and each stash (a bundle holds commits only), then $bundle"
+  elif (($7)); then
+    remote=origin
+    grep -qx origin <<<"$2" || remote=$(head -n 1 <<<"$2")
+    (($3)) && steps='commit the uncommitted and untracked work'
+    (($4)) && steps="${steps:+$steps, }turn each stash into a branch (\`git stash branch <name>\`)"
+    (($5)) && steps="${steps:+$steps, }put the commits on no branch on a branch or tag"
+    if [[ -z $steps && -n $6 ]]; then
+      text="\`git -C $quoted push $remote$6\`"
+    elif [[ -n $steps && -n $6 ]]; then
+      text="$steps, then push what holds them, and \`git -C $quoted push $remote$6\`"
+    elif [[ -n $steps ]]; then
+      text="$steps, then push the branch or tag that holds them"
     else
-      echo "next: $bundle"
+      text=$bundle
     fi
-    return
   fi
-  remote=origin
-  grep -qx origin <<<"$2" || remote=$(head -n 1 <<<"$2")
-  (($3)) && steps='commit the uncommitted and untracked work'
-  (($4)) && steps="${steps:+$steps, }turn each stash into a branch (\`git stash branch <name>\`)"
-  (($5)) && steps="${steps:+$steps, }put the commits on no branch on a branch or tag"
-  if [[ -z $steps && -n $6 ]]; then
-    echo "next: \`git -C $quoted push $remote$6\`"
-  elif [[ -n $steps && -n $6 ]]; then
-    echo "next: $steps, then push what holds them, and \`git -C $quoted push $remote$6\`"
-  elif [[ -n $steps ]]; then
-    echo "next: $steps, then push the branch or tag that holds them"
-  else
-    echo "next: $bundle"
-  fi
+  (($8)) && text="${text:+$text; }back up the ignored files \`--backup-paths\` lists"
+  echo "next: $text"
 }
 
 repo_count=0
@@ -310,6 +362,43 @@ repo_label() { # <path>   relative to the ghq root that holds it, else from ~
   tilde "$1"
 }
 
+repo_ignored_files() { # every repository's ignored files
+  local dir kind worktree
+  while IFS=$'\t' read -r dir kind; do
+    [[ -n $dir ]] || continue
+    while IFS= read -r worktree; do
+      [[ -d $worktree ]] && ignored_files "$worktree"
+    done < <(worktrees_of "$dir" "$kind")
+  done <<<"$repo_list"
+  return 0
+}
+
+# Every file that cannot be re-created, credential-named ones included. A
+# directory is given as its files, so that a credential-named file inside it
+# can be taken out.
+backup_candidates() {
+  local dir folders=(Downloads Pictures)
+  ((desktop_documents_synced)) || folders=(Desktop Documents Downloads Pictures)
+  for dir in "$claude_dir"/projects/*/memory "$notes_dir" "${folders[@]/#/$HOME/}"; do
+    [[ -d $dir ]] && find "$dir" \( -name .git -o -name node_modules -o -name .cache \) -prune -o ! -type d -print 2>/dev/null
+  done
+  repo_ignored_files
+}
+
+# What cannot be re-created and is not a credential, one absolute path per line
+# for `tar -T -`. What it leaves out, the report lists under Credentials.
+backup_paths() {
+  local dir
+  backup_candidates | grep -viE "$credential_name" | LC_ALL=C sort -u
+  echo 'Files whose name suggests a credential are left out; the report names each one under Credentials.' >&2
+  for dir in "${ATUIN_HOME:-}" "$HOME/.local/share/atuin" "$HOME/.atuin"; do
+    [[ -n $dir && -d $dir ]] || continue
+    echo "atuin history is left out: \`$(tilde "$dir")\` also holds atuin's key. Export it with \`atuin history list --format '{time} {command}' >atuin-history.txt\` and back that file up." >&2
+    break
+  done
+  return 0
+}
+
 chezmoi_paths=''
 chezmoi_state='chezmoi not installed, so nothing counts as managed by it'
 if have chezmoi; then
@@ -362,13 +451,6 @@ fi
 
 nix_covers() { [[ -n $nix_names ]] && grep -qxF -- "$1" <<<"$nix_names"; }
 
-printf '# Pre-wipe inventory\n\n'
-printf 'What wiping this machine would lose. Generated %s on %s, read-only: the script writes nothing and runs no fetch. Each item marked **needs action** is something to save, push, or confirm before the wipe; credential locations show names, counts, and sizes only.\n\n' "$(date '+%Y-%m-%d %H:%M')" "$(uname -s)"
-printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
-have ghq || note 'ghq: not installed'
-
-section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch` in a repository first if its remote may have moved. Untracked files honour .gitignore; ignored files are not counted.'
-note "Searched \`~\` and every ghq root for work trees (a \`.git\` directory or file) and bare repositories, skipping $prune_list; symlinks are not followed. Each submodule and each linked worktree's repository is checked as a repository of its own."
 while IFS= read -r path; do
   case $path in
     */.git) add_repo "${path%/.git}" work ;;
@@ -376,6 +458,18 @@ while IFS= read -r path; do
     *) env_files=$env_files$path$'\n' ;;
   esac
 done < <(walk)
+if [[ ${1:-} == --backup-paths ]]; then
+  backup_paths
+  exit 0
+fi
+
+printf '# Pre-wipe inventory\n\n'
+printf 'What wiping this machine would lose. Generated %s on %s, read-only: the script writes nothing and runs no fetch. Each item marked **needs action** is something to save, push, or confirm before the wipe; credential locations show names, counts, and sizes only.\n\n' "$(date '+%Y-%m-%d %H:%M')" "$(uname -s)"
+printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n- what to back up: run with `--backup-paths` for one path per line, for `tar -T -`\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
+have ghq || note 'ghq: not installed'
+
+section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch` in a repository first if its remote may have moved. Untracked files honour .gitignore; ignored files are listed when no build re-creates them and their name suggests no secret.'
+note "Searched \`~\` and every ghq root for work trees (a \`.git\` directory or file) and bare repositories, skipping $prune_list; symlinks are not followed. Each submodule and each linked worktree's repository is checked as a repository of its own."
 notes_real=$(real_path "$notes_dir")
 while IFS=$'\t' read -r dir kind; do
   [[ -n $dir && $dir != "$notes_real" ]] && report_repo "$(repo_label "$dir")" "$dir" "$kind"
@@ -456,14 +550,14 @@ for path in .ssh .aws .kube .config/gcloud .config/op .gnupg .netrc .codex .clau
     note "\`~/$path\`: not found"
   fi
 done
-note "\`.env\` files (also \`.env.*\`, \`.envrc\`, \`.dev.vars\`) the repository walk reached, except tracked ones and \`.env.example\`, \`.env.sample\`, and \`.env.template\`:"
+note "\`.env\` files (also \`.env.*\`, \`.envrc\`, \`.dev.vars\`) the repository walk reached, except tracked ones and \`.env.example\`, \`.env.sample\`, and \`.env.template\`, and each file \`--backup-paths\` leaves out because its name suggests a secret:"
 found=0
 while IFS= read -r file; do
   [[ -n $file ]] || continue
   git_ro -C "${file%/*}" ls-files --error-unmatch -- "${file##*/}" >/dev/null 2>&1 && continue
   found=1
   needs_action "$(describe_location "$file")"
-done < <(printf '%s' "$env_files" | sed -E '/\.env\.(example|sample|template)$/d' | LC_ALL=C sort -u)
+done < <({ printf '%s' "$env_files" | sed -E '/\.env\.(example|sample|template)$/d'; backup_candidates | grep -iE "$credential_name"; } | LC_ALL=C sort -u)
 ((found)) || note 'none found'
 
 section 'Containers and VMs' 'export or recreate each listed image, volume, and VM; their data lives inside the VM disk and is lost with it.'
@@ -708,9 +802,8 @@ for name in Documents Desktop Downloads Pictures; do
     note "\`~/$name\`: not found"
   fi
 done
-icloud="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
 where='System Settings > your name > iCloud > iCloud Drive > Desktop & Documents Folders'
-if [[ -d $icloud/Desktop || -d $icloud/Documents ]]; then
+if ((desktop_documents_synced)); then
   note "iCloud Drive holds a Desktop or Documents folder, so Desktop & Documents sync looks on; confirm in $where."
 elif [[ -d $icloud ]]; then
   note "iCloud Drive holds no Desktop or Documents folder, so Desktop & Documents sync looks off; confirm in $where."

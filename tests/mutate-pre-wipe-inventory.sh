@@ -46,9 +46,21 @@ expect_caught 'commits on no branch are not named' '((off_branch > 0)) && findin
 expect_caught 'a linked worktree with changes is skipped' '((tracked + untracked > 0)) || continue' 'continue'
 expect_caught 'a repository clean filter runs' 'done < <(filter_overrides "$1")' 'done < <(:)'
 expect_caught 'the bundle next step is wrong' 'name=${name%.git}.bundle' 'name=${name%.git}.tar'
-expect_caught 'the push next step is wrong' '    echo "next: \`git -C $quoted push $remote$6\`"' '    echo "next: push"'
+expect_caught 'the push next step is wrong' '      text="\`git -C $quoted push $remote$6\`"' '      text=push'
 expect_caught 'uncommitted work is not committed first' "((\$3)) && steps='commit the uncommitted and untracked work'" ':'
 expect_caught 'env files the walk finds are dropped' "*) env_files=\$env_files\$path\$'\\n' ;;" '*) : ;;'
+expect_caught 'ignored files are not reported' '      finding "ignored files to back up: $count ($names)"' '      :'
+expect_caught 'ignored files get no next step' '(($8)) && text=' 'false && text='
+expect_caught 'a credential-named file left out of the backup is not listed' 'backup_candidates | grep -iE "$credential_name"; }' 'repo_ignored_files | grep -iE "$credential_name"; }'
+expect_caught 'credential-named files are offered for backup' 'backup_candidates | grep -viE "$credential_name" | LC_ALL=C sort -u' 'backup_candidates | LC_ALL=C sort -u'
+expect_caught 'build outputs are offered for backup' '|dist|build|' '|dist|'
+expect_caught 'an ignored directory is offered whole' '(cd "$1" && find "${entry%/}" -name .git -prune -o ! -type d -print 2>/dev/null)' 'printf "%s\n" "$entry"'
+expect_caught 'Claude Code memory is not offered for backup' 'for dir in "$claude_dir"/projects/*/memory ' 'for dir in '
+expect_caught 'the user folders are not offered for backup' '"$notes_dir" "${folders[@]/#/$HOME/}"' '"$notes_dir"'
+expect_caught 'Desktop and Documents are left out when sync is not known to be on' '((desktop_documents_synced)) || folders=(Desktop Documents Downloads Pictures)' ':'
+expect_caught 'the report follows the backup list' '  backup_paths
+  exit 0' '  backup_paths'
+expect_caught 'the atuin export hint is missing' 'echo "atuin history is left out:' ': "atuin history is left out:'
 expect_caught 'clean repositories are listed' 'if [[ -z $findings ]]; then
     repo_clean' 'if [[ -z $findings && 1 == 2 ]]; then
     repo_clean'
