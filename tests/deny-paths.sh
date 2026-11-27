@@ -38,7 +38,7 @@ while IFS= read -r rule; do
   case $rule in
     '~/'*)
       first_segment=${rule#'~/'}
-      first_segment=${first_segment%%/*}
+      first_segment=$(tr '[:upper:]' '[:lower:]' <<<"${first_segment%%/*}")
       if [[ $first_segment == repos || $first_segment == *[*?[]* ]]; then
         echo "FAIL: Read($rule) may reach this checkout under ~/repos, which this check does not evaluate"
         failures=$((failures + 1))
