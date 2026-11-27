@@ -73,6 +73,16 @@ STUB
   chmod +x "$bin/ghq" "$bin/fzf" "$bin/atuin"
 }
 
+# A `locale` in the fake profile that lists only the given locales, so both
+# outcomes of .zshenv's LANG choice can be tested on any machine.
+add_locale_stub() { # <home> <locale>...
+  local home=$1
+  shift
+  printf '%s\n' "$@" >"$home/.nix-profile/locales"
+  printf '#!/bin/sh\ncat %q\n' "$home/.nix-profile/locales" >"$home/.nix-profile/bin/locale"
+  chmod +x "$home/.nix-profile/bin/locale"
+}
+
 # A non-secret work profile and a local zsh override, with a decoy in $HOME that
 # the files must not read.
 add_fixtures() { # <home>
@@ -219,6 +229,21 @@ is xdg-cache-home "$home/.cache" "$(field XDG_CACHE_HOME "$vars")"
 is zdotdir "$home/.config/zsh" "$(field ZDOTDIR "$vars")"
 is atuin-home "$home/.local/share/atuin" "$(field ATUIN_HOME "$vars")"
 is editor nvim "$(field EDITOR "$vars")"
+is visual nvim "$(field VISUAL "$vars")"
+is pager less "$(field PAGER "$vars")"
+is manpager 'less -R' "$(field MANPAGER "$vars")"
+
+# en_US.UTF-8 where the system has it (glibc lists it as en_US.utf8), and
+# C.UTF-8 where it does not, as on a stock Ubuntu, where a missing LANG makes
+# every child process warn.
+lang_home=$(new_home lang-glibc)
+add_locale_stub "$lang_home" C C.utf8 en_US.utf8 POSIX
+is lang-en-us-when-listed en_US.UTF-8 \
+  "$(field LANG "$(run_zsh "$lang_home" -c printenv 2>/dev/null)")"
+lang_home=$(new_home lang-c-only)
+add_locale_stub "$lang_home" C C.utf8 POSIX
+is lang-c-utf8-when-en-us-absent C.UTF-8 \
+  "$(field LANG "$(run_zsh "$lang_home" -c printenv 2>/dev/null)")"
 
 nonlogin_path=$(run_zsh "$home" -c 'print -r -- $PATH' 2>/dev/null) || true
 check_path_holds path "$nonlogin_path" "$home" "$home/.local/share"

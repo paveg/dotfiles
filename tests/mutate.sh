@@ -141,6 +141,24 @@ expect_caught caller-atuin-home-follows-data-home 'ATUIN_HOME ignores XDG_DATA_H
 expect_caught editor 'EDITOR is never set' \
   .config/zsh/.zshenv 'export EDITOR=nvim' ''
 
+expect_caught visual 'VISUAL is never set' \
+  .config/zsh/.zshenv $'export VISUAL=nvim\n' ''
+
+expect_caught pager 'PAGER is never set' \
+  .config/zsh/.zshenv $'export PAGER=less\n' ''
+
+expect_caught manpager 'MANPAGER is never set' \
+  .config/zsh/.zshenv $'export MANPAGER=\'less -R\'\n' ''
+
+expect_caught lang-c-utf8-when-en-us-absent 'LANG is en_US.UTF-8 whether or not the system has it' \
+  .config/zsh/.zshenv 'export LANG=C.UTF-8' 'export LANG=en_US.UTF-8'
+
+expect_caught lang-c-utf8-when-en-us-absent 'the fallback LANG is set but not exported' \
+  .config/zsh/.zshenv 'export LANG=C.UTF-8' 'LANG=C.UTF-8'
+
+expect_caught lang-en-us-when-listed "glibc's spelling en_US.utf8 is not recognised" \
+  .config/zsh/.zshenv "'en_US\\.utf-?8'" "'en_US\\.utf-8'"
+
 # One directory at a time off the PATH list, which must fail the same checks in
 # both a non-login and a login shell.
 expect_caught 'path-nix-profile login-path-nix-profile login-path-nix-profile-before-usr-bin nonlogin-git-from-nix-profile login-git-from-nix-profile' \

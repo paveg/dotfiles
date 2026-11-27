@@ -11,7 +11,18 @@ _dots_path=(
 )
 path=($_dots_path $path)
 
+# A stock Ubuntu has only C.UTF-8, and a LANG it lacks makes every child
+# process warn. glibc lists the locale as en_US.utf8, macOS as en_US.UTF-8.
+if locale -a 2>/dev/null | grep -qiEx 'en_US\.utf-?8'; then
+  export LANG=en_US.UTF-8
+else
+  export LANG=C.UTF-8
+fi
+
 export EDITOR=nvim
+export VISUAL=nvim
+export PAGER=less
+export MANPAGER='less -R'
 
 # Ubuntu's /etc/zsh/zshrc runs a compinit of its own, dumping into $ZDOTDIR,
 # unless this is set; .zshrc runs the one compinit.
