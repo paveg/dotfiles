@@ -81,6 +81,8 @@ expect_caught 'a file with a second hard link is listed' '-type f -links 1 -prin
 expect_caught 'a symlinked credential location is not resolved' '[[ -e $location ]] && location=$(realpath' 'false && location=$(realpath'
 expect_caught 'a file in a credential location is listed' "&& why='it is in a credential location'" '&& :'
 expect_caught 'a credential-named file below a backup root is listed' '[[ $path =~ $credential_name ]] && why=' 'false && why='
+expect_caught 'a password-named file is listed' '(secret|credential|token|password)' '(secret|credential|token)'
+expect_caught 'a .git directory below a backup root is listed' 'prune=(\( -name .git -o -name node_modules' 'prune=(\( -name node_modules'
 expect_caught 'a credential name is matched case-sensitively' '      shopt -s nocasematch' '      :'
 expect_caught 'without realpath the files are listed anyway' 'have realpath || why=' 'true || why='
 expect_caught 'backup paths are separated by newlines' "      printf '%s\0' \"\$path\"

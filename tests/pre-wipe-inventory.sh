@@ -223,6 +223,8 @@ printf '%s\n' "$marker" >"$home/wt/linked-detached/$env_name"
 mkdir -p "$notes" "$home/Documents" "$home/Downloads" "$home/.docker"
 printf 'memory\n' >"$memory/MEMORY.md"
 printf 'memory\n' >"$memory/TOKEN-rotation.md"
+password_name=passwords.txt
+printf '%s\n' "$marker" >"$memory/$password_name"
 mkfifo "$memory/fifo"
 docker_login=$home/.docker/config.json
 printf '%s\n' "$marker" >"$docker_login"
@@ -239,6 +241,8 @@ printf 'note\n' | tee "$work_dir/outside-notes/note.md" "$home/notes-elsewhere/n
 # The agent notes are a repository with no remote.
 fixture_git init -q "$notes"
 commit "$notes" note.md note
+# A token in a URL in the notes repository's .git/config, which no backup lists.
+fixture_git -C "$notes" config "url.https://fixture:$marker@example.com/.insteadOf" https://example.com/
 printf '%s\n' "$marker" >"$notes/$env_name"
 unicode_note="$notes/uni code ñ.md"
 printf 'note\n' >"$unicode_note"
@@ -499,7 +503,7 @@ done
 if is_record "$forged"; then ok backup-paths-newline-name-whole; else fail backup-paths-newline-name-whole 'a name holding a newline is not one record'; fi
 outside=$(for record in ${records[@]+"${records[@]}"}; do if [[ $record != "$memory"/* && $record != "$notes"/* ]]; then printf '%s ' "$record"; fi; done)
 if [[ -z $outside ]]; then ok backup-paths-roots-only; else fail backup-paths-roots-only "$outside"; fi
-for name in "$env_name" TOKEN-rotation fifo hardlinked outside "$ed_name" .p8 "$marker"; do
+for name in "$env_name" TOKEN-rotation "$password_name" fifo hardlinked outside "$ed_name" .p8 "$marker"; do
   leaked=$(for record in ${records[@]+"${records[@]}"}; do if [[ $record == *"$name"* ]]; then printf '%s ' "$record"; fi; done)
   if [[ -n $leaked ]]; then fail "backup-paths-leave-out $name" "$leaked"; else ok "backup-paths-leave-out $name"; fi
 done
@@ -519,9 +523,11 @@ while IFS= read -r -d '' file; do
   fi
 done < <(find "$memory" "$notes" -name .git -prune -o ! -type d -print0)
 for pair in "fifo:not a regular file" "hardlinked.md:another hard link to it exists" "outside.md:a symlink, which is not followed" \
-  "TOKEN-rotation.md:its name suggests a secret" "ssh/$key_name:it is in a credential location"; do
+  "TOKEN-rotation.md:its name suggests a secret" "$password_name:its name suggests a secret" "ssh/$key_name:it is in a credential location"; do
   has "left-out-why ${pair%%:*}" "$left_out" "memory/${pair%%:*}\`: left out of \`--backup-paths\`: ${pair#*:}"
 done
+in_git=$(for record in ${records[@]+"${records[@]}"}; do if [[ $record == */.git/* ]]; then printf '%s ' "$record"; fi; done)
+if [[ -z $in_git ]]; then ok backup-paths-no-git-dir; else fail backup-paths-no-git-dir "$in_git"; fi
 not_paths=$(for record in ${records[@]+"${records[@]}"}; do if [[ ! -e $record && ! -L $record ]]; then printf '%s ' "$record"; fi; done)
 if [[ -z $not_paths ]]; then ok backup-paths-only-paths; else fail backup-paths-only-paths "$not_paths"; fi
 if tar --null -cf "$work_dir/backup.tar" -T "$work_dir/paths" 2>/dev/null && tar -tf "$work_dir/backup.tar" >"$work_dir/archived"; then
