@@ -8,53 +8,26 @@ set -euo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 
-work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
+# shellcheck source=tests/lib/mutate.sh
+source "$repo_dir/tests/lib/mutate.sh"
 
-failures=0
-
-expect_pass() {
-  local out
-  if out=$("$repo_dir/tests/ssh.sh" 2>&1); then
-    echo "pass: the file as committed"
-  else
-    echo "FAIL: the file as committed should pass"
-    grep '^FAIL' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
+run_mutant() { # <dir> <check>... <old> <new>
+  local dir=$1 checks=$2 old=$3 new=$4 out
+  cp "$repo_dir/nix/ssh_config" "$dir/ssh_config"
+  mutate_apply "$dir/ssh_config" "$old" "$new" || return
+  out=$("$repo_dir/tests/ssh.sh" "$dir/ssh_config" 2>&1) || true
+  mutate_has_summary "$out" || return
+  # shellcheck disable=SC2086 # one check name per word
+  mutate_checks_failed "$out" $checks
 }
 
 expect_caught() { # <check>... <description> <old> <new>
-  local checks=$1 description=$2 old=$3 new=$4 dir out check missing
-  dir=$(mktemp -d "$work_dir/mutant.XXXX")
-  cp "$repo_dir/nix/ssh_config" "$dir/ssh_config"
-  OLD=$old NEW=$new python3 - "$dir/ssh_config" <<'PY'
-import os, sys
-path = sys.argv[1]
-text = open(path).read()
-old, new = os.environ["OLD"], os.environ["NEW"]
-if text.count(old) != 1:
-    sys.exit(f"mutation target found {text.count(old)} times: {old!r}")
-open(path, "w").write(text.replace(old, new))
-PY
-  out=$("$repo_dir/tests/ssh.sh" "$dir/ssh_config" 2>&1) || true
-  missing=
-  grep -q '^summary:' <<<"$out" || missing=' (no summary line)'
-  for check in $checks; do
-    grep -q "^FAIL: $check:" <<<"$out" || missing="$missing $check"
-  done
-  if [[ -z $missing ]]; then
-    echo "caught: $description"
-  else
-    echo "MISSED: $description (expected to fail:$missing)"
-    grep -E '^(FAIL|summary)' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
+  mutant "$2" run_mutant "$1" "$3" "$4"
 }
 
 socket='"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"'
 
-expect_pass
+mutate_baseline 'the file as committed' "$repo_dir/tests/ssh.sh"
 
 expect_caught 'identity-agent-github identity-agent-any-host pve-identity-agent' \
   'ssh uses whatever agent SSH_AUTH_SOCK names' \
@@ -88,8 +61,4 @@ expect_caught pve-host-key-alias 'the host key is pinned under the address, whic
 expect_caught pve-strict-host-key-checking 'an unknown host key is offered for acceptance' \
   'StrictHostKeyChecking yes' 'StrictHostKeyChecking ask'
 
-if ((failures > 0)); then
-  echo "$failures mutation check(s) failed"
-  exit 1
-fi
-echo "every mutant is caught"
+mutate_finish
