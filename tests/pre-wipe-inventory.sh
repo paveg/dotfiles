@@ -195,31 +195,51 @@ touch -t 202001010000 "$dir/README"
 # holds atuin's key.
 mkdir -p "$home/Music" "$home/.local/share/atuin"
 
-# The credential fixture's path is assembled here so that it never appears on a
-# command line, where the live credential guard would block it.
+# The credential fixtures' paths are assembled here so that they never appear on
+# a command line, where the live credential guard would block them.
 marker='fixture-line-that-must-never-be-printed'
-credential_dir=$home/.ssh
+memory=$home/.claude/projects/-fixture/memory
+notes=$home/.local/share/agent-notes
+# ~/.ssh is a symlink into the Claude Code memory, which --backup-paths reads.
+credential_dir=$memory/ssh
 key_name=id_test
 mkdir -p "$credential_dir"
+ln -s "$credential_dir" "$home/.ssh"
 printf '%s\n' "$marker" >"$credential_dir/$key_name"
 # Env files outside the ghq root: in a repository under ~ and in a linked worktree.
 env_name=.env.local
 printf '%s\n' "$marker" >"$home/work/work-repo/$env_name"
 printf '%s\n' "$marker" >"$home/wt/linked-detached/$env_name"
 
-# What only this disk holds and --backup-paths must offer: Claude Code memory,
-# agent notes, the user folders, and ignored files no build re-creates. A
-# credential-named file sits beside each so the list can be seen to leave it out.
-pem_name=server.pem
-mkdir -p "$home/.claude/projects/-fixture/memory" "$home/.local/share/agent-notes" "$home/Documents" "$home/Downloads"
-printf 'memory\n' >"$home/.claude/projects/-fixture/memory/MEMORY.md"
-printf 'memory\n' >"$home/.claude/projects/-fixture/memory/token-rotation.md"
+# --backup-paths lists the files below Claude Code memory and the agent notes.
+# Beside them sits one file for each way such a file is left out: a credential
+# name, a FIFO, a second hard link (to a docker login), and a symlink out of the
+# root. Documents, with key-named files, and Downloads are no backup root.
+mkdir -p "$notes" "$home/Documents" "$home/Downloads" "$home/.docker"
+printf 'memory\n' >"$memory/MEMORY.md"
+printf 'memory\n' >"$memory/TOKEN-rotation.md"
+mkfifo "$memory/fifo"
+docker_login=$home/.docker/config.json
+printf '%s\n' "$marker" >"$docker_login"
+ln "$docker_login" "$memory/hardlinked.md"
+ln -s "$home/Documents/report.txt" "$memory/outside.md"
 # The agent notes are a repository with no remote.
-fixture_git init -q "$home/.local/share/agent-notes"
-commit "$home/.local/share/agent-notes" note.md note
-printf '%s\n' "$marker" >"$home/.local/share/agent-notes/$env_name"
+fixture_git init -q "$notes"
+commit "$notes" note.md note
+printf '%s\n' "$marker" >"$notes/$env_name"
+unicode_note="$notes/uni code ñ.md"
+printf 'note\n' >"$unicode_note"
+# A file name holding a newline and then the fixture key's path, which a
+# newline-separated list would offer as a path of its own.
+forged="$memory/forged"$'\n'"$home/.ssh/$key_name"
+mkdir -p "${forged%/*}"
+printf 'decoy\n' >"$forged"
+ed_name=github_ed25519
+p8_name=AuthKey_FIXTURE.p8
 printf 'document\n' >"$home/Documents/report.txt"
+printf '%s\n' "$marker" | tee "$home/Documents/$ed_name" "$home/Documents/$p8_name" >/dev/null
 printf 'download\n' >"$home/Downloads/file.zip"
+pem_name=server.pem
 dir=$(pushed_repo ignored-files)
 printf 'local-notes.md\ndata/\nbuild/\n%s\n' "$env_name" >"$dir/.gitignore"
 fixture_git -C "$dir" add .gitignore
@@ -236,25 +256,19 @@ fixture_git init -q "$unicode_repo"
 printf 'notes.txt\n' >"$unicode_repo/.gitignore"
 commit "$unicode_repo" .gitignore 'ignore notes'
 printf 'notes\n' >"$unicode_repo/notes.txt"
-# A file name holding a newline and then the fixture key's path, which a
-# newline-separated list would offer as a path of its own.
-forged="$home/Documents/forged"$'\n'"$credential_dir/$key_name"
-mkdir -p "${forged%/*}"
-printf 'decoy\n' >"$forged"
-# A repository whose ignored files sit in a credential location, and a FIFO,
-# which is no file to back up.
+# A repository whose ignored files sit in a credential location.
 gnupg_dir=$home/.gnupg
 fixture_git init -q "$gnupg_dir"
 printf '*\n' >"$gnupg_dir/.gitignore"
 commit "$gnupg_dir" .gitignore '!.gitignore'
 printf '%s\n' "$marker" >"$gnupg_dir/pubring.kbx"
-mkfifo "$home/Downloads/fifo"
 
 # Only git and the utilities a POSIX script needs; no brew, docker, nix, or the
 # other optional tools, so every optional probe takes its "not installed" path.
 stub_bin=$work_dir/bin
+posix_tools=(awk basename cat cut date dirname du find grep head ls realpath sed sort tail tr uname wc)
 mkdir -p "$stub_bin"
-for tool in git awk basename cat cut date dirname du find grep head ls sed sort tail tr uname wc; do
+for tool in git "${posix_tools[@]}"; do
   ln -s "$(command -v "$tool")" "$stub_bin/$tool"
 done
 
@@ -292,6 +306,15 @@ printf '{\n  "packages": [\n    "fixture-devbox@latest"\n  ]\n}\n' >"$home/.loca
 printf '{"installs":{"fixture-crate 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)":{"bins":["fixture"]}}}\n' >"$home/.cargo/.crates2.json"
 ln -s 1.0 "$home/.local/share/mise/installs/fixture-tool/latest"
 touch "$home/.colima/_lima/colima/lima.yaml" "$home/.lima/fixture-vm/lima.yaml"
+# --backup-paths runs where git, ghq, and chezmoi only log a call: it needs none.
+paths_bin=$work_dir/paths-bin
+mkdir -p "$paths_bin"
+for tool in "${posix_tools[@]}"; do ln -s "$(command -v "$tool")" "$paths_bin/$tool"; done
+for tool in git ghq chezmoi; do stub "$paths_bin/$tool"; done
+# Without realpath a symlinked credential location cannot be resolved.
+no_realpath_bin=$work_dir/no-realpath-bin
+mkdir -p "$no_realpath_bin"
+for tool in "${posix_tools[@]}"; do [[ $tool == realpath ]] || ln -s "$(command -v "$tool")" "$no_realpath_bin/$tool"; done
 
 snapshot() { # prints every path under the temporary tree and a checksum of each file
   (
@@ -319,14 +342,15 @@ env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C 
   "$bash_bin" "$script" >"$work_dir/out" 2>"$work_dir/err" || status=$?
 env -i HOME="$home" PATH="$tools_bin:$brew_prefix/bin:$stub_bin" PNPM_HOME="$root/pnpm" LC_ALL=C \
   "$bash_bin" "$script" >"$work_dir/out-tools" 2>"$work_dir/err-tools" || status=$?
-env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C \
-  "$bash_bin" "$script" --backup-paths >"$work_dir/paths" 2>"$work_dir/err-paths" || status=$?
+env -i HOME="$home" PATH="$paths_bin" LC_ALL=C "$bash_bin" "$script" --backup-paths >"$work_dir/paths" 2>"$work_dir/err-paths" || status=$?
+env -i HOME="$home" PATH="$no_realpath_bin" LC_ALL=C "$bash_bin" "$script" --backup-paths >"$work_dir/paths-no-realpath" 2>"$work_dir/err-no-realpath" || status=$?
 snapshot >"$work_dir/after"
-# With iCloud Drive holding a Documents folder, Desktop & Documents sync looks
-# on: the list leaves both folders out and says so.
-mkdir -p "$home/Library/Mobile Documents/com~apple~CloudDocs/Documents"
-env -i HOME="$home" PATH="$stub_bin" GHQ_ROOT="$ghq_root:$second_root" LC_ALL=C \
-  "$bash_bin" "$script" --backup-paths >"$work_dir/paths-synced" 2>"$work_dir/err-synced" || status=$?
+# ~/.ssh as a symlink into Documents instead, which is no backup root.
+rm "$home/.ssh"
+mkdir -p "$home/Documents/ssh"
+printf '%s\n' "$marker" >"$home/Documents/ssh/$key_name"
+ln -s "$home/Documents/ssh" "$home/.ssh"
+env -i HOME="$home" PATH="$paths_bin" LC_ALL=C "$bash_bin" "$script" --backup-paths >"$work_dir/paths-ssh-documents" 2>/dev/null || status=$?
 
 if [[ $status == 0 ]]; then ok exit-0; else fail exit-0 "exit $status"; fi
 if grep -q '^## Summary' "$work_dir/out"; then ok summary-section; else fail summary-section "no '## Summary' heading"; fi
@@ -426,15 +450,19 @@ else
 fi
 
 ignored_repo=$ghq_root/example.com/owner/ignored-files
-has ignored-files-named "$(block_of example.com/owner/ignored-files)" 'ignored files to back up: 2 (`data/app.sqlite`, `local-notes.md`)'
-has ignored-files-next-step "$(block_of example.com/owner/ignored-files)" 'next: back up the ignored files `--backup-paths` lists'
-has ignored-credential-listed "$credentials" "\`$ghq_root/example.com/owner/ignored-files/data/$pem_name\`"
+has ignored-files-named "$(block_of example.com/owner/ignored-files)" 'ignored files no build re-creates: 2 (`data/app.sqlite`, `local-notes.md`)'
+has ignored-files-by-hand "$(block_of example.com/owner/ignored-files)" 'copy by hand the ignored files to keep: `--backup-paths` does not list them'
+has ignored-credential-listed "$credentials" "\`$ignored_repo/data/$pem_name\`"
 # shellcheck disable=SC2088
-if block_of '~/.gnupg' | grep -qF 'ignored files to back up'; then
-  fail credential-location-not-offered 'files in a credential location are offered for backup'
+if block_of '~/.gnupg' | grep -qF 'ignored files no build re-creates'; then
+  fail credential-location-not-offered 'files in a credential location are offered to copy'
 else
   ok credential-location-not-offered
 fi
+folders=$(sed -n '/^## Large user folders/,/^## LaunchAgents/p' "$work_dir/out")
+has user-folders-by-hand "$folders" '`--backup-paths` does not list them'
+# shellcheck disable=SC2088
+has user-folder-counted "$folders" '`~/Documents`: 3 file(s)'
 records=()
 while IFS= read -r -d '' record; do records+=("$record"); done <"$work_dir/paths"
 is_record() { # <path>
@@ -442,13 +470,13 @@ is_record() { # <path>
   for record in ${records[@]+"${records[@]}"}; do [[ $record == "$1" ]] && return 0; done
   return 1
 }
-for path in "$home/.claude/projects/-fixture/memory/MEMORY.md" "$home/.local/share/agent-notes/note.md" \
-  "$home/Documents/report.txt" "$home/Downloads/file.zip" "$ignored_repo/local-notes.md" \
-  "$ignored_repo/data/app.sqlite" "$unicode_repo/notes.txt"; do
+for path in "$memory/MEMORY.md" "$notes/note.md" "$unicode_note"; do
   if is_record "$path"; then ok "backup-path ${path#"$root"/}"; else fail "backup-path ${path#"$root"/}" 'not listed'; fi
 done
 if is_record "$forged"; then ok backup-paths-newline-name-whole; else fail backup-paths-newline-name-whole 'a name holding a newline is not one record'; fi
-for name in "$env_name" "$pem_name" output.bin atuin "$marker"; do
+outside=$(for record in ${records[@]+"${records[@]}"}; do if [[ $record != "$memory"/* && $record != "$notes"/* ]]; then printf '%s ' "$record"; fi; done)
+if [[ -z $outside ]]; then ok backup-paths-roots-only; else fail backup-paths-roots-only "$outside"; fi
+for name in "$env_name" TOKEN-rotation fifo hardlinked outside "$ed_name" .p8 "$marker"; do
   leaked=$(for record in ${records[@]+"${records[@]}"}; do if [[ $record == *"$name"* ]]; then printf '%s ' "$record"; fi; done)
   if [[ -n $leaked ]]; then fail "backup-paths-leave-out $name" "$leaked"; else ok "backup-paths-leave-out $name"; fi
 done
@@ -458,29 +486,38 @@ leaked=$(for record in ${records[@]+"${records[@]}"}; do
   done
 done)
 if [[ -n $leaked ]]; then fail backup-paths-no-credential-location "$leaked"; else ok backup-paths-no-credential-location; fi
-if is_record "$home/Downloads/fifo"; then fail backup-paths-files-only 'a FIFO is listed'; else ok backup-paths-files-only; fi
-# A file left out because its name suggests a credential must still be named.
+# Each file below a backup root is listed, or the report names it and why not.
+left_out=$(sed -n '/^## Notes and agent state/,/^## Shell history/p' "$work_dir/out")
 while IFS= read -r -d '' file; do
-  if is_record "$file" || grep -qF -- "\`~/${file#"$home"/}\`" <<<"$credentials"; then
-    ok "backup-or-credential ${file#"$home"/}"
+  if is_record "$file" || grep -qF -- "\`~/${file#"$home"/}\`: left out of \`--backup-paths\`" <<<"$left_out"; then
+    ok "listed-or-named ${file#"$home"/}"
   else
-    fail "backup-or-credential ${file#"$home"/}" 'neither offered for backup nor named under Credentials'
+    fail "listed-or-named ${file#"$home"/}" 'neither listed nor named in the report'
   fi
-done < <(find "$home/.claude/projects/-fixture/memory" "$home/.local/share/agent-notes" "$home/Documents" "$home/Downloads" -name .git -prune -o -type f -print0)
+done < <(find "$memory" "$notes" -name .git -prune -o ! -type d -print0)
+for pair in "fifo:not a regular file" "hardlinked.md:another hard link to it exists" "outside.md:a symlink, which is not followed" \
+  "TOKEN-rotation.md:its name suggests a secret" "ssh/$key_name:it is in a credential location"; do
+  has "left-out-why ${pair%%:*}" "$left_out" "memory/${pair%%:*}\`: left out of \`--backup-paths\`: ${pair#*:}"
+done
 not_paths=$(for record in ${records[@]+"${records[@]}"}; do if [[ ! -e $record && ! -L $record ]]; then printf '%s ' "$record"; fi; done)
 if [[ -z $not_paths ]]; then ok backup-paths-only-paths; else fail backup-paths-only-paths "$not_paths"; fi
 if tar --null -cf "$work_dir/backup.tar" -T "$work_dir/paths" 2>/dev/null && tar -tf "$work_dir/backup.tar" >"$work_dir/archived"; then
   # bsdtar lists a name in decomposed Unicode, so only its ASCII parts are matched.
-  has tar-takes-the-list "$(grep -F 'owner/uni code ' "$work_dir/archived")" '/notes.txt'
-  if tar -xOf "$work_dir/backup.tar" | grep -qF -- "$marker"; then fail backup-holds-no-credential 'the fixture key contents are in the archive'; else ok backup-holds-no-credential; fi
+  has tar-takes-the-list "$(grep -F 'agent-notes/uni code ' "$work_dir/archived")" '.md'
+  # Not piped into `grep -q`: under pipefail, tar killed by the early exit would read as no match.
+  tar -xOf "$work_dir/backup.tar" >"$work_dir/archived-contents"
+  if grep -qF -- "$marker" "$work_dir/archived-contents"; then fail backup-holds-no-credential 'the fixture key contents are in the archive'; else ok backup-holds-no-credential; fi
 else
   fail tar-takes-the-list 'tar could not archive the list'
 fi
 has atuin-export-hint "$(cat "$work_dir/err-paths")" 'atuin history list'
-synced=$(tr '\0' '\n' <"$work_dir/paths-synced")
-if grep -qxF -- "$home/Documents/report.txt" <<<"$synced"; then fail synced-documents-left-out 'Documents is listed while its sync looks on'; else ok synced-documents-left-out; fi
-has synced-downloads-kept "$synced" "$home/Downloads/file.zip"
-has synced-documents-said "$(cat "$work_dir/err-synced")" 'Desktop and Documents are left out'
+has backup-scope-said "$(cat "$work_dir/err-paths")" 'Desktop, Documents, Downloads, Pictures, and the files repositories ignore are not'
+if [[ -s $work_dir/paths-no-realpath ]]; then fail no-realpath-lists-nothing "$(tr '\0' ' ' <"$work_dir/paths-no-realpath")"; else ok no-realpath-lists-nothing; fi
+has no-realpath-said "$(cat "$work_dir/err-no-realpath")" 'realpath is not installed'
+moved=$(tr '\0' '\n' <"$work_dir/paths-ssh-documents")
+has ssh-in-documents-run "$moved" "$memory/MEMORY.md"
+leaked=$(while IFS= read -r -d '' record; do if [[ $record == "$home/Documents"/* || $record == "$home/.ssh"/* ]]; then printf '%s ' "$record"; fi; done <"$work_dir/paths-ssh-documents")
+if [[ -n $leaked ]]; then fail ssh-in-documents-not-listed "$leaked"; else ok ssh-in-documents-not-listed; fi
 
 if diff "$work_dir/before" "$work_dir/after" >"$work_dir/diff"; then
   ok nothing-changed
