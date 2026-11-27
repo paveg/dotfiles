@@ -264,6 +264,11 @@ if [[ $host == wsl ]]; then
     'design.md gains a winget install with two spaces before --id' \
     docs/design.md "$onepassword_line" "$(with_winget ' --id Example.Spaced -e')"
 
+  expect_caught 'no-entry-wsl-Example.Gap' \
+    'design.md gains a winget install with two spaces between winget and install' \
+    docs/design.md "$onepassword_line" \
+    "$(printf '%s\n  - Example: `winget  install --id Example.Gap -e`.' "$onepassword_line")"
+
   expect_caught 'no-entry-wsl-Example.Store' \
     'design.md gains a winget install whose id follows -s and its value' \
     docs/design.md "$onepassword_line" "$(with_winget '-s msstore Example.Store')"

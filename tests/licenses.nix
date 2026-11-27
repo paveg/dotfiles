@@ -166,7 +166,7 @@ let
       builtins.filter (token: builtins.isString token && token != "") (
         builtins.split "[[:space:]]+" (builtins.head match)
       )
-    ) (builtins.filter builtins.isList (builtins.split "winget install(([[:space:]][^`\n]*)?)" design))
+    ) (builtins.filter builtins.isList (builtins.split "winget[[:space:]]+install(([[:space:]][^`\n]*)?)" design))
   );
   # Every option `winget install` takes, by whether it takes a value: another
   # option makes the command unparsed.
