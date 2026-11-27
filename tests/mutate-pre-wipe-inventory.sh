@@ -67,6 +67,7 @@ expect_caught 'Desktop and Documents are left out when sync is not known to be o
 expect_caught 'the report follows the backup list' '  backup_paths
   exit 0' '  backup_paths'
 expect_caught 'the atuin export hint is missing' 'echo "atuin history is left out:' ': "atuin history is left out:'
+expect_caught 'agent notes in git are checked without a kind' 'findings=$(repo_findings "$notes_dir" work)' 'findings=$(repo_findings "$notes_dir")'
 expect_caught 'clean repositories are listed' 'if [[ -z $findings ]]; then
     repo_clean' 'if [[ -z $findings && 1 == 2 ]]; then
     repo_clean'

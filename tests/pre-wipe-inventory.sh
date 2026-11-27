@@ -176,7 +176,9 @@ pem_name=server.pem
 mkdir -p "$home/.claude/projects/-fixture/memory" "$home/.local/share/agent-notes" "$home/Documents" "$home/Downloads"
 printf 'memory\n' >"$home/.claude/projects/-fixture/memory/MEMORY.md"
 printf 'memory\n' >"$home/.claude/projects/-fixture/memory/token-rotation.md"
-printf 'note\n' >"$home/.local/share/agent-notes/note.md"
+# The agent notes are a repository with no remote.
+fixture_git init -q "$home/.local/share/agent-notes"
+commit "$home/.local/share/agent-notes" note.md note
 printf '%s\n' "$marker" >"$home/.local/share/agent-notes/$env_name"
 printf 'document\n' >"$home/Documents/report.txt"
 printf 'download\n' >"$home/Downloads/file.zip"
@@ -335,6 +337,10 @@ has next-step-commit-first "$(block_of example.com/owner/tracked-change)" 'next:
 has next-step-no-branch "$(block_of example.com/owner/detached-head)" 'put the commits on no branch on a branch or tag'
 
 has config-repo-listed "$(cat "$work_dir/out")" '- **needs action:** `~/.config/cloned-tool`'
+# shellcheck disable=SC2088
+has notes-repo-unsaved "$(block_of '~/.local/share/agent-notes')" 'a git repository with unsaved work'
+# shellcheck disable=SC2088
+has notes-repo-no-remote "$(block_of '~/.local/share/agent-notes')" '  - no remote'
 has music-listed "$(cat "$work_dir/out")" '- **needs action:** `~/Music`'
 has atuin-confirm "$(grep -F 'atuin data' "$work_dir/out")" 'confirm this is in 1Password or can be re-created'
 has credential-listed "$(cat "$work_dir/out")" "$key_name"

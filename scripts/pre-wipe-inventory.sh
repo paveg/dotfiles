@@ -481,7 +481,7 @@ section 'Notes and agent state outside git' 'push or back up each listed locatio
 if [[ -d $notes_dir ]]; then
   summary="agent notes \`$(tilde "$notes_dir")\`: $(file_count "$notes_dir") file(s), $(size_of "$notes_dir")"
   if [[ -e $notes_dir/.git ]]; then
-    findings=$(repo_findings "$notes_dir")
+    findings=$(repo_findings "$notes_dir" work)
     if [[ -z $findings ]]; then
       listed "$summary; a git repository with everything committed and pushed"
     else
