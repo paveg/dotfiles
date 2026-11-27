@@ -168,8 +168,21 @@ expect_caught lang-c-utf8-when-en-us-absent 'LANG is en_US.UTF-8 whether or not 
 expect_caught lang-c-utf8-when-en-us-absent 'the fallback LANG is set but not exported' \
   .config/zsh/.zshenv 'export LANG=C.UTF-8' 'LANG=C.UTF-8'
 
-expect_caught lang-en-us-when-listed "glibc's spelling en_US.utf8 is not recognised" \
-  .config/zsh/.zshenv "'en_US\\.utf-?8'" "'en_US\\.utf-8'"
+expect_caught lang-c-utf8-when-en-us-absent \
+  'the LANG probe keeps the inherited locale, so a UTF-8 one passes for en_US.UTF-8' \
+  .config/zsh/.zshenv 'local LC_ALL=C; ' 'local LC_ALL; '
+
+# The host's own answer, as tests/shell.sh asks it: where libc cannot load
+# en_US.UTF-8, the check expects C.UTF-8 and these mutants cannot be caught.
+if [[ $(env -i LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null) == UTF-8 ]]; then
+  expect_caught lang-en-us-where-libc-has-it 'the LANG probe expects a codeset libc never names' \
+    .config/zsh/.zshenv '[[ $langinfo[CODESET] == UTF-8 ]]' '[[ $langinfo[CODESET] == utf8 ]]'
+  expect_caught lang-en-us-where-libc-has-it 'LANG is C.UTF-8 even where libc has en_US.UTF-8' \
+    .config/zsh/.zshenv 'export LANG=en_US.UTF-8' 'export LANG=C.UTF-8'
+else
+  echo "n/a: libc here cannot load en_US.UTF-8, so the en_US.UTF-8 branch cannot be mutation-tested"
+  skipped=$((skipped + 2))
+fi
 
 # One directory at a time off the PATH list, which must fail the same checks in
 # both a non-login and a login shell.

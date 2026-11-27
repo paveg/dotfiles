@@ -12,8 +12,12 @@ _dots_path=(
 path=($_dots_path $path)
 
 # A stock Ubuntu has only C.UTF-8, and a LANG it lacks makes every child
-# process warn. glibc lists the locale as en_US.utf8, macOS as en_US.UTF-8.
-if locale -a 2>/dev/null | grep -qiEx 'en_US\.utf-?8'; then
+# process warn. Ask libc without starting a process, which every `zsh -c` would
+# pay for: assigning LC_ALL makes zsh call setlocale, which keeps the locale it
+# had when it cannot load the name, so the codeset after C then en_US.UTF-8
+# says whether that loaded.
+if zmodload zsh/langinfo 2>/dev/null &&
+  () { local LC_ALL=C; LC_ALL=en_US.UTF-8; [[ $langinfo[CODESET] == UTF-8 ]] }; then
   export LANG=en_US.UTF-8
 else
   export LANG=C.UTF-8

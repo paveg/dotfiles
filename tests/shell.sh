@@ -99,14 +99,23 @@ STUB
   chmod +x "$bin/ghq" "$bin/fzf" "$bin/atuin"
 }
 
-# A `locale` in the fake profile that lists only the given locales, so both
-# outcomes of .zshenv's LANG choice can be tested on any machine.
-add_locale_stub() { # <home> <locale>...
-  local home=$1
-  shift
-  printf '%s\n' "$@" >"$home/.nix-profile/locales"
-  printf '#!/bin/sh\ncat %q\n' "$home/.nix-profile/locales" >"$home/.nix-profile/bin/locale"
-  chmod +x "$home/.nix-profile/bin/locale"
+# `zsh -c printenv` on a libc that cannot load en_US.UTF-8 but can load
+# C.UTF-8, whose codeset LC_CTYPE asks for. glibc reads locales only from
+# $LOCPATH when it is set; macOS's libc has no such variable, so a sandbox
+# keeps it out of the en_US.UTF-8 directory instead.
+printenv_without_en_us() { # <home>
+  local env=(env -i HOME="$1" TERM=dumb PATH="$base_path" LC_CTYPE=C.UTF-8)
+  if [[ $(uname -s) == Darwin ]]; then
+    sandbox-exec -p '(version 1)(allow default)
+      (deny file-read* (subpath "/usr/share/locale/en_US.UTF-8"))' \
+      "${env[@]}" "$zsh_bin" -c printenv
+  else
+    mkdir -p "$work_dir/locales"
+    if [[ -d /usr/lib/locale/C.utf8 ]]; then
+      ln -sfn /usr/lib/locale/C.utf8 "$work_dir/locales/C.utf8"
+    fi
+    "${env[@]}" LOCPATH="$work_dir/locales" "$zsh_bin" -c printenv
+  fi
 }
 
 # A non-secret work profile and a local zsh override, with a decoy in $HOME that
@@ -304,17 +313,17 @@ is visual nvim "$(field VISUAL "$vars")"
 is pager less "$(field PAGER "$vars")"
 is manpager 'less -R' "$(field MANPAGER "$vars")"
 
-# en_US.UTF-8 where the system has it (glibc lists it as en_US.utf8), and
-# C.UTF-8 where it does not, as on a stock Ubuntu, where a missing LANG makes
-# every child process warn.
-lang_home=$(new_home lang-glibc)
-add_locale_stub "$lang_home" C C.utf8 en_US.utf8 POSIX
-is lang-en-us-when-listed en_US.UTF-8 \
-  "$(field LANG "$(run_zsh "$lang_home" -c printenv 2>/dev/null)")"
-lang_home=$(new_home lang-c-only)
-add_locale_stub "$lang_home" C C.utf8 POSIX
+# en_US.UTF-8 where libc can load it, and C.UTF-8 where it cannot, as on a
+# stock Ubuntu, where a missing LANG makes every child process warn. `locale`
+# loads a locale the same way, so it says which this host should get.
+if [[ $(env -i LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null) == UTF-8 ]]; then
+  want_lang=en_US.UTF-8
+else
+  want_lang=C.UTF-8
+fi
+is lang-en-us-where-libc-has-it "$want_lang" "$(field LANG "$vars")"
 is lang-c-utf8-when-en-us-absent C.UTF-8 \
-  "$(field LANG "$(run_zsh "$lang_home" -c printenv 2>/dev/null)")"
+  "$(field LANG "$(printenv_without_en_us "$home" 2>/dev/null)")"
 
 nonlogin_path=$(run_zsh "$home" -c 'print -r -- $PATH' 2>/dev/null) || true
 check_path_holds path "$nonlogin_path" "$home" "$home/.local/share"
