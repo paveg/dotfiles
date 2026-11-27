@@ -81,7 +81,7 @@ echo main >"$dir/main.txt"
 g -C "$dir" add main.txt
 g -C "$dir" commit -qm main
 g -C "$dir" checkout -q feature
-g -C "$dir" merge -q --no-commit --no-ff main >/dev/null
+g -C "$dir" merge -q --no-commit --no-ff main >/dev/null 2>&1
 echo "token=$fake_token" >"$dir/conf.txt"
 g -C "$dir" add conf.txt
 g -C "$dir" commit -qm 'Merge main into feature'
