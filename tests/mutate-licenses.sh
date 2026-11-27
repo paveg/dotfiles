@@ -147,6 +147,17 @@ expect_caught "non-commercial-$h-jq !unfree-$h-jq" \
   nix/packages.nix $'    jq\n' \
   $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.OR [ lib.licenses.mit lib.licenses.cc-by-nc-40 ]; }; }))\n'
 
+expect_caught "non-commercial-$h-jq !unfree-$h-jq" \
+  'a licence says non-commercial only in its full name, allowed by name' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = lib.licenses.inria-compcert; }; }))\n' \
+  flake.nix '[ "claude-code" ]' '[ "claude-code" "jq" ]'
+
+expect_caught "non-commercial-$h-jq !unfree-$h-jq !non-redistributable-$h-jq" \
+  'a hand-written free licence says non-commercial only in its full name' \
+  nix/packages.nix $'    jq\n' \
+  $'    (jq.overrideAttrs (old: { meta = old.meta // { license = { shortName = "example"; fullName = "Example Non-Commercial License"; free = true; redistributable = true; }; }; }))\n'
+
 expect_caught "unfree-$h-jq !non-redistributable-$h-jq" \
   'a compound AND licence has an unfree part' \
   nix/packages.nix $'    jq\n' \

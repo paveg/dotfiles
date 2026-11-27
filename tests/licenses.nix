@@ -53,7 +53,8 @@ let
     else
       [ license ];
 
-  # NC as a whole word of the id, so NCSA, a free licence, is no match. Every
+  # NC as a whole word of the id, so NCSA, a free licence, is no match, or
+  # non-commercial in the full name, the only mark inria-compcert has. Every
   # leaf counts, an alternative of an OR included.
   isNonCommercial =
     leaf:
@@ -68,7 +69,8 @@ let
           ];
       words = id: builtins.filter builtins.isString (builtins.split "[^a-z0-9]+" (lib.toLower id));
     in
-    lib.any (id: builtins.elem "nc" (words id)) ids;
+    lib.any (id: builtins.elem "nc" (words id)) ids
+    || builtins.match ".*non-?commercial.*" (lib.toLower (leaf.fullName or "")) != null;
 
   render =
     license:
