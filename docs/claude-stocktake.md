@@ -7,8 +7,8 @@ The previous setup deployed `~/.claude` from the chezmoi source of `paveg/dots` 
 
 ## How the evidence was gathered
 
-- **Inventory**: `chezmoi managed`, filtered to `.claude`, compared with `home/dot_claude/` in the chezmoi source clone (HEAD `b285ce4`, 2026-11-26). The 27 skill directories hold 82 files tracked in git (`git ls-files`); chezmoi adds 4 more from an external archive (`writing-proofread/scripts/yomiyasu/`).
-- **Last change, commits**: `git log --follow` per file (per `SKILL.md` for a skill), leaving out `228e86c` ("isolate chezmoi source root"), which only moved files. `e61eeb2` (2026-10-08, "tune skills, agents, and harness for Opus 5.5 / Sonnet 5.5 / Fable 5.1") touched many entries at once, so a 2026-10-08 date says little about that entry alone.
+- **Inventory**: `chezmoi managed`, filtered to `.claude`, compared with `home/dot_claude/` in the chezmoi source clone (HEAD `b285ce4`, 2026-11-26). The 27 skill directories hold 81 files tracked in git (`git ls-files`; an 82nd, `skills/.gitkeep`, is not deployed); chezmoi adds 4 more from an external archive (`writing-proofread/scripts/yomiyasu/`).
+- **Last change, commits**: `git log --follow` per file (per `SKILL.md` for a skill), leaving out `228e86c` ("isolate chezmoi source root"), which moved files and made one-line edits to `settings.json.tmpl` and `empirical-prompt-tuning/SKILL.md`. `e61eeb2` (2026-10-08, "tune skills, agents, and harness for Opus 5.5 / Sonnet 5.5 / Fable 5.1") touched many entries at once, so a 2026-10-08 date says little about that entry alone.
 - **Referenced by**: other files in `home/dot_claude/` that name the entry by its file or skill name. A `settings.json.tmpl` hit that is only a `skillOverrides` entry is listed as "off", not as a use. No count is given where the name is a common word.
 - **Profile**: the previous `.chezmoiignore` left six skills out when `business_use` was set (block "Personal-only skills"). Those are `personal`; everything else was deployed on both kinds of machine, so it is `common` unless the row says otherwise.
 - **Disabled**: the previous `settings.json.tmpl` sets `skillOverrides` to `"off"` for `browser-e2e-test`, `interrupt`, `ipo-decision`, `issue-ship`, `learning-primer`, and `x-post-craft`.
@@ -28,7 +28,7 @@ Source paths are relative to `home/dot_claude/` in `paveg/dots`. Target: `home/.
 | `browser-e2e-test` | `skills/browser-e2e-test/` | E2E testing of web apps through Chrome, filing GitHub Issues for bugs | drop | — | Off in `skillOverrides`; no other entry references it |
 | `claude-md-layout` | `skills/claude-md-layout/` | Decide which directory-level CLAUDE.md holds which convention | keep | common | Consumer named in `references/model-profiles/README.md`; referenced by `empirical-prompt-tuning`; last change 2026-07-26 |
 | `code-rationale` | `skills/code-rationale/` | Trace why code has its shape from every evidence source; cited, confidence-tiered answer | drop | — | Adapted from pstack `why` (its own header says so); the pstack plugin is installed and ships `why`, and ADR 0003 leaves third-party skills to marketplaces. Mixed: last change 2026-11-25, and kept `rules/repo-notes.md` names it. **Flag**: its `LICENSE` names a person (MIT copyright holder) |
-| `codex-subagent` | `skills/codex-subagent/` | Delegate a bounded task to the local Codex CLI and verify the result | keep | common | Named by `rules/workflow.md` as the only route to Codex. Needs `codex`, which is not in `nix/packages.nix` |
+| `codex-subagent` | `skills/codex-subagent/` | Delegate a bounded task to the local Codex CLI and verify the result | keep | common | Named by `rules/workflow.md` for when an independent model's read is the point, and the only Codex mechanism under `home/dot_claude`. Needs `codex`, which is not in `nix/packages.nix` |
 | `context-diet` | `skills/context-diet/` | Cut what skills, rules, and CLAUDE.md cost in context without losing behaviour | keep | common | Consumer named in `model-profiles/README.md`. `scripts/measure.py` runs with `python3`, not in `nix/packages.nix` |
 | `empirical-prompt-tuning` | `skills/empirical-prompt-tuning/` | Improve agent-facing instructions by having a bias-free executor run them | keep | common | 6 commits, last 2026-10-08; consumer named in `model-profiles/README.md`. **Flag**: tells the agent to edit the chezmoi source path, which does not exist under Nix |
 | `equity-decision` | `skills/equity-decision/` | One-page purchase memo for a US or JP stock | keep | personal | Personal-only in `.chezmoiignore`. Scripts run with `uv`, not in `nix/packages.nix`. **Flag**: `scripts/fetch_edgar.py` carries the owner's email address, and four files carry a literal 1Password item reference |
@@ -90,14 +90,14 @@ Source paths are relative to `home/dot_claude/`. Target: `home/.claude/reference
 | `model-profiles/fable-5-1.md` | `references/model-profiles/fable-5-1.md` | Fable 5.1 prompting profile | drop | — | Superseded by `fable-5-2.md` in the same family; no entry references it |
 | `model-profiles/fable-5-2.md` | `references/model-profiles/fable-5-2.md` | Fable 5.2 prompting profile | keep | common | `skeptic` pins `model: fable`; referenced by `sonnet-5-5.md` |
 | `model-profiles/opus-4-8.md` | `references/model-profiles/opus-4-8.md` | Opus 4.8 prompting profile | drop | — | No agent pins it and no entry references it; `_template.md` uses its model id only as a format example |
-| `model-profiles/opus-5.md` | `references/model-profiles/opus-5.md` | Opus 5 prompting profile | drop | — | Superseded by `opus-5-5.md`; no entry references it |
+| `model-profiles/opus-5.md` | `references/model-profiles/opus-5.md` | Opus 5 prompting profile | keep | common | `opus-5-5.md` is a delta on it ("every Opus 5 row not contradicted below still applies", line 7), so dropping it breaks the kept profile. Fold its rows into `opus-5-5.md` and drop it then, or keep both |
 | `model-profiles/opus-5-5.md` | `references/model-profiles/opus-5-5.md` | Opus 5.5 prompting profile | keep | common | Profile of the current main-session model; referenced by `fable-5-2.md` |
 | `model-profiles/sonnet-5-5.md` | `references/model-profiles/sonnet-5-5.md` | Sonnet 5.5 prompting profile | keep | common | Five of the six agents pin `model: sonnet` |
 | `skill-naming.md` | `references/skill-naming.md` | Skill naming convention | keep | common | No entry references it (weak); last change 2026-08-19. Its table names `ipo-decision`, proposed for dropping |
 
 ## Agents
 
-Source paths are relative to `home/dot_claude/`. Target: `home/.claude/agents/`. All six are named in `rules/workflow.md` (`wording-reviewer` in `writing-proofread`), and none shares a name with a plugin agent.
+Source paths are relative to `home/dot_claude/`. Target: `home/.claude/agents/`. Five are named in `rules/workflow.md`; the sixth, `wording-reviewer`, only in `writing-proofread`, and none shares a name with a plugin agent.
 
 | Name | Source | Purpose (own description) | Proposal | Profile | Reason |
 |---|---|---|---|---|---|
@@ -130,9 +130,9 @@ Two hook entries in the previous settings are not files: the `type: "agent"` Sto
 | Name | Purpose | Source | Proposal | Profile | Reason |
 |---|---|---|---|---|---|
 | `CLAUDE.md` | Global instructions: reply language, pointer to `workflow.md` | `home/dot_claude/CLAUDE.md` | keep | common | ADR 0003 links it, and the same file becomes `~/.codex/AGENTS.md`. design.md ("Environment facts for agents") adds four facts it does not hold yet |
-| `statusline.sh` | One- or two-line status from the session JSON plus a cached `git status` | `home/dot_claude/executable_statusline.sh` | keep | common | ADR 0003 links it. The external commands it names are `jq`, `git`, `awk`, and `date`; `jq` and `git` are in `nix/packages.nix` |
+| `statusline.sh` | One- or two-line status from the session JSON plus a cached `git status` | `home/dot_claude/executable_statusline.sh` | keep | common | ADR 0003 links it. The external commands it names are `cat`, `jq`, `git`, `awk`, and `date`; `jq` and `git` are in `nix/packages.nix` |
 | `settings.json`, common part | Advisor model, auto-mode environment, permissions, status line, hook registration, `claudeMdExcludes`, worktree base | `home/dot_claude/settings.json.tmpl` | keep | common | Goes into `settings.common.json` (ADR 0003). That file so far holds the same `Read(...)` deny rules as the previous one and nothing else; the remaining rules are rewritten to design.md's "Permission rules" forms, not carried over. Its `soft_deny` entry for `chezmoi init` has no use under Nix. **Flag**: `additionalDirectories` and the herdr hook are written with the chezmoi home-directory variable |
-| `settings.json`, personal part | Personal plugins, the `rust-skills` marketplace, `skipDangerousModePermissionPrompt`, `skillOverrides` | `home/dot_claude/settings.json.tmpl` | keep | personal | Goes into `settings.personal.json`. The previous file sets both `skipDangerousModePermissionPrompt: true` (personal) and `disableBypassPermissionsMode: "disable"` (common), and design.md keeps only the latter; whether the former still does anything was not checked. `skillOverrides` is unnecessary for any skill this document drops |
+| `settings.json`, personal part | Personal plugins, the `rust-skills` marketplace, `skipDangerousModePermissionPrompt` | `home/dot_claude/settings.json.tmpl` | keep | personal | Goes into `settings.personal.json`. The previous file sets both `skipDangerousModePermissionPrompt: true` (personal) and `disableBypassPermissionsMode: "disable"` (common), and design.md keeps only the latter; whether the former still does anything was not checked. `skillOverrides` is not personal: it sits outside every `business_use` conditional, so it applied on both machine kinds and belongs to the common part. Of its 18 entries, 6 turn off managed skills and 12 turn off unmanaged or plugin skills |
 | `settings.json`, work part | Internal API endpoint, internal marketplaces, work plugins, deny rules for cloud, cluster, and infrastructure CLIs | `home/dot_claude/settings.json.tmpl` | keep | work | **Flag**: names the work org, an internal hostname, and internal marketplaces. Goes to `~/.config/dots-work/claude/settings.work.json` (untracked, Keeper), never to this repository; only its shape belongs in `profiles/work.example/` |
 | `mcp-servers.json`, personal part | textlint and 1Password MCP servers | `home/dot_claude/mcp-servers.json.tmpl` | keep | personal | Needs `textlint`, which is not in `nix/packages.nix` |
 | `mcp-servers.json`, work part | Internal MCP servers | `home/dot_claude/mcp-servers.json.tmpl` | keep | work | **Flag**: names the work org through its tool prefix and holds machine-specific paths. Goes to `~/.config/dots-work/claude/mcp.work.json` (design.md "Repository layout") |
@@ -164,12 +164,12 @@ Two hook entries in the previous settings are not files: the `type: "agent"` Sto
 
 ## Summary
 
-Rows: 77 (27 skills, 19 rules, 10 references, 6 agents, 8 hooks, 7 rows for 4 other files).
+Rows: 77 (27 skills, 19 rules, 10 references, 6 agents, 8 hooks, 7 rows for 4 other files). Counts are of the proposals above, before the owner's decisions at the end.
 
 | Proposal | Skills | Rules | References | Agents | Hooks | Other | Total |
 |---|---|---|---|---|---|---|---|
-| keep | 20 (16 common, 4 personal) | 16 | 7 | 6 | 7 | 7 (3 common, 2 personal, 2 work) | 63 |
-| drop | 7 | 1 | 3 | 0 | 1 | 0 | 12 |
+| keep | 20 (16 common, 4 personal) | 16 | 8 | 6 | 7 | 7 (3 common, 2 personal, 2 work) | 64 |
+| drop | 7 | 1 | 2 | 0 | 1 | 0 | 11 |
 | move | 0 | 2 | 0 | 0 | 0 | 0 | 2 |
 
 The five decisions where the evidence is mixed:
@@ -178,7 +178,7 @@ The five decisions where the evidence is mixed:
 2. **`code-rationale`**: a local adaptation of pstack `why`, and pstack is installed. Dropping it follows ADR 0003's third-party rule, but the adaptation changed on 2026-11-25 and `repo-notes.md` relies on it.
 3. **`drizzle.md` and `react.md`**: `harness-meta.md` sends project-specific rules to the project, but both are already path-scoped (they cost nothing outside matching files), and 14 repositories carry drizzle configs or SQL migrations. Moving means copying them into each of those repositories.
 4. **Runtimes for kept skills and agents**: `writing-proofread`, `prose-reviewer`, `wording-reviewer`, `context-diet`, `equity-decision`, and `excalidraw-diagram` need `python3`, `uv`, `node`, `pnpm`, or `npx`, and `codex-subagent` needs `codex`; `nix/packages.nix` has none, and design.md rules out other language runtimes. Choose between adding them (globally or per skill), changing the skills, or dropping them. The yomiyasu scripts also need a new source: a Nix fetch of v3.1.0, or the installed plugin (2.5.0).
-5. **`pr-monitor`**: three kept entries reference it, but its last change is 2026-07-26, and the built-in `/steward` now watches a PR through merge. Keep it, or drop it and point `loop-engineering.md` and `loop-design` at `/steward`.
+5. **`pr-monitor`**: two kept entries (`loop-engineering.md`, `loop-design`) and `issue-ship`, which is proposed for dropping, reference it, but its last change is 2026-07-26, and the built-in `/steward` now watches a PR through merge. Keep it, or drop it and point `loop-engineering.md` and `loop-design` at `/steward`.
 
 Not classified: `feature`, `japanese-legal-proofreader`, `seo-affiliate-article`, and `synced` in the live skills directory, which have neither a chezmoi source nor a plugin; and `block-credential-read.sh` was classified from ADR 0007 without its body being read.
 
@@ -190,4 +190,4 @@ These override the proposals above where they differ.
 2. pstack is adopted in full, and Cursor is not used. Its Claude Code adapter maps or skips the Cursor-only steps. Where a pstack rule and the owner's rules conflict, the owner's rule wins, written once in a common rule (for example, push and PR confirmation in `workflow.md` against `poteto-mode`'s autonomy). Local skills that pstack or Claude Code now cover are dropped: `code-rationale` (pstack `why`) and `pr-monitor` (`/steward`). Whether `adversarial-review` gives way to pstack `interrogate` is still open. Work-only MCP servers and internal reference targets go in the untracked work profile.
 3. `drizzle.md` and `react.md` become templates in this repository, copied into a project's own `.claude/rules/` by an explicit command when the project is set up. They are not linked globally.
 4. Language runtimes stay narrow. Nix installs the version managers (mise, uv, rustup, elan). mise holds a global default and per-project versions for go, node, pnpm, deno and ruby. Swift comes from Xcode. MoonBit uses its official installer, and its licence must be checked before it is installed on `work-mac`. Python is used through `uv` for the skills that need it. This replaces design.md's "No other language runtimes", which an ADR records.
-5. `pr-monitor`: drop, because `/steward` replaces it.
+5. `pr-monitor`: drop, because `/steward` replaces it. Note: `/steward` is not a drop-in equivalent. It watches in the current session and starts no background watch, while `pr-monitor` watched asynchronously so the session could keep working (code.claude.com/docs/en/ship-command, by a review agent).
