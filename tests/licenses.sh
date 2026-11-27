@@ -24,8 +24,11 @@ host=${DOTFILES_HOST:-$default_host}
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
-# --impure for getFlake on an unlocked path: the flake itself still evaluates
-# pure, and path: takes an uncommitted or copied tree as it is.
+# --impure for getFlake on an unlocked path:, which takes an uncommitted or
+# copied tree as it is. Ceiling: the whole evaluation is then impure, so the
+# wsl pkgs pick up the caller's nixpkgs overlays (<nixpkgs-overlays>,
+# ~/.config/nixpkgs/overlays[.nix]), which the pure build does not see; CI has
+# none.
 rows=$(nix --extra-experimental-features 'nix-command flakes' eval --raw --impure --expr \
   "import $script_dir/licenses.nix { flake = builtins.getFlake \"path:$repo_dir\"; host = \"$host\"; }" \
   2>"$work_dir/eval.err")
