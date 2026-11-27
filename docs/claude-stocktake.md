@@ -181,3 +181,13 @@ The five decisions where the evidence is mixed:
 5. **`pr-monitor`**: three kept entries reference it, but its last change is 2026-07-26, and the built-in `/steward` now watches a PR through merge. Keep it, or drop it and point `loop-engineering.md` and `loop-design` at `/steward`.
 
 Not classified: `feature`, `japanese-legal-proofreader`, `seo-affiliate-article`, and `synced` in the live skills directory, which have neither a chezmoi source nor a plugin; and `block-credential-read.sh` was classified from ADR 0007 without its body being read.
+
+## Owner decisions (2026-11-27)
+
+These override the proposals above where they differ.
+
+1. `issue-ship`: drop. Claude Code's `/ship` covers commit, PR, review and watching through merge. `learning-primer`: keep, profile `common`, after a check that it does not call `issue-ship`.
+2. pstack is adopted in full, and Cursor is not used. Its Claude Code adapter maps or skips the Cursor-only steps. Where a pstack rule and the owner's rules conflict, the owner's rule wins, written once in a common rule (for example, push and PR confirmation in `workflow.md` against `poteto-mode`'s autonomy). Local skills that pstack or Claude Code now cover are dropped: `code-rationale` (pstack `why`) and `pr-monitor` (`/steward`). Whether `adversarial-review` gives way to pstack `interrogate` is still open. Work-only MCP servers and internal reference targets go in the untracked work profile.
+3. `drizzle.md` and `react.md` become templates in this repository, copied into a project's own `.claude/rules/` by an explicit command when the project is set up. They are not linked globally.
+4. Language runtimes stay narrow. Nix installs the version managers (mise, uv, rustup, elan). mise holds a global default and per-project versions for go, node, pnpm, deno and ruby. Swift comes from Xcode. MoonBit uses its official installer, and its licence must be checked before it is installed on `work-mac`. Python is used through `uv` for the skills that need it. This replaces design.md's "No other language runtimes", which an ADR records.
+5. `pr-monitor`: drop, because `/steward` replaces it.
