@@ -253,6 +253,7 @@ nix_covers() { [[ -n $nix_names ]] && grep -qxF -- "$1" <<<"$nix_names"; }
 printf '# Pre-wipe inventory\n\n'
 printf 'What wiping this machine would lose. Generated %s on %s, read-only: the script writes nothing and runs no fetch. Each item marked **needs action** is something to save, push, or confirm before the wipe; credential locations show names, counts, and sizes only.\n\n' "$(date '+%Y-%m-%d %H:%M')" "$(uname -s)"
 printf -- '- HOME: `%s`\n- ghq root: `%s`\n- agent notes: `%s`\n' "$HOME" "$(tilde "$ghq_root")" "$(tilde "$notes_dir")"
+have ghq || note 'ghq: not installed'
 
 section 'Git repositories' 'commit and push, or delete, what each listed repository holds. Ahead counts compare with the remote refs from the last fetch, so run `git fetch` in a repository first if its remote may have moved. Untracked files honour .gitignore; ignored files are not counted.'
 if [[ -d $ghq_root ]]; then
@@ -319,7 +320,7 @@ for dir in "${ATUIN_HOME:-}" "$HOME/.local/share/atuin" "$HOME/.atuin"; do
   case $seen in *"|$dir|"*) continue ;; esac
   seen="$seen|$dir|"
   found=1
-  needs_action "atuin data $(describe_location "$dir")"
+  needs_action "atuin data $(describe_location "$dir"); it holds atuin's key, so confirm this is in 1Password or can be re-created"
 done
 for file in .zsh_history .bash_history .config/zsh/.zsh_history .local/state/zsh/history \
   .local/share/fish/fish_history .python_history .node_repl_history .psql_history .mysql_history .sqlite_history; do
@@ -466,7 +467,9 @@ else
   cask_tokens=''
   if have brew; then
     cask_tokens=$(brew list --cask -1 2>/dev/null)
-    if have jq; then
+    if ! have jq; then
+      note 'jq: not installed, so a cask app is recognised only when its name matches the cask token; some cask apps may be listed below'
+    else
       cask_apps=$(brew info --cask --installed --json=v2 2>/dev/null |
         jq -r '.casks[].artifacts[] | objects | .app // empty | .[] | if type == "string" then . elif type == "object" then (.target // empty) else empty end' 2>/dev/null |
         sed 's|.*/||')
@@ -493,15 +496,14 @@ else
   note "Apps from Homebrew casks, the App Store, or Apple (counted, not listed): $covered"
 fi
 
-section 'Files no dotfiles manage' "for each listed name, back it up, add it to the dotfiles, or let it go. Names only. A name counts as managed when chezmoi manages it or anything below it ($chezmoi_state), or when the new dotfiles' \`home/\` holds it. Names that other sections report are left out."
+section 'Files no dotfiles manage' "for each listed name, back it up, add it to the dotfiles, or let it go. Names only. A name counts as managed when chezmoi manages it or anything below it ($chezmoi_state), or when the new dotfiles' \`home/\` holds it. Names that other sections report, and the macOS bookkeeping files \`.Trash\`, \`.DS_Store\`, and \`.CFUserTextEncoding\`, are left out."
 ghq_parent=${ghq_root%/*}
 found=0
 for entry in "$HOME"/* "$HOME"/.[!.]* "$HOME"/.config/* "$HOME"/.config/.[!.]*; do
   [[ -e $entry || -L $entry ]] || continue
   rel=${entry#"$HOME"/}
   case $rel in
-    Applications | Desktop | Documents | Downloads | Library | Movies | Music | Pictures | Public | \
-      .Trash | .DS_Store | */.DS_Store | .CFUserTextEncoding | .config | .claude | .atuin | \
+    Desktop | Documents | Downloads | Pictures | .Trash | .DS_Store | */.DS_Store | .CFUserTextEncoding | .config | .claude | .atuin | \
       .ssh | .aws | .kube | .gnupg | .netrc | .codex | .config/gcloud | .config/op | \
       .zsh_history | .bash_history | .python_history | .node_repl_history | .psql_history | .mysql_history | .sqlite_history | \
       .env | .env.* | .envrc)

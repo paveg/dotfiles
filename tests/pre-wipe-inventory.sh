@@ -86,6 +86,10 @@ commit "$dir" notes 'never pushed'
 # files section must still name it.
 fixture_git init -q "$home/.config/cloned-tool"
 
+# A macOS folder no other section reports, and an atuin data directory, which
+# holds atuin's key.
+mkdir -p "$home/Music" "$home/.local/share/atuin"
+
 # The credential fixture's path is assembled here so that it never appears on a
 # command line, where the live credential guard would block it.
 marker='fixture-line-that-must-never-be-printed'
@@ -135,7 +139,7 @@ if grep -q 'command not found' "$work_dir/err"; then
 else
   ok missing-tools-probed
 fi
-for tool in docker colima lima Homebrew brew mas devbox npm pnpm uv cargo mise; do
+for tool in ghq docker colima lima Homebrew brew mas devbox npm pnpm uv cargo mise; do
   has "not-installed-$tool" "$(cat "$work_dir/out")" "- $tool: not installed"
 done
 
@@ -156,6 +160,8 @@ has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, no
 has git-summary "$(cat "$work_dir/out")" '| Git repositories | 6 | 5 |'
 
 has config-repo-listed "$(cat "$work_dir/out")" '- **needs action:** `~/.config/cloned-tool`'
+has music-listed "$(cat "$work_dir/out")" '- **needs action:** `~/Music`'
+has atuin-confirm "$(grep -F 'atuin data' "$work_dir/out")" 'confirm this is in 1Password or can be re-created'
 has credential-listed "$(cat "$work_dir/out")" "$key_name"
 if grep -qF -- "$marker" "$work_dir/out" "$work_dir/err"; then
   fail credential-contents-not-printed 'the fixture key contents appear in the output'
