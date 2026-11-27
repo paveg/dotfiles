@@ -49,6 +49,10 @@ jobs:
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/mutate-packages.sh per-user
+      - name: Check that the ${{ matrix.host }} package set fails with another host's packages
+        env:
+          DOTFILES_HOST: ${{ matrix.host }}
+        run: tests/mutate-packages.sh per-host
 
   wsl:
     runs-on: ubuntu-latest
@@ -71,3 +75,5 @@ jobs:
         run: tests/packages.sh
       - name: Check that the host-independent package checks fail on a broken copy
         run: tests/mutate-packages.sh common
+      - name: Check that the wsl package set fails with another host's packages
+        run: tests/mutate-packages.sh per-host

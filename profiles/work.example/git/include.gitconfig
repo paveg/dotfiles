@@ -1,0 +1,7 @@
+# The real file names the work GitHub org's directory, which stays out of this
+# repository. The trailing slash matches everything under it, including the
+# .git/worktrees/<name> directory of each linked worktree. Unanchored, so git
+# prepends **/ and the physical path matches when ~/repos is a symlink; /i,
+# because ghq keeps the clone URL's case and GitHub org names ignore case.
+[includeIf "gitdir/i:github.com/example-org/"]
+  path = ~/.config/dots-work/git/work.gitconfig

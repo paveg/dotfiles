@@ -6,6 +6,8 @@ on:
   pull_request:
     paths:
       - "home/**"
+      - "nix/ssh_config"
+      - "profiles/**"
       - "tests/**"
       - ".github/workflows/shell.yml"
 
@@ -36,3 +38,11 @@ jobs:
         run: |
           tests/reply-language.sh
           tests/mutate-reply-language.sh
+      - name: Check the git files in a temporary HOME and that each check fails on a broken copy
+        run: |
+          tests/git.sh
+          tests/mutate-git.sh
+      - name: Check the ssh config with ssh -G and that each check fails on a broken copy
+        run: |
+          tests/ssh.sh
+          tests/mutate-ssh.sh

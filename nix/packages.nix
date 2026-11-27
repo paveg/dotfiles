@@ -1,8 +1,8 @@
-{ pkgs, ... }:
+{ pkgs, host, ... }:
 {
-  # The global CLI set and the zsh plugins, from docs/design.md "Packages".
-  # `gh` is absent on purpose: it becomes an executable wrapper around ghtkn,
-  # not a package.
+  # The global CLI set and the zsh plugins, from docs/design.md "Packages",
+  # then the host's own. `gh` is absent on purpose: it becomes an executable
+  # wrapper around ghtkn, not a package.
   home.packages = with pkgs; [
     claude-code
     git
@@ -28,5 +28,6 @@
     ghtkn
     mise
     atuin
-  ];
+  ]
+  ++ host.packages pkgs;
 }

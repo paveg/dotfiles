@@ -3,10 +3,12 @@
 # package set is exactly the one the design names, unfree packages are admitted
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile and the
-# zsh plugins, the zsh, mise and atuin directories are real directories whose files
-# link into the checkout, the global mise config refuses the asdf backend, the
-# built atuin accepts the atuin config, and on macOS the generated /etc/zshrc
-# leaves completion and the prompt to $ZDOTDIR/.zshrc.
+# zsh plugins, the zsh, mise, atuin and git directories are real directories
+# whose files link into the checkout, the ssh config is a store copy on macOS
+# alone, the global mise config refuses the asdf backend, the built atuin
+# accepts the atuin config, and on macOS the switch sets the launchd variables
+# for GUI apps and the generated /etc/zshrc leaves completion and the prompt to
+# $ZDOTDIR/.zshrc.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -37,6 +39,11 @@ packages=(
   zsh-syntax-highlighting jq neovim just lazygit lefthook gitleaks
   kubectl kubernetes-helm k9s stern ghtkn mise atuin
 )
+# What hosts/<host>.nix adds for that host alone, as command and package.
+if [[ $host == work-mac ]]; then
+  commands+=(peco)
+  packages+=(peco)
+fi
 # $ZDOTDIR/.zshrc sources share/<plugin>/<plugin>.zsh from the profiles on PATH.
 plugins=(zsh-autosuggestions zsh-syntax-highlighting)
 # home-manager puts these in home.packages itself, so the set under test is
@@ -57,8 +64,15 @@ linked_files=(
   .zshenv
   .config/zsh/.zshenv .config/zsh/.zprofile .config/zsh/.zshrc
   .config/mise/config.toml .config/atuin/config.toml
+  .config/git/config .config/git/ignore .config/git/personal.gitconfig
 )
-real_dirs=(.config/zsh .config/mise .config/atuin)
+real_dirs=(.config/zsh .config/mise .config/atuin .config/git)
+# launchd.user.envVariables on macOS, as <name>=<value>.
+launchd_vars=(ORCA_TELEMETRY_DISABLED=1 HOMEBREW_NO_ANALYTICS=1)
+# <link>:<file under home/>, where the file that is linked depends on the OS.
+platform=darwin
+[[ $host == wsl ]] && platform=wsl
+linked_files+=(".config/git/platform.gitconfig:.config/git/$platform.gitconfig")
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
@@ -220,6 +234,16 @@ else
       per_user=$system/etc/profiles/per-user/$user/bin/$cmd
       is "per-user-$cmd" "$profile/bin/$cmd" "$(readlink "$per_user" 2>>"$work_dir/readlink.err")"
     done
+    # For apps that launchd starts without a shell: the switch sets each one in
+    # the primary user's launchd domain, so the line must carry that user.
+    for var in "${launchd_vars[@]}"; do
+      name=${var%%=*} value=${var#*=}
+      if grep -qE "sudo --user='?$user'? -- launchctl setenv $name '$value'\$" "$system/activate"; then
+        ok "launchd-$name"
+      else
+        fail "launchd-$name" "$system/activate has no user launchctl setenv $name '$value': $(grep -n 'launchctl setenv' "$system/activate" 2>&1 | tr '\n' ' ' | cut -c1-200)"
+      fi
+    done
     path_profile=$system/etc/profiles/per-user/$user
     # $ZDOTDIR/.zshrc runs the one compinit and sets the prompt, so the
     # generated /etc/zshrc, read before it, does neither. The header proves the
@@ -259,11 +283,30 @@ if [[ -n $home_files ]]; then
   # checkout. The checkout exists only on the owner's machine, so follow the
   # links by name instead of asking the filesystem. A file copied into the
   # store has no second hop, and the store path is what fails the comparison.
-  for path in "${linked_files[@]}"; do
+  for entry in "${linked_files[@]}"; do
+    path=${entry%%:*} source=${entry#*:}
     store_link=$(readlink "$home_files/$path" 2>>"$work_dir/readlink.err")
     target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
-    is "link-$path" "$checkout/home/$path" "$target"
+    is "link-$path" "$checkout/home/$source" "$target"
   done
+  # The ssh config is a store copy, not a link into the checkout, and only on
+  # macOS: wsl hands ssh to Windows.
+  ssh_entry=$home_files/.ssh/config
+  if [[ $host == wsl ]]; then
+    if [[ -e $home_files/.ssh || -L $home_files/.ssh ]]; then
+      fail ssh-config "wsl gets $(ls -ld "$home_files/.ssh" 2>&1)"
+    else
+      ok ssh-config
+    fi
+  else
+    ssh_copy=$(readlink "$ssh_entry" 2>>"$work_dir/readlink.err")
+    if [[ $ssh_copy == /nix/store/* && -f $ssh_copy && ! -L $ssh_copy ]] &&
+      cmp -s "$ssh_copy" "$repo_dir/nix/ssh_config"; then
+      ok ssh-config
+    else
+      fail ssh-config "want a store copy of nix/ssh_config, got '$ssh_copy' ($(ls -ld "$ssh_copy" 2>&1))"
+    fi
+  fi
   if [[ -s $work_dir/readlink.err && $failures -gt 0 ]]; then
     echo "readlink stderr: $(brief "$work_dir/readlink.err")"
   fi

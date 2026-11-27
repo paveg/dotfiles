@@ -6,6 +6,11 @@
   nix.enable = false;
 
   system.primaryUser = host.user;
+  # For GUI apps, which launchd starts without a shell.
+  launchd.user.envVariables = {
+    ORCA_TELEMETRY_DISABLED = "1";
+    HOMEBREW_NO_ANALYTICS = "1";
+  };
   users.users.${host.user}.home = "/Users/${host.user}";
   system.stateVersion = 6;
 
