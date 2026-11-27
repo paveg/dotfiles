@@ -12,9 +12,9 @@ let
   system = configuration.config;
   home = if isDarwin then system.home-manager.users.${user} else system;
   nixpkgsConfig = configuration.pkgs.config;
-  # The flake's own allowance, asked the way nixpkgs asks it.
-  admitsUnfree =
-    pkg: nixpkgsConfig.allowUnfree || (nixpkgsConfig.allowUnfreePredicate or (_: false)) pkg;
+  # The flake's allowance by name only: allowUnfree is not asked, because it
+  # would admit every unfree package.
+  admitsUnfree = pkg: (nixpkgsConfig.allowUnfreePredicate or (_: false)) pkg;
 
   licenseType = license: license.licenseType or "simple";
 

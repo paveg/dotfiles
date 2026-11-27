@@ -128,6 +128,11 @@ expect_caught "unfree-$h-unrar !non-redistributable-$h-unrar" \
   'an unfree package that is not allowed by name is installed' \
   nix/packages.nix "$last_package" "$(with_package unrar)"
 
+expect_caught "unfree-$h-unrar" \
+  'flake.nix allows every unfree package, not by name, and an unfree one is installed' \
+  nix/packages.nix "$last_package" "$(with_package unrar)" \
+  flake.nix '      nixpkgsConfig = {' $'      nixpkgsConfig = {\n        allowUnfree = true;'
+
 expect_caught "non-redistributable-$h-jq !unfree-$h-jq" \
   'a package has a free licence that does not allow redistribution' \
   nix/packages.nix $'    jq\n' \
