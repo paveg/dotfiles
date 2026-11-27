@@ -200,6 +200,34 @@ if [[ $host == wsl ]]; then
     docs/design.md '  - 1Password: `winget install --id AgileBits.1Password -e`.' \
     $'  - 1Password: `winget install --id AgileBits.1Password -e`.\n  - Example: `winget install --id Example.Tool -e`.'
 
+  onepassword_line='  - 1Password: `winget install --id AgileBits.1Password -e`.'
+  with_winget() { # <arguments>
+    printf '%s\n  - Example: `winget install %s`.' "$onepassword_line" "$1"
+  }
+  expect_caught 'no-entry-wsl-Example.Exact' \
+    'design.md gains a winget install with -e before --id' \
+    docs/design.md "$onepassword_line" "$(with_winget '-e --id Example.Exact')"
+
+  expect_caught 'no-entry-wsl-Example.ExactLong' \
+    'design.md gains a winget install with --exact before --id' \
+    docs/design.md "$onepassword_line" "$(with_winget '--exact --id Example.ExactLong')"
+
+  expect_caught 'no-entry-wsl-Example.Equals' \
+    'design.md gains a winget install with --id=' \
+    docs/design.md "$onepassword_line" "$(with_winget '--id=Example.Equals')"
+
+  expect_caught 'no-entry-wsl-Example.Spaced' \
+    'design.md gains a winget install with two spaces before --id' \
+    docs/design.md "$onepassword_line" "$(with_winget ' --id Example.Spaced -e')"
+
+  expect_caught 'no-entry-wsl-Example.Store' \
+    'design.md gains a winget install whose id follows -s and its value' \
+    docs/design.md "$onepassword_line" "$(with_winget '-s msstore Example.Store')"
+
+  expect_caught 'unparsed-wsl---bogus_Example.Tool' \
+    'design.md gains a winget install with an option the check does not know' \
+    docs/design.md "$onepassword_line" "$(with_winget '--bogus Example.Tool')"
+
   expect_caught 'no-entry-wsl-raycast' \
     'a winget install without --id has no entry' \
     nix/licenses.nix $'      raycast = unfree;\n' ''

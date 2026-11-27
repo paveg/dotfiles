@@ -145,12 +145,132 @@ let
       fromFile = true;
     };
 
-  # Every `winget install` in design.md is a Windows-side install for wsl.
+  unreadRow =
+    source: name: missing:
+    row {
+      inherit source name missing;
+      license = null;
+      admitted = true;
+      unfreeNote = "";
+      fromFile = false;
+    };
+
+  # Every `winget install` in design.md with arguments is a Windows-side install
+  # for wsl; one with none names the command in prose.
   design = builtins.readFile "${flake.outPath}/docs/design.md";
-  wingetIds = lib.unique (
-    map (match: builtins.elemAt match 1) (
-      builtins.filter builtins.isList (builtins.split "winget install (--id )?([A-Za-z0-9.]+)" design)
-    )
+  wingetArgumentLists = builtins.filter (arguments: arguments != [ ]) (
+    map (
+      match:
+      builtins.filter (token: builtins.isString token && token != "") (
+        builtins.split "[[:space:]]+" (builtins.head match)
+      )
+    ) (builtins.filter builtins.isList (builtins.split "winget install(([[:space:]][^`\n]*)?)" design))
+  );
+  # Every option `winget install` takes, by whether it takes a value: another
+  # option makes the command unparsed.
+  wingetQueryOptions = [
+    "--id"
+    "-q"
+    "--query"
+  ];
+  wingetValueOptions = [
+    "-m"
+    "--manifest"
+    "--name"
+    "--moniker"
+    "-v"
+    "--version"
+    "-s"
+    "--source"
+    "--scope"
+    "-a"
+    "--architecture"
+    "--installer-type"
+    "--locale"
+    "-o"
+    "--log"
+    "--custom"
+    "--override"
+    "-l"
+    "--location"
+    "--dependency-source"
+    "--header"
+    "--authentication-mode"
+    "--authentication-account"
+    "-r"
+    "--rename"
+    "--proxy"
+  ];
+  wingetSwitches = [
+    "-e"
+    "--exact"
+    "-i"
+    "--interactive"
+    "-h"
+    "--silent"
+    "--ignore-security-hash"
+    "--allow-reboot"
+    "--skip-dependencies"
+    "--ignore-local-archive-malware-scan"
+    "--accept-package-agreements"
+    "--no-upgrade"
+    "--accept-source-agreements"
+    "--uninstall-previous"
+    "--force"
+    "-?"
+    "--help"
+    "--wait"
+    "--logs"
+    "--open-logs"
+    "--verbose"
+    "--verbose-logs"
+    "--nowarn"
+    "--ignore-warnings"
+    "--disable-interactivity"
+    "--no-proxy"
+  ];
+  # The packages that the arguments name, or null on an unknown option or one
+  # that lacks its value.
+  wingetPackages =
+    arguments:
+    let
+      token = builtins.head arguments;
+      rest = builtins.tail arguments;
+      option = builtins.match "(-[^=]*)(=(.*))?" token;
+      optionName = builtins.elemAt option 0;
+      inlineValue = builtins.elemAt option 2;
+      value = if inlineValue != null then inlineValue else builtins.head rest;
+      afterValue = if inlineValue != null then rest else builtins.tail rest;
+      hasValue = inlineValue != null || rest != [ ];
+      prepend =
+        names: remaining:
+        let
+          more = wingetPackages remaining;
+        in
+        if more == null then null else names ++ more;
+    in
+    if arguments == [ ] then
+      [ ]
+    else if option == null then
+      prepend [ token ] rest
+    else if builtins.elem optionName wingetSwitches && inlineValue == null then
+      prepend [ ] rest
+    else if builtins.elem optionName wingetQueryOptions && hasValue then
+      prepend [ value ] afterValue
+    else if builtins.elem optionName wingetValueOptions && hasValue then
+      prepend [ ] afterValue
+    else
+      null;
+  # winget installs every query it is given, so a command with two is unparsed
+  # rather than read in part.
+  wingetCommands = map (arguments: {
+    inherit arguments;
+    packages = wingetPackages arguments;
+  }) wingetArgumentLists;
+  isParsed = command: command.packages != null && builtins.length command.packages == 1;
+  wingetIds = lib.unique (map (command: builtins.head command.packages) (builtins.filter isParsed wingetCommands));
+  unparsedWinget = map (command: lib.concatStringsSep "_" command.arguments) (
+    builtins.filter (command: !isParsed command) wingetCommands
   );
   # By how they install, each with the names it takes.
   installs =
@@ -170,5 +290,6 @@ lib.concatMapStrings (line: line + "\n") (
     map (nixRow "system") system.environment.systemPackages ++ map (nixRow "font") system.fonts.packages
   )
   ++ lib.concatLists (lib.mapAttrsToList (source: map (outsideRow source)) installs)
+  ++ lib.optionals (host == "wsl") (map (name: unreadRow "winget" name "unparsed") unparsedWinget)
   ++ map (outsideRow "by-hand") byHand
 )
