@@ -57,6 +57,8 @@ mutant 'a runner leaves its subject out of its inputs' run_coverage inputs-mutat
   tests/mutate-ssh.sh 'mutate_inputs nix/ssh_config tests/ssh.sh' 'mutate_inputs tests/ssh.sh'
 mutant 'a mutant names an OS no workflow runs its runner on' run_coverage run-mutate-ssh.sh \
   tests/mutate-ssh.sh "mutate_runs_on='linux macos'" "mutate_runs_on='macOS'"
+mutant 'a workflow stops running a runner on an OS one of its mutants declares' run_coverage run-mutate-ssh.sh \
+  .github/workflows/shell.yml 'MUTATE_OS=macos tests/mutate-ssh.sh' 'true'
 mutant 'a shard also takes the mutants of the shards before it' run_coverage \
   'shards-mutate-ssh.sh shards-mutate.sh shards-mutate-hooks.sh' \
   "$lib" '(((mutate_declared - 1) % mutate_shard_count != mutate_shard_index))' \

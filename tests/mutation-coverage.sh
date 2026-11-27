@@ -2,10 +2,10 @@
 # Check what the mutation runners on tests/lib/mutate.sh declare, from their
 # MUTATE_LIST output: each runner's inputs name every repository path it or a
 # test script it runs reads, so a pull request that changes one runs
-# the runner; the shards of a split into n hold each mutant once; each mutant
-# names an OS that a workflow runs its runner on with MUTATE_OS, so no mutant
-# runs nowhere; and the shards CI runs a runner in on an OS are all n of them. A
-# runner no workflow names fails.
+# the runner; the shards of a split into n hold each mutant once; a workflow
+# runs each runner with MUTATE_OS on every OS one of its mutants names, so no
+# mutant runs nowhere; and the shards CI runs a runner in on an OS are all n of
+# them. A runner no workflow names fails.
 # Usage: tests/mutation-coverage.sh [repo-dir]   (default: this checkout)
 set -uo pipefail
 
@@ -70,7 +70,7 @@ shards_complete() { # <os> <runner>
   count=${shards%%$'\n'*}
   count=${count#*/}
   for ((index = 0; index < count; index++)); do want="$want$index/$count"$'\n'; done
-  [[ $(sort <<<"$shards") == "$(sort <<<"${want%$'\n'}")" ]]
+  [[ -n $shards && $(sort <<<"$shards") == "$(sort <<<"${want%$'\n'}")" ]]
 }
 
 for runner in "$repo_dir"/tests/mutate*.sh; do
@@ -121,30 +121,36 @@ for runner in "$repo_dir"/tests/mutate*.sh; do
     fi
     continue
   fi
-  for os in $oses; do
+  unrun='' linux=0 macos=0 both=0 declared=
+  while IFS= read -r line; do
+    runs_on=${line#mutant: }
+    runs_on=${runs_on%%: *}
+    for os in $runs_on; do
+      declared="$declared$os"$'\t'"${line#mutant: "$runs_on": }"$'\n'
+    done
+    [[ " $runs_on " == *" linux "* ]] && linux=$((linux + 1))
+    [[ " $runs_on " == *" macos "* ]] && macos=$((macos + 1))
+    [[ " $runs_on " == *" linux "* && " $runs_on " == *" macos "* ]] && both=$((both + 1))
+  done < <(grep '^mutant: ' <<<"$listing")
+  declared_oses=$(cut -f1 <<<"$declared" | sort -u)
+  for os in $(tr ' ' '\n' <<<"$oses $declared_oses" | sort -u); do
     if shards_complete "$os" "$name"; then
       ok "ci-shards-$name-$os"
     else
       fail "ci-shards-$name-$os" "the shards CI runs on $os are not 0/n to n-1/n once each: $(awk -v os="$os" -v runner="$name" '$1 == os && $2 == runner { printf "%s ", $3 }' <<<"$invocations")"
     fi
   done
-  nowhere='' linux=0 macos=0 both=0
-  while IFS= read -r line; do
-    runs_on=${line#mutant: }
-    runs_on=${runs_on%%: *}
-    here=
-    for os in $runs_on; do
-      [[ " $oses" == *" $os "* ]] && here=1
-    done
-    [[ -n $here ]] || nowhere="$nowhere '${line#mutant: "$runs_on": }' ($runs_on)"
-    [[ " $runs_on " == *" linux "* ]] && linux=$((linux + 1))
-    [[ " $runs_on " == *" macos "* ]] && macos=$((macos + 1))
-    [[ " $runs_on " == *" linux "* && " $runs_on " == *" macos "* ]] && both=$((both + 1))
-  done < <(grep '^mutant: ' <<<"$listing")
-  if [[ -z $nowhere ]]; then
+  for os in $declared_oses; do
+    [[ " $oses" == *" $os "* ]] && continue
+    unrun="$unrun $os:"
+    while IFS=$'\t' read -r declared_os description; do
+      [[ $declared_os == "$os" ]] && unrun="$unrun '$description'"
+    done <<<"$declared"
+  done
+  if [[ -z $unrun ]]; then
     ok "run-$name"
   else
-    fail "run-$name" "on no OS a workflow runs it on ($oses):$nowhere"
+    fail "run-$name" "no workflow runs it on an OS its mutants declare (it runs on: $oses); OS and the mutants for it:$unrun"
   fi
   echo "  linux $linux, macos $macos, both $both, of $(grep -c '^mutant: ' <<<"$listing"); workflows run it on: $oses"
 done
