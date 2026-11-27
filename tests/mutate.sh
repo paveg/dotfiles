@@ -301,6 +301,14 @@ expect_caught interactive-ctrl-g-dots-widget 'Ctrl+g is left unbound' \
 expect_caught interactive-ctrl-g-dots-widget 'the ghq widget is bound to another key' \
   .config/zsh/.zshrc "bindkey '^g' dots-ghq-cd" "bindkey '^t' dots-ghq-cd"
 
+expect_caught 'interactive-ctrl-t-fzf-file-widget interactive-alt-c-fzf-cd-widget' \
+  "fzf's key bindings are never loaded" \
+  .config/zsh/.zshrc $'  eval "$(fzf --zsh)"\n' ''
+
+expect_caught interactive-ctrl-r-atuin-widget "fzf's key bindings load after atuin's and take Ctrl+r" \
+  .config/zsh/.zshrc '  eval "$(atuin init zsh --disable-up-arrow)"' \
+  $'  eval "$(atuin init zsh --disable-up-arrow)"\n  eval "$(fzf --zsh)"'
+
 expect_caught interactive-ctrl-r-atuin-widget 'atuin is never initialized' \
   .config/zsh/.zshrc $'if (( $+commands[atuin] )); then\n  eval "$(atuin init zsh --disable-up-arrow)"\nfi\n' ''
 

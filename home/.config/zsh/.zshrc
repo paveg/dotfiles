@@ -1,3 +1,11 @@
+# A host reached over SSH may have no terminfo for the TERM it was handed:
+# Ghostty's, or the one tmux sets inside a pane.
+if [[ $TERM == xterm-ghostty ]] && ! infocmp xterm-ghostty &>/dev/null; then
+  export TERM=xterm-256color
+elif [[ -n ${TMUX-} ]] && ! infocmp $TERM &>/dev/null; then
+  export TERM=screen-256color
+fi
+
 # History stays in memory so that atuin is the only history on disk.
 SAVEHIST=0
 HISTSIZE=100000
@@ -25,6 +33,15 @@ compinit -i -d $XDG_CACHE_HOME/zsh/zcompdump
 
 PROMPT='%~ %# '
 
+# A program that died with mouse reporting on leaves the terminal printing
+# escape sequences on scroll; turn it off once, at the first prompt.
+autoload -Uz add-zsh-hook
+dots-mouse-reporting-off() {
+  printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l'
+  add-zsh-hook -d precmd dots-mouse-reporting-off
+}
+add-zsh-hook precmd dots-mouse-reporting-off
+
 if (( $+commands[ghq] && $+commands[fzf] )); then
   dots-ghq-cd() {
     local repo=$(ghq list --full-path | fzf)
@@ -36,9 +53,40 @@ if (( $+commands[ghq] && $+commands[fzf] )); then
   bindkey '^g' dots-ghq-cd
 fi
 
+if (( $+commands[fzf] )); then
+  export FZF_DEFAULT_OPTS="--height 60% --layout=reverse --border=rounded --margin=1 --padding=1
+    --color=bg+:#292e42,bg:#1a1b26,spinner:#9ece6a,hl:#7aa2f7
+    --color=fg:#c0caf5,header:#7aa2f7,info:#7dcfff,pointer:#f7768e
+    --color=marker:#9ece6a,fg+:#c0caf5,prompt:#7dcfff,hl+:#7aa2f7
+    --color=selected-bg:#33467c
+    --preview-window=right:50%:border-left
+    --bind=ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down"
+  export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+  FZF_CTRL_T_COMMAND=$FZF_DEFAULT_COMMAND
+  FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range :300 {}'"
+  FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+  FZF_ALT_C_OPTS="--preview 'eza --tree --icons --level=2 --color=always {} | head -n 50'"
+  eval "$(fzf --zsh)"
+fi
+
+if (( $+commands[zoxide] )); then
+  eval "$(zoxide init zsh)"
+fi
+
+# After fzf, whose init script binds Ctrl+r too.
 if (( $+commands[atuin] )); then
   eval "$(atuin init zsh --disable-up-arrow)"
 fi
+
+# The first profile on PATH that has each plugin. zsh-syntax-highlighting wraps
+# the widgets that exist when it loads, so it comes after every other one.
+for dots_plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+  dots_plugin_files=(${^_dots_path:h}/share/$dots_plugin/$dots_plugin.zsh(N))
+  if (( $#dots_plugin_files )); then
+    source $dots_plugin_files[1]
+  fi
+done
+unset dots_plugin dots_plugin_files
 
 if [[ -r $ZDOTDIR/.zshrc.local ]]; then
   source $ZDOTDIR/.zshrc.local

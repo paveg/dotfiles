@@ -54,13 +54,30 @@ new_home() { # <name>
   echo "$home"
 }
 
-# The commands `.zshrc` binds keys for. The atuin stub prints the same shape of
-# init script atuin does, including the Ctrl+r binding it leaves out when it is
-# told to.
+# The commands `.zshrc` binds keys for. The fzf and atuin stubs print the same
+# shape of init script the real ones do: fzf binds Ctrl+t, Alt+c and Ctrl+r in
+# every keymap, and atuin binds Ctrl+r unless it is told not to.
 add_command_stubs() { # <home>
   local bin=$1/.nix-profile/bin
   printf '#!/bin/sh\nexit 0\n' >"$bin/ghq"
-  printf '#!/bin/sh\nexit 0\n' >"$bin/fzf"
+  cat >"$bin/fzf" <<'STUB'
+#!/bin/sh
+case " $* " in
+*" --zsh "*) cat <<'ZSH' ;;
+fzf-file-widget() { : }
+fzf-cd-widget() { : }
+fzf-history-widget() { : }
+zle -N fzf-file-widget
+zle -N fzf-cd-widget
+zle -N fzf-history-widget
+for keymap in emacs vicmd viins; do
+  bindkey -M $keymap '^T' fzf-file-widget
+  bindkey -M $keymap '^[c' fzf-cd-widget
+  bindkey -M $keymap '^R' fzf-history-widget
+done
+ZSH
+esac
+STUB
   cat >"$bin/atuin" <<'STUB'
 #!/bin/sh
 echo '_atuin_search_widget() { : }'
@@ -118,9 +135,13 @@ write_probe() { # <script> <out-file>
   print -r -- "SKIP_GLOBAL_COMPINIT=\${skip_global_compinit-}"
   ctrl_g=\$(bindkey '^g'); ctrl_g=\${ctrl_g##* }
   ctrl_r=\$(bindkey '^r'); ctrl_r=\${ctrl_r##* }
+  ctrl_t=\$(bindkey '^t'); ctrl_t=\${ctrl_t##* }
+  alt_c=\$(bindkey '^[c'); alt_c=\${alt_c##* }
   print -r -- "CTRL_G=\$ctrl_g"
   print -r -- "CTRL_G_TYPE=\${widgets[\$ctrl_g]-none}"
   print -r -- "CTRL_R=\$ctrl_r"
+  print -r -- "CTRL_T=\$ctrl_t"
+  print -r -- "ALT_C=\$alt_c"
   print -r -- "LOCAL_RC=\${DOTS_LOCAL_RC-}"
   alias | sed 's/^/ALIAS /'
   print -r -- "DONE=yes"
@@ -364,10 +385,13 @@ run_interactive "$fix_home" "$fix_probe" "$fix_log"
 ran_and_quiet fixtures-interactive-shell "$fix_probe" "$fix_log"
 fix_text=$(cat "$fix_probe" 2>/dev/null) || true
 is interactive-zshrc-local-from-zdotdir zdotdir "$(field LOCAL_RC "$fix_text")"
-# Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named)
-# and Ctrl+r runs the widget atuin's init script binds.
+# Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named),
+# Ctrl+t and Alt+c run fzf's widgets, and Ctrl+r runs the widget atuin's init
+# script binds, which has to come after fzf's.
 is interactive-ctrl-g-dots-widget "user:$(field CTRL_G "$fix_text")" \
   "$(field CTRL_G_TYPE "$fix_text")"
+is interactive-ctrl-t-fzf-file-widget fzf-file-widget "$(field CTRL_T "$fix_text")"
+is interactive-alt-c-fzf-cd-widget fzf-cd-widget "$(field ALT_C "$fix_text")"
 is interactive-ctrl-r-atuin-widget _atuin_search_widget "$(field CTRL_R "$fix_text")"
 
 # Each XDG variable the caller sets is kept, ZDOTDIR follows XDG_CONFIG_HOME,
