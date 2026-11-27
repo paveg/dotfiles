@@ -110,6 +110,14 @@ commit "$dir" README 'only on a tag'
 fixture_git -C "$dir" tag -a local-tag -m 'local tag'
 fixture_git -C "$dir" reset -q --hard origin/main
 
+# A commit only a ref outside heads and tags holds, made without touching HEAD,
+# so no reflog holds it; and a commit only the reflog holds.
+dir=$(pushed_repo wip-ref)
+fixture_git -C "$dir" update-ref refs/wip/x "$(fixture_git -C "$dir" commit-tree -p HEAD -m 'only on refs/wip/x' 'HEAD^{tree}')"
+dir=$(pushed_repo reflog-only)
+commit "$dir" README 'only in the reflog'
+fixture_git -C "$dir" reset -q --hard origin/main
+
 dir=$(pushed_repo linked-detached)
 fixture_git -C "$dir" worktree add -q --detach "$home/wt/linked-detached"
 commit "$home/wt/linked-detached" README 'only on the linked worktree'
@@ -343,11 +351,13 @@ else
 fi
 has fetch-prune-first "$(cat "$work_dir/out")" 'run `git fetch --prune` in a repository first'
 has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, not listed): 5'
-has git-summary "$(cat "$work_dir/out")" '| Git repositories | 28 | 23 |'
+has git-summary "$(cat "$work_dir/out")" '| Git repositories | 30 | 25 |'
 
 has detached-head "$(block_of example.com/owner/detached-head)" 'commits on no remote ref: 1'
 has detached-head-no-branch "$(block_of example.com/owner/detached-head)" 'on no branch (a detached HEAD or only a tag): 1'
 has tag-only "$(block_of example.com/owner/tag-only)" 'commits on no remote ref: 1'
+has wip-ref "$(block_of example.com/owner/wip-ref)" 'commits on no remote ref: 1'
+has reflog-only "$(block_of example.com/owner/reflog-only)" 'commits on no remote ref: 1'
 has linked-worktree-head "$(block_of example.com/owner/linked-detached)" 'commits on no remote ref: 1'
 has git-file-repo "$(block_of example.com/owner/gitfile)" 'commits on no remote ref: 1'
 has bare-only-copy "$(block_of example.com/owner/bare-only.git)" '  - no remote'
