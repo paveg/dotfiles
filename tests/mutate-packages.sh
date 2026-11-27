@@ -21,64 +21,29 @@ default_host=wsl
 [[ $(uname -s) == Darwin ]] && default_host=personal-mac
 host=${DOTFILES_HOST:-$default_host}
 
-work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
-
-caught=0
-skipped=0
-failures=0
+# shellcheck source=tests/lib/mutate.sh
+source "$repo_dir/tests/lib/mutate.sh"
 
 runs() { # <group>
   [[ $group == all || $group == "$1" ]]
 }
 
-skip() { # <reason>
-  skipped=$((skipped + 1))
-  echo "n/a: $1"
-}
-
-expect_pass() {
-  local out
-  if out=$("$repo_dir/tests/packages.sh" 2>&1); then
-    echo "pass: the files as committed"
-  else
-    echo "FAIL: the files as committed should pass"
-    grep '^FAIL' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
-}
-
-expect_caught() { # <check>... <description> <file> <old> <new>
-  local checks=$1 description=$2 file=$3 old=$4 new=$5 dir out check missing entry
-  dir=$(mktemp -d "$work_dir/mutant.XXXX")
+run_mutant() { # <dir> <check>... <file> <old> <new>
+  local dir=$1 checks=$2 file=$3 old=$4 new=$5 entry out
   for entry in flake.nix flake.lock hosts nix home; do
     cp -R "$repo_dir/$entry" "$dir/$entry"
   done
-  OLD=$old NEW=$new python3 - "$dir/$file" <<'PY'
-import os, sys
-path = sys.argv[1]
-text = open(path).read()
-old, new = os.environ["OLD"], os.environ["NEW"]
-if text.count(old) != 1:
-    sys.exit(f"mutation target found {text.count(old)} times: {old!r}")
-open(path, "w").write(text.replace(old, new))
-PY
+  mutate_apply "$dir/$file" "$old" "$new" || return
   out=$("$repo_dir/tests/packages.sh" "$dir" 2>&1) || true
-  missing=
-  for check in $checks; do
-    grep -q "^FAIL: $check:" <<<"$out" || missing="$missing $check"
-  done
-  if [[ -z $missing ]]; then
-    caught=$((caught + 1))
-    echo "caught: $description"
-  else
-    echo "MISSED: $description (expected to fail:$missing)"
-    grep -E '^(FAIL|summary)' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
+  # shellcheck disable=SC2086 # one check name per word
+  mutate_checks_failed "$out" $checks
 }
 
-expect_pass
+expect_caught() { # <check>... <description> <file> <old> <new>
+  mutant "$2" run_mutant "$1" "$3" "$4" "$5"
+}
+
+mutate_baseline 'the files as committed' "$repo_dir/tests/packages.sh"
 
 if runs common; then
   # git is the case that matters most: /usr/bin has one, so a dropped package is
@@ -164,7 +129,7 @@ fi
 
 if runs per-user; then
   if [[ $host == wsl ]]; then
-    skip "the per-user profile checks need a macOS host, and this run is on $host"
+    mutate_na "the per-user profile checks need a macOS host, and this run is on $host"
   else
     expect_caught 'per-user-git per-user-claude' 'the packages never reach the per-user profile' \
       nix/darwin.nix $'    useUserPackages = true;\n' ''
@@ -226,12 +191,5 @@ if runs per-host; then
   fi
 fi
 
-if ((failures > 0)); then
-  echo "$failures mutation check(s) failed"
-  exit 1
-fi
-if ((caught == 0)); then
-  echo "no mutant ran (group $group, host $host)"
-  exit 1
-fi
-echo "every mutant is caught ($caught caught, $skipped n/a, group $group, host $host)"
+mutate_context="group $group, host $host"
+mutate_finish
