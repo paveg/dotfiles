@@ -110,11 +110,19 @@ if runs common; then
     flake.nix 'builtins.elem (nixpkgs.lib.getName pkg) [ "claude-code" ]' \
     'nixpkgs.lib.hasPrefix "claude-code" (nixpkgs.lib.getName pkg)'
 
-  expect_caught 'real-dir-.config/zsh real-dir-.config/mise' 'the zsh directory is linked as a whole' \
-    nix/home.nix $'  xdg.configFile = lib.genAttrs [ "zsh/.zshenv" "zsh/.zprofile" "zsh/.zshrc" "mise/config.toml" ] (path: {\n    source = link ".config/${path}";\n  });\n' \
-    $'  xdg.configFile."zsh".source = link ".config/zsh";\n'
+  expect_caught 'real-dir-.config/zsh' 'the zsh directory is linked as a whole' \
+    nix/home.nix $'      "zsh/.zshenv"\n      "zsh/.zprofile"\n      "zsh/.zshrc"\n' $'      "zsh"\n'
 
-  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml' \
+  expect_caught 'real-dir-.config/mise' 'the mise directory is linked as a whole' \
+    nix/home.nix '"mise/config.toml"' '"mise"'
+
+  expect_caught 'real-dir-.config/git' 'the git directory is linked as a whole' \
+    nix/home.nix $'      "git/config"\n      "git/ignore"\n      "git/personal.gitconfig"\n' $'      "git"\n'
+
+  expect_caught 'link-.config/git/personal.gitconfig' 'the personal identity is not linked' \
+    nix/home.nix $'      "git/personal.gitconfig"\n' ''
+
+  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml link-.config/git/config' \
     'the files are copied into the store instead of linked out of it' \
     nix/home.nix '    source = link ".config/${path}";' '    source = ../home/.config/${path};'
 

@@ -1,0 +1,9 @@
+[ghq]
+  root = ~/repos
+[core]
+  excludesFile = ~/.config/git/ignore
+# Later includes win, so the work profile comes last.
+[include]
+  path = ~/.config/git/personal.gitconfig
+[include]
+  path = ~/.config/dots-work/git/include.gitconfig

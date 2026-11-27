@@ -13,7 +13,16 @@ in
 
   home.file.".zshenv".source = link ".zshenv";
   # One link per file, so ~/.config/zsh stays a real directory and .zshrc.local stays out of the checkout.
-  xdg.configFile = lib.genAttrs [ "zsh/.zshenv" "zsh/.zprofile" "zsh/.zshrc" "mise/config.toml" ] (path: {
-    source = link ".config/${path}";
-  });
+  xdg.configFile =
+    lib.genAttrs [
+      "zsh/.zshenv"
+      "zsh/.zprofile"
+      "zsh/.zshrc"
+      "mise/config.toml"
+      "git/config"
+      "git/ignore"
+      "git/personal.gitconfig"
+    ] (path: {
+      source = link ".config/${path}";
+    });
 }

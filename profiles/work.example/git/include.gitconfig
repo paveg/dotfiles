@@ -1,0 +1,5 @@
+# The real file names the work GitHub org's directory, which stays out of this
+# repository. The trailing slash matches everything under it, including the
+# .git/worktrees/<name> directory of each linked worktree.
+[includeIf "gitdir:~/repos/github.com/example-org/"]
+  path = ~/.config/dots-work/git/work.gitconfig

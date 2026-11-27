@@ -2,9 +2,9 @@
 # Check what the built configuration gives a host, with no Nix switch: the
 # package set is exactly the one the design names, unfree packages are admitted
 # by name only, every global CLI tool is in the home-manager profile and wins
-# over /usr/bin, the profile that PATH names serves that same profile, the zsh
-# and mise directories are real directories whose files link into the checkout,
-# and the global mise config refuses the asdf backend.
+# over /usr/bin, the profile that PATH names serves that same profile, the zsh,
+# mise and git directories are real directories whose files link into the
+# checkout, and the global mise config refuses the asdf backend.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -52,8 +52,9 @@ linked_files=(
   .zshenv
   .config/zsh/.zshenv .config/zsh/.zprofile .config/zsh/.zshrc
   .config/mise/config.toml
+  .config/git/config .config/git/ignore .config/git/personal.gitconfig
 )
-real_dirs=(.config/zsh .config/mise)
+real_dirs=(.config/zsh .config/mise .config/git)
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
