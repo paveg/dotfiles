@@ -12,8 +12,8 @@
 # only, never contents.
 # Usage: scripts/pre-wipe-inventory.sh >/tmp/inventory.md   (keep the report out
 #        of the checkout: it names private paths)
-#        scripts/pre-wipe-inventory.sh --backup-paths | tar -czf backup.tgz -T -
-#        (what cannot be re-created and is not a credential, one path per line)
+#        scripts/pre-wipe-inventory.sh --backup-paths | tar --null -czf backup.tgz -T -
+#        (what cannot be re-created and is not a credential, NUL-separated)
 # Env: HOME; GHQ_ROOT (a colon-separated list; default: `ghq root --all`, else
 #      ~/repos); AGENT_NOTES_DIR (default: ~/.local/share/agent-notes). Runs on
 #      macOS's bash 3.2.
@@ -155,6 +155,9 @@ worktree_changes() { # <work tree>   prints "<tracked changes> <untracked files>
   printf '%s %s\n' "$(printf '%s' "$tracked" | count_lines)" "$(printf '%s' "$untracked" | count_lines)"
 }
 
+# Credential locations under HOME: listed under Credentials, and nothing below
+# one is offered for backup.
+credential_locations=(.ssh .aws .kube .config/gcloud .config/op .gnupg .netrc .codex .claude/.credentials.json)
 # A file name that may hold a secret, matched against a whole path: such a file
 # is listed under Credentials and never offered for backup.
 credential_name='/(\.env(\..*)?|\.envrc|\.dev\.vars|\.netrc|\.npmrc|\.pypirc|id_(rsa|dsa|ecdsa|ed25519)[^/]*|[^/]*(secret|credential|token|password)[^/]*|[^/]*[._]key|[^/]*\.(pem|p12|pfx|keychain-db))$'
@@ -163,18 +166,35 @@ credential_name='/(\.env(\..*)?|\.envrc|\.dev\.vars|\.netrc|\.npmrc|\.pypirc|id_
 # backup, which costs space, not data.
 regenerable_ignored='(^|/)(node_modules|\.venv|venv|__pycache__|target|dist|build|\.next|\.nuxt|\.turbo|\.cache|\.parcel-cache|coverage|\.direnv|\.devbox|\.terraform|\.gradle|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox|\.DS_Store|[^/]*\.pyc)(/|$)'
 
-ignored_files() { # <work tree>   ignored files as absolute paths, without what a build re-creates
+ignored_files() { # <work tree>   ignored files as NUL-separated absolute paths, without what a build re-creates
   local entry
-  git_ro -c core.quotePath=false -C "$1" ls-files --others --ignored --exclude-standard --directory 2>/dev/null |
-    grep -vE "$regenerable_ignored" |
-    while IFS= read -r entry; do
+  git_ro -C "$1" ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null |
+    grep -zvE "$regenerable_ignored" |
+    while IFS= read -r -d '' entry; do
       if [[ $entry == */ ]]; then
-        (cd "$1" && find "${entry%/}" -name .git -prune -o ! -type d -print 2>/dev/null)
+        (cd "$1" && find "${entry%/}" -name .git -prune -o ! -type d -print0 2>/dev/null)
       else
-        printf '%s\n' "$entry"
+        printf '%s\0' "$entry"
       fi
-    done | grep -vE "$regenerable_ignored" |
-    while IFS= read -r entry; do printf '%s/%s\n' "$1" "$entry"; done
+    done | grep -zvE "$regenerable_ignored" |
+    while IFS= read -r -d '' entry; do printf '%s/%s\0' "$1" "$entry"; done
+}
+
+refused_locations=()
+for location in "${credential_locations[@]}" .local/share/atuin .atuin; do
+  refused_locations+=("$HOME/$location" "$home_real/$location")
+done
+[[ -n ${ATUIN_HOME:-} ]] && refused_locations+=("$ATUIN_HOME")
+
+backup_safe() { # NUL-separated paths in; out, each file or link whose name suggests no secret and that no credential location holds
+  local path location
+  grep -zviE "$credential_name" | while IFS= read -r -d '' path; do
+    [[ -f $path || -L $path ]] || continue
+    for location in "${refused_locations[@]}"; do
+      [[ $path == "$location" || $path == "$location"/* ]] && continue 2
+    done
+    printf '%s\0' "$path"
+  done
 }
 
 linked_worktrees() { # <`git worktree list --porcelain` output>   every work tree but the first entry's
@@ -253,7 +273,7 @@ repo_findings() { # <main work tree or bare repository> <work|bare>   one line p
   git_unsaved=$unsaved
   while IFS= read -r worktree; do
     [[ -d $worktree ]] || continue
-    files=$(ignored_files "$worktree" | grep -viE "$credential_name")
+    files=$(ignored_files "$worktree" | backup_safe | tr '\n\0' '?\n')
     count=$(printf '%s' "$files" | count_lines)
     ((count > 0)) || continue
     ignored=$((ignored + count))
@@ -362,7 +382,7 @@ repo_label() { # <path>   relative to the ghq root that holds it, else from ~
   tilde "$1"
 }
 
-repo_ignored_files() { # every repository's ignored files
+repo_ignored_files() { # every repository's ignored files, NUL-separated
   local dir kind worktree
   while IFS=$'\t' read -r dir kind; do
     [[ -n $dir ]] || continue
@@ -373,23 +393,24 @@ repo_ignored_files() { # every repository's ignored files
   return 0
 }
 
-# Every file that cannot be re-created, credential-named ones included. A
-# directory is given as its files, so that a credential-named file inside it
-# can be taken out.
+# Every file that cannot be re-created, credential-named ones included,
+# NUL-separated. A directory is given as its files, so that a credential-named
+# file inside it can be taken out.
 backup_candidates() {
   local dir folders=(Downloads Pictures)
   ((desktop_documents_synced)) || folders=(Desktop Documents Downloads Pictures)
   for dir in "$claude_dir"/projects/*/memory "$notes_dir" "${folders[@]/#/$HOME/}"; do
-    [[ -d $dir ]] && find "$dir" \( -name .git -o -name node_modules -o -name .cache \) -prune -o ! -type d -print 2>/dev/null
+    [[ -d $dir ]] && find "$dir" \( -name .git -o -name node_modules -o -name .cache \) -prune -o ! -type d -print0 2>/dev/null
   done
   repo_ignored_files
 }
 
-# What cannot be re-created and is not a credential, one absolute path per line
-# for `tar -T -`. What it leaves out, the report lists under Credentials.
+# What cannot be re-created and is not a credential, NUL-separated absolute
+# paths for `tar --null -T -`, so a newline in a file name cannot forge a
+# second path. What it leaves out, the report lists under Credentials.
 backup_paths() {
   local dir
-  backup_candidates | grep -viE "$credential_name" | LC_ALL=C sort -u
+  backup_candidates | backup_safe | LC_ALL=C sort -zu
   echo 'Files whose name suggests a credential are left out; the report names each one under Credentials.' >&2
   for dir in "${ATUIN_HOME:-}" "$HOME/.local/share/atuin" "$HOME/.atuin"; do
     [[ -n $dir && -d $dir ]] || continue
@@ -465,7 +486,7 @@ fi
 
 printf '# Pre-wipe inventory\n\n'
 printf 'What wiping this machine would lose. Generated %s on %s, read-only: the script writes nothing and runs no fetch. Each item marked **needs action** is something to save, push, or confirm before the wipe; credential locations show names, counts, and sizes only.\n\n' "$(date '+%Y-%m-%d %H:%M')" "$(uname -s)"
-printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n- what to back up: run with `--backup-paths` for one path per line, for `tar -T -`\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
+printf -- '- HOME: `%s`\n- ghq roots: %s\n- agent notes: `%s`\n- what to back up: run with `--backup-paths` for NUL-separated paths, for `tar --null -T -`\n' "$HOME" "$(while IFS= read -r root; do printf '`%s` ' "$(tilde "$root")"; done <<<"$ghq_roots")" "$(tilde "$notes_dir")"
 have ghq || note 'ghq: not installed'
 
 section 'Git repositories' 'commit and push, or bundle, what each listed repository holds; each one ends with a next step. Commit counts compare with the remote refs from the last fetch, so run `git fetch` in a repository first if its remote may have moved. Untracked files honour .gitignore; ignored files are listed when no build re-creates them and their name suggests no secret.'
@@ -543,7 +564,7 @@ done
 ((found)) || note 'none found'
 
 section 'Credentials' 'confirm each listed location is in 1Password or can be re-created. Only names, counts, and sizes are shown; no file was opened.'
-for path in .ssh .aws .kube .config/gcloud .config/op .gnupg .netrc .codex .claude/.credentials.json; do
+for path in "${credential_locations[@]}"; do
   if [[ -e $HOME/$path ]]; then
     needs_action "$(describe_location "$HOME/$path")"
   else
@@ -557,7 +578,7 @@ while IFS= read -r file; do
   git_ro -C "${file%/*}" ls-files --error-unmatch -- "${file##*/}" >/dev/null 2>&1 && continue
   found=1
   needs_action "$(describe_location "$file")"
-done < <({ printf '%s' "$env_files" | sed -E '/\.env\.(example|sample|template)$/d'; backup_candidates | grep -iE "$credential_name"; } | LC_ALL=C sort -u)
+done < <({ printf '%s' "$env_files" | sed -E '/\.env\.(example|sample|template)$/d'; backup_candidates | grep -ziE "$credential_name" | tr '\n\0' '?\n'; } | LC_ALL=C sort -u)
 ((found)) || note 'none found'
 
 section 'Containers and VMs' 'export or recreate each listed image, volume, and VM; their data lives inside the VM disk and is lost with it.'

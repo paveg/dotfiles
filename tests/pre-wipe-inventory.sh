@@ -198,6 +198,19 @@ fixture_git init -q "$unicode_repo"
 printf 'notes.txt\n' >"$unicode_repo/.gitignore"
 commit "$unicode_repo" .gitignore 'ignore notes'
 printf 'notes\n' >"$unicode_repo/notes.txt"
+# A file name holding a newline and then the fixture key's path, which a
+# newline-separated list would offer as a path of its own.
+forged="$home/Documents/forged"$'\n'"$credential_dir/$key_name"
+mkdir -p "${forged%/*}"
+printf 'decoy\n' >"$forged"
+# A repository whose ignored files sit in a credential location, and a FIFO,
+# which is no file to back up.
+gnupg_dir=$home/.gnupg
+fixture_git init -q "$gnupg_dir"
+printf '*\n' >"$gnupg_dir/.gitignore"
+commit "$gnupg_dir" .gitignore '!.gitignore'
+printf '%s\n' "$marker" >"$gnupg_dir/pubring.kbx"
+mkfifo "$home/Downloads/fifo"
 
 # Only git and the utilities a POSIX script needs; no brew, docker, nix, or the
 # other optional tools, so every optional probe takes its "not installed" path.
@@ -307,7 +320,7 @@ else
   ok clean-repo-not-listed
 fi
 has clean-repo-counted "$(cat "$work_dir/out")" 'Clean repositories (counted, not listed): 5'
-has git-summary "$(cat "$work_dir/out")" '| Git repositories | 27 | 22 |'
+has git-summary "$(cat "$work_dir/out")" '| Git repositories | 28 | 23 |'
 
 has detached-head "$(block_of example.com/owner/detached-head)" 'commits on no remote ref: 1'
 has detached-head-no-branch "$(block_of example.com/owner/detached-head)" 'on no branch (a detached HEAD or only a tag): 1'
@@ -359,28 +372,50 @@ ignored_repo=$ghq_root/example.com/owner/ignored-files
 has ignored-files-named "$(block_of example.com/owner/ignored-files)" 'ignored files to back up: 2 (`data/app.sqlite`, `local-notes.md`)'
 has ignored-files-next-step "$(block_of example.com/owner/ignored-files)" 'next: back up the ignored files `--backup-paths` lists'
 has ignored-credential-listed "$credentials" "\`$ghq_root/example.com/owner/ignored-files/data/$pem_name\`"
-paths=$(cat "$work_dir/paths")
+# shellcheck disable=SC2088
+if block_of '~/.gnupg' | grep -qF 'ignored files to back up'; then
+  fail credential-location-not-offered 'files in a credential location are offered for backup'
+else
+  ok credential-location-not-offered
+fi
+records=()
+while IFS= read -r -d '' record; do records+=("$record"); done <"$work_dir/paths"
+is_record() { # <path>
+  local record
+  for record in ${records[@]+"${records[@]}"}; do [[ $record == "$1" ]] && return 0; done
+  return 1
+}
 for path in "$home/.claude/projects/-fixture/memory/MEMORY.md" "$home/.local/share/agent-notes/note.md" \
   "$home/Documents/report.txt" "$home/Downloads/file.zip" "$ignored_repo/local-notes.md" \
   "$ignored_repo/data/app.sqlite" "$unicode_repo/notes.txt"; do
-  if grep -qxF -- "$path" <<<"$paths"; then ok "backup-path ${path#"$root"/}"; else fail "backup-path ${path#"$root"/}" 'not listed'; fi
+  if is_record "$path"; then ok "backup-path ${path#"$root"/}"; else fail "backup-path ${path#"$root"/}" 'not listed'; fi
 done
-for name in "$key_name" "$env_name" "$pem_name" output.bin atuin "$marker"; do
-  if grep -qF -- "$name" <<<"$paths"; then fail "backup-paths-leave-out $name" "$(grep -F -- "$name" <<<"$paths" | head -2 | tr '\n' ' ')"; else ok "backup-paths-leave-out $name"; fi
+if is_record "$forged"; then ok backup-paths-newline-name-whole; else fail backup-paths-newline-name-whole 'a name holding a newline is not one record'; fi
+for name in "$env_name" "$pem_name" output.bin atuin "$marker"; do
+  leaked=$(for record in ${records[@]+"${records[@]}"}; do if [[ $record == *"$name"* ]]; then printf '%s ' "$record"; fi; done)
+  if [[ -n $leaked ]]; then fail "backup-paths-leave-out $name" "$leaked"; else ok "backup-paths-leave-out $name"; fi
 done
+leaked=$(for record in ${records[@]+"${records[@]}"}; do
+  for location in "$credential_dir" "$gnupg_dir"; do
+    if [[ $record == "$location" || $record == "$location"/* ]]; then printf '%s ' "$record"; fi
+  done
+done)
+if [[ -n $leaked ]]; then fail backup-paths-no-credential-location "$leaked"; else ok backup-paths-no-credential-location; fi
+if is_record "$home/Downloads/fifo"; then fail backup-paths-files-only 'a FIFO is listed'; else ok backup-paths-files-only; fi
 # A file left out because its name suggests a credential must still be named.
-while IFS= read -r file; do
-  if grep -qxF -- "$file" <<<"$paths" || grep -qF -- "\`~/${file#"$home"/}\`" <<<"$credentials"; then
+while IFS= read -r -d '' file; do
+  if is_record "$file" || grep -qF -- "\`~/${file#"$home"/}\`" <<<"$credentials"; then
     ok "backup-or-credential ${file#"$home"/}"
   else
     fail "backup-or-credential ${file#"$home"/}" 'neither offered for backup nor named under Credentials'
   fi
-done < <(find "$home/.claude/projects/-fixture/memory" "$home/.local/share/agent-notes" "$home/Documents" "$home/Downloads" -name .git -prune -o -type f -print)
-not_paths=$(while IFS= read -r line; do [[ -e $line ]] || printf '%s\n' "$line"; done <<<"$paths")
-if [[ -z $not_paths ]]; then ok backup-paths-only-paths; else fail backup-paths-only-paths "$(head -2 <<<"$not_paths" | tr '\n' ' ')"; fi
-if tar -cf "$work_dir/backup.tar" -T "$work_dir/paths" 2>/dev/null && tar -tf "$work_dir/backup.tar" >"$work_dir/archived"; then
+done < <(find "$home/.claude/projects/-fixture/memory" "$home/.local/share/agent-notes" "$home/Documents" "$home/Downloads" -name .git -prune -o -type f -print0)
+not_paths=$(for record in ${records[@]+"${records[@]}"}; do if [[ ! -e $record && ! -L $record ]]; then printf '%s ' "$record"; fi; done)
+if [[ -z $not_paths ]]; then ok backup-paths-only-paths; else fail backup-paths-only-paths "$not_paths"; fi
+if tar --null -cf "$work_dir/backup.tar" -T "$work_dir/paths" 2>/dev/null && tar -tf "$work_dir/backup.tar" >"$work_dir/archived"; then
   # bsdtar lists a name in decomposed Unicode, so only its ASCII parts are matched.
   has tar-takes-the-list "$(grep -F 'owner/uni code ' "$work_dir/archived")" '/notes.txt'
+  if tar -xOf "$work_dir/backup.tar" | grep -qF -- "$marker"; then fail backup-holds-no-credential 'the fixture key contents are in the archive'; else ok backup-holds-no-credential; fi
 else
   fail tar-takes-the-list 'tar could not archive the list'
 fi
