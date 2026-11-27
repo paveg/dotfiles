@@ -222,7 +222,7 @@ done
 
 # A second run puts package managers on PATH as stubs that log every call. The
 # script must read the files each one keeps instead of running it, apart from
-# `npm root -g`, `uv tool dir`, and `ghq root --all`, which print a directory.
+# `uv tool dir` and `ghq root --all`, which print a directory.
 tools_bin=$work_dir/tools
 calls=$work_dir/calls
 brew_prefix=$root/homebrew
@@ -233,7 +233,7 @@ stub() { # <path> [<arguments the stub answers> <answer>]
 }
 stub "$brew_prefix/bin/brew"
 for tool in devbox mise cargo pnpm colima limactl nix; do stub "$tools_bin/$tool"; done
-stub "$tools_bin/npm" 'root -g' "$root/npm-global/lib/node_modules"
+stub "$tools_bin/npm"
 stub "$tools_bin/uv" 'tool dir' "$root/uv-tools"
 stub "$tools_bin/ghq" 'root --all' "$ghq_root
 $second_root"
@@ -242,8 +242,9 @@ for dir in Cellar/fixture-formula/1.0 Cellar/fzf/0.1 Cellar/fixture-dependency/2
 done
 printf '{\n  "installed_on_request": true\n}\n' | tee "$brew_prefix/Cellar/fzf/0.1/INSTALL_RECEIPT.json" >"$brew_prefix/Cellar/fixture-formula/1.0/INSTALL_RECEIPT.json"
 printf '{\n  "installed_on_request": false\n}\n' >"$brew_prefix/Cellar/fixture-dependency/2.0/INSTALL_RECEIPT.json"
-mkdir -p "$home/.local/share/devbox/global/default" "$root/npm-global/lib/node_modules/fixture-npm" \
-  "$root/npm-global/lib/node_modules/@scope/fixture-scoped" "$root/pnpm/global/5/node_modules/fixture-pnpm" \
+mkdir -p "$home/.local/share/devbox/global/default" "$brew_prefix/lib/node_modules/fixture-npm" \
+  "$brew_prefix/lib/node_modules/@scope/fixture-scoped" "$brew_prefix/lib/node_modules/npm" \
+  "$home/.vite-plus/js_runtime/node/24.0.0/lib/node_modules/fixture-vite-plus" "$root/pnpm/global/5/node_modules/fixture-pnpm" \
   "$root/uv-tools/fixture-uv" "$home/.cargo" "$home/.local/share/mise/installs/fixture-tool/1.0" \
   "$home/.colima/_lima/colima" "$home/.lima/fixture-vm"
 printf '{\n  "packages": [\n    "fixture-devbox@latest"\n  ]\n}\n' >"$home/.local/share/devbox/global/default/devbox.json"
@@ -288,7 +289,7 @@ if grep -q 'command not found' "$work_dir/err"; then
 else
   ok missing-tools-probed
 fi
-for tool in ghq docker Homebrew brew mas npm uv; do
+for tool in ghq docker Homebrew brew mas uv; do
   has "not-installed-$tool" "$(cat "$work_dir/out")" "- $tool: not installed"
 done
 
@@ -298,6 +299,8 @@ for item in '`fixture-formula`' '`fixture-cask`' '`fixture-devbox@latest`' '`fix
   '`fixture-pnpm`' '`fixture-uv`' '`fixture-crate 1.2.3`' '`fixture-tool 1.0`'; do
   has "software-read-$item" "$software" "**needs action:** $item"
 done
+if grep -qF '`npm`' <<<"$software"; then fail npm-itself-left-out 'the npm bundled with Node is listed'; else ok npm-itself-left-out; fi
+has npm-read-without-npm "$(sed -n '/^## Installed software/,/^## Files no dotfiles/p' "$work_dir/out")" '**needs action:** `fixture-vite-plus`'
 has nix-package-marked "$software" '`fzf` (in `nix/packages.nix`)'
 if grep -qF fixture-dependency <<<"$software"; then fail formula-dependency-left-out 'a dependency is listed'; else ok formula-dependency-left-out; fi
 if grep -qF '`fixture-tool latest`' <<<"$software"; then fail mise-alias-left-out 'a version alias is listed'; else ok mise-alias-left-out; fi

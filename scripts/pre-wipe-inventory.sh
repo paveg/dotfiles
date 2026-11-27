@@ -6,10 +6,9 @@
 # and the run always exits 0. It writes nothing itself and runs no fetch. It
 # reads package managers' and VMs' files instead of running them; the tools it
 # does run are git (read-only, with every configured filter emptied), chezmoi,
-# ghq, docker, mas, defaults, `npm root -g`, and `uv tool dir`. Run on an empty
-# HOME, the one path it adds is ~/.npm, the empty cache directory npm creates
-# when it starts. For credential locations it reports names, counts, and sizes
-# only, never contents.
+# ghq, docker, mas, defaults, and `uv tool dir` (offline, with no cache). Run on
+# an empty HOME and TMPDIR, it adds no path to either. For credential locations
+# it reports names, counts, and sizes only, never contents.
 # Usage: scripts/pre-wipe-inventory.sh >/tmp/inventory.md   (keep the report out
 #        of the checkout: it names private paths)
 #        scripts/pre-wipe-inventory.sh --backup-paths | tar --null -czf backup.tgz -T -
@@ -24,7 +23,7 @@ set -uo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 
-export NPM_CONFIG_UPDATE_NOTIFIER=false DO_NOT_TRACK=1 GIT_TERMINAL_PROMPT=0
+export DO_NOT_TRACK=1 GIT_TERMINAL_PROMPT=0
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -683,8 +682,8 @@ node_packages() { # <node_modules dir>...   a scoped package as @scope/name
 }
 
 # Package managers are read from the files they keep rather than run: run on a
-# fresh HOME they fetch indexes, migrate state, or write logs. npm and uv are
-# asked only for a directory.
+# fresh HOME they fetch indexes, migrate state, or write logs. uv is asked
+# only for a directory.
 brew_formulae() { # installed on request: what `brew leaves` approximates
   { grep -l '"installed_on_request": *true' "$brew_prefix"/Cellar/*/*/INSTALL_RECEIPT.json 2>/dev/null || [[ $? == 1 ]]; } |
     awk -F/ '{ print $(NF - 2) }' | LC_ALL=C sort -u
@@ -700,11 +699,6 @@ devbox_packages() {
   fi
 }
 
-npm_packages() {
-  local dir
-  dir=$(npm_config_logs_max=0 npm root -g 2>/dev/null) && node_packages "$dir"
-}
-
 if [[ -n ${PNPM_HOME:-} ]]; then
   pnpm_home=$PNPM_HOME
 elif [[ $(uname -s) == Darwin ]]; then
@@ -715,7 +709,7 @@ fi
 
 uv_tools() {
   local dir
-  dir=$(UV_NO_CACHE=1 uv tool dir 2>/dev/null) && entries "$dir"/*
+  dir=$(UV_NO_CACHE=1 UV_OFFLINE=1 uv tool dir 2>/dev/null) && entries "$dir"/*
 }
 
 cargo_home=${CARGO_HOME:-$HOME/.cargo}
@@ -738,6 +732,16 @@ mise_tools() { # <tool> <version>; a symlink is a version alias such as `latest`
   return 0
 }
 
+# npm itself is not run: through a version manager's shim, `npm root -g` on a
+# fresh HOME downloads a Node runtime first. A global prefix set only in an npm
+# config file is not read, since that file may hold a registry token.
+npm_global_dirs=()
+for dir in ${NPM_CONFIG_PREFIX:+"$NPM_CONFIG_PREFIX"} ${brew_prefix:+"$brew_prefix"} "${VITE_PLUS_HOME:-$HOME/.vite-plus}"/js_runtime/node/* \
+  "${NVM_DIR:-$HOME/.nvm}"/versions/node/* "$mise_installs"/node/*; do
+  [[ -d $dir/lib/node_modules ]] && npm_global_dirs+=("$dir/lib/node_modules")
+done
+npm_packages() { node_packages "${npm_global_dirs[@]}" | LC_ALL=C sort -u; }
+
 brew_absent=''
 [[ -n $brew_prefix ]] || brew_absent='brew: not installed'
 devbox_absent=''
@@ -746,6 +750,8 @@ pnpm_absent=''
 [[ -d $pnpm_home/global ]] || pnpm_absent="pnpm: no global packages in \`$(tilde "$pnpm_home")/global\`"
 cargo_absent=''
 [[ -f $cargo_home/.crates2.json || -d $cargo_home/bin ]] || cargo_absent="cargo: no installed crates in \`$(tilde "$cargo_home")\`"
+npm_absent=''
+((${#npm_global_dirs[@]})) || npm_absent='npm: no global `lib/node_modules` under `NPM_CONFIG_PREFIX`, Homebrew, vite-plus, nvm, or mise'
 mise_absent=''
 [[ -d $mise_installs ]] || mise_absent="mise: no installs in \`$(tilde "$mise_installs")\`"
 
@@ -754,7 +760,7 @@ software 'Homebrew formulae installed on request (`Cellar`)' nix "$brew_absent" 
 software 'Homebrew casks (`Caskroom`)' apps "$brew_absent" p entries "$brew_prefix"/Caskroom/*
 software '`mas list`' apps "$(not_installed mas)" "$mas_names" mas list
 software "devbox global packages (\`$(tilde "$devbox_json")\`)" nix "$devbox_absent" p devbox_packages
-software 'global npm packages (`npm root -g`)' nix "$(not_installed npm)" p npm_packages
+software 'global npm packages (`lib/node_modules` of each Node install found)' nix "$npm_absent" '/^(npm|corepack)$/!p' npm_packages
 software "global pnpm packages (\`$(tilde "$pnpm_home")/global\`)" nix "$pnpm_absent" p node_packages "$pnpm_home"/global/*/node_modules
 software 'uv tools (`uv tool dir`)' nix "$(not_installed uv)" p uv_tools
 software "cargo crates (\`$(tilde "$cargo_home")\`)" nix "$cargo_absent" p cargo_crates
