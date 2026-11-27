@@ -5,84 +5,40 @@
 # starts with it. Every rule in a guard's table is covered by the generic
 # checks of tests/hooks.sh (fires, alone, tier); the mutants here break a
 # sample of them one by one, which shows those checks go red, together with
-# the engine, the normalization, the tier boundary and the build. Mutants run
-# in batches of MUTATE_JOBS (default 6), each in its own tree.
+# the engine, the normalization, the tier boundary and the build.
 set -euo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
-# The physical path: a `path:` flakeref refuses a directory reached through a
-# symlink, and macOS puts mktemp's directory under /var, a link to /private/var.
-work_dir=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$work_dir"' EXIT
+# shellcheck source=tests/lib/mutate.sh
+source "$repo_dir/tests/lib/mutate.sh"
 
-jobs_per_batch=${MUTATE_JOBS:-6}
-mutants=0
-
-expect_pass() {
-  local out
-  if out=$("$repo_dir/tests/hooks.sh" 2>&1); then
-    echo "pass: the guards as committed ($(grep '^summary:' <<<"$out" | cut -d'(' -f1))"
-  else
-    echo "FAIL: the guards as committed should pass"
-    grep -E '^(ERROR|FAIL)' <<<"$out" | head -5
-    return 1
-  fi
-}
-
-prepare_mutant() { # <n> <description> <file> <old> <new>; prints the mutated tree
-  local n=$1 description=$2 file=$3 old=$4 new=$5 dir
-  dir=$(mktemp -d "$work_dir/mutant.XXXX")
+run_mutant() { # <dir> <check>... <file> <old> <new>
+  local dir=$1 checks=$2 file=$3 old=$4 new=$5 out check missing=
   mkdir -p "$dir/nix" "$dir/home/.claude"
   command cp "$repo_dir/flake.nix" "$repo_dir/flake.lock" "$dir/"
   command cp "$repo_dir/nix/agents.nix" "$dir/nix/"
   command cp -R "$repo_dir/hosts" "$dir/hosts"
   command cp -R "$repo_dir/home/.claude/hooks" "$dir/home/.claude/hooks"
-  if ! OLD=$old NEW=$new python3 - "$dir/$file" <<'PY' 2>"$work_dir/result.$n.err"; then
-import os, sys
-path = sys.argv[1]
-text = open(path).read()
-old, new = os.environ["OLD"], os.environ["NEW"]
-if text.count(old) != 1:
-    sys.exit(f"mutation target found {text.count(old)} times: {old!r}")
-open(path, "w").write(text.replace(old, new))
-PY
-    printf 'MISSED: %s (the mutation did not apply: %s)\n' "$description" "$(cat "$work_dir/result.$n.err")" >"$work_dir/result.$n"
-    return 1
-  fi
-  echo "$dir"
-}
-
-grade_mutant() { # <n> <checks> <description> <tree>
-  local n=$1 checks=$2 description=$3 dir=$4 out check missing=
+  mutate_apply "$dir/$file" "$old" "$new" || return
   out=$("$repo_dir/tests/hooks.sh" "$dir" 2>&1) || true
   for check in $checks; do
     grep -q "^FAIL: $check" <<<"$out" || missing="$missing $check"
   done
-  if [[ -z $missing ]]; then
-    echo "caught: $description" >"$work_dir/result.$n"
-  else
-    {
-      echo "MISSED: $description (expected to fail:$missing)"
-      grep -E '^(ERROR|FAIL|summary)' <<<"$out" | head -5
-    } >"$work_dir/result.$n"
-  fi
+  [[ -z $missing ]] && return 0
+  echo "expected to fail:$missing"
+  grep -E '^(ERROR|FAIL|summary)' <<<"$out" | head -5
+  return 1
 }
 
 expect_caught() { # <check>... <description> <file> <old> <new>
-  local checks=$1 description=$2 file=$3 old=$4 new=$5 tree
-  mutants=$((mutants + 1))
-  tree=$(prepare_mutant "$mutants" "$description" "$file" "$old" "$new") || return 0
-  grade_mutant "$mutants" "$checks" "$description" "$tree" &
-  if ((mutants % jobs_per_batch == 0)); then
-    wait
-  fi
+  mutant "$2" run_mutant "$1" "$3" "$4" "$5"
 }
 
 guard=home/.claude/hooks/lib/guard.sh
 db=home/.claude/hooks/block-destructive-db.sh
 sensitive=home/.claude/hooks/block-sensitive-read.sh
 
-expect_pass
+mutate_baseline 'the guards as committed' "$repo_dir/tests/hooks.sh"
 
 # The database table: a rule gone, a noun or an alternative gone, a comment no
 # longer a gap, a construct or a client gone.
@@ -500,18 +456,4 @@ expect_caught 'db-pass-list-files sensitive-pass-read-readme' \
   $'      runtimeInputs = [\n        pkgs.jq\n        pkgs.coreutils\n        pkgs.gnugrep\n      ];\n      inheritPath = false;\n' \
   $'      runtimeInputs = [\n        pkgs.coreutils\n        pkgs.gnugrep\n      ];\n      inheritPath = true;\n'
 
-wait
-
-failures=0
-for ((n = 1; n <= mutants; n++)); do
-  cat "$work_dir/result.$n"
-  if grep -q '^MISSED' "$work_dir/result.$n"; then
-    failures=$((failures + 1))
-  fi
-done
-
-if ((failures > 0)); then
-  echo "$failures of $mutants mutants were missed"
-  exit 1
-fi
-echo "every mutant is caught ($mutants mutants)"
+mutate_finish

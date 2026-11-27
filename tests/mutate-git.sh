@@ -10,52 +10,23 @@ set -euo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 
-work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
-
-failures=0
-
-expect_pass() {
-  local out
-  if out=$("$repo_dir/tests/git.sh" 2>&1); then
-    echo "pass: the files as committed"
-  else
-    echo "FAIL: the files as committed should pass"
-    grep '^FAIL' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
-}
+# shellcheck source=tests/lib/mutate.sh
+source "$repo_dir/tests/lib/mutate.sh"
 
 # <file> is relative to a copy holding home/ and profile/ (the work profile).
-expect_caught() { # <check>... <description> <file> <old> <new>
-  local checks=$1 description=$2 file=$3 old=$4 new=$5 dir out check missing
-  dir=$(mktemp -d "$work_dir/mutant.XXXX")
+run_mutant() { # <dir> <check>... <file> <old> <new>
+  local dir=$1 checks=$2 file=$3 old=$4 new=$5 out
   cp -R "$repo_dir/home" "$dir/home"
   cp -R "$repo_dir/profiles/work.example" "$dir/profile"
-  OLD=$old NEW=$new python3 - "$dir/$file" <<'PY'
-import os, sys
-path = sys.argv[1]
-text = open(path).read()
-old, new = os.environ["OLD"], os.environ["NEW"]
-if text.count(old) != 1:
-    sys.exit(f"mutation target found {text.count(old)} times: {old!r}")
-open(path, "w").write(text.replace(old, new))
-PY
+  mutate_apply "$dir/$file" "$old" "$new" || return
   out=$("$repo_dir/tests/git.sh" "$dir/home" "$dir/profile" 2>&1) || true
-  missing=
-  # The summary line proves the run reached the end: a crash that skips later
-  # checks is a broken harness, not a caught mutant.
-  grep -q '^summary:' <<<"$out" || missing=' (no summary line)'
-  for check in $checks; do
-    grep -q "^FAIL: $check:" <<<"$out" || missing="$missing $check"
-  done
-  if [[ -z $missing ]]; then
-    echo "caught: $description"
-  else
-    echo "MISSED: $description (expected to fail:$missing)"
-    grep -E '^(FAIL|summary)' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
+  mutate_has_summary "$out" || return
+  # shellcheck disable=SC2086 # one check name per word
+  mutate_checks_failed "$out" $checks
+}
+
+expect_caught() { # <check>... <description> <file> <old> <new>
+  mutant "$2" run_mutant "$1" "$3" "$4" "$5"
 }
 
 config=home/.config/git/config
@@ -73,9 +44,9 @@ all_modes() { # <check>...
 
 # tests/git.sh reaches the mixed-case org directory under the pattern's
 # spelling only where the file system ignores case.
-mkdir "$work_dir/Fold"
+mkdir "$mutate_dir/Fold"
 folded_never_included= folded_key_missing= folded_case_kept=
-if [[ -d $work_dir/fold ]]; then
+if [[ -d $mutate_dir/fold ]]; then
   folded_never_included=$(all_modes org-dir-other-case-reached-as-pattern-name org-dir-other-case-reached-as-pattern-email)
   folded_key_missing=$(all_modes org-dir-other-case-reached-as-pattern-signing-key)
   # git matches the pattern's spelling when PWD names it.
@@ -83,7 +54,7 @@ if [[ -d $work_dir/fold ]]; then
     org-dir-other-case-reached-as-pattern-email-C-pwd'
 fi
 
-expect_pass
+mutate_baseline 'the files as committed' "$repo_dir/tests/git.sh"
 
 expect_caught "$(all_modes personal-repo-name personal-repo-email personal-worktree-in-org-dir-name \
   outside-any-repo-name outside-any-repo-email no-profile-org-repo-name no-profile-org-repo-email \
@@ -184,8 +155,4 @@ expect_caught ssh-command-wsl 'wsl runs the Linux ssh, which cannot reach 1Passw
 expect_caught ssh-command-darwin 'macOS hands ssh to a Windows binary' \
   "$darwin" '[gpg "ssh"]' $'[core]\n  sshCommand = ssh.exe\n[gpg "ssh"]'
 
-if ((failures > 0)); then
-  echo "$failures mutation check(s) failed"
-  exit 1
-fi
-echo "every mutant is caught"
+mutate_finish

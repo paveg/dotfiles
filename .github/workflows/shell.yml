@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   zsh:
+    timeout-minutes: 80
     strategy:
       fail-fast: false
       matrix:

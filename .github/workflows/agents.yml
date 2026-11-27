@@ -13,6 +13,7 @@ on:
       - "profiles/**"
       - "tests/agents.sh"
       - "tests/mutate-agents.sh"
+      - "tests/lib/mutate.sh"
       - ".github/workflows/agents.yml"
 
 permissions:
@@ -20,6 +21,7 @@ permissions:
 
 jobs:
   settings:
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:

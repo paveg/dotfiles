@@ -12,6 +12,7 @@ on:
       - "hosts/**"
       - "tests/hooks.sh"
       - "tests/mutate-hooks.sh"
+      - "tests/lib/mutate.sh"
       - "tests/fixtures/hooks/**"
       - "tests/reply-language.sh"
       - "tests/fixtures/reply-language/**"
@@ -22,6 +23,7 @@ permissions:
 
 jobs:
   guards:
+    timeout-minutes: 70
     strategy:
       fail-fast: false
       matrix:

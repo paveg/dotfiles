@@ -8,11 +8,8 @@
 set -uo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
-work_dir=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$work_dir"' EXIT
-
-caught=0
-failures=0
+# shellcheck source=tests/lib/mutate.sh
+source "$repo_dir/tests/lib/mutate.sh"
 
 copy_repo() { # <dir>
   local entry
@@ -21,55 +18,32 @@ copy_repo() { # <dir>
   done
 }
 
-expect_pass() {
+grade() { # <dir> <check>...
   local out
-  if out=$("$repo_dir/tests/agents.sh" 2>&1); then
-    echo "pass: the files as committed"
-  else
-    echo "FAIL: the files as committed should pass"
-    grep -E '^(FAIL|ERROR)' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
+  out=$("$repo_dir/tests/agents.sh" "$1" 2>&1) || true
+  # shellcheck disable=SC2086 # one check name per word
+  mutate_checks_failed "$out" $2
 }
 
-run_mutant() { # <checks> <description> <dir>
-  local checks=$1 description=$2 dir=$3 out check missing=
-  out=$("$repo_dir/tests/agents.sh" "$dir" 2>&1) || true
-  for check in $checks; do
-    grep -q "^FAIL: $check:" <<<"$out" || missing="$missing $check"
-  done
-  if [[ -z $missing ]]; then
-    caught=$((caught + 1))
-    echo "caught: $description"
-  else
-    echo "MISSED: $description (expected to fail:$missing)"
-    grep -E '^(FAIL|ERROR|summary)' <<<"$out" | head -5
-    failures=$((failures + 1))
-  fi
+run_mutant() { # <dir> <check>... <file> <old> <new>
+  copy_repo "$1"
+  mutate_apply "$1/$3" "$4" "$5" || return
+  grade "$1" "$2"
+}
+
+run_mutant_jq() { # <dir> <check>... <file> <jq-filter>
+  copy_repo "$1"
+  jq "$4" "$1/$3" >"$1/$3.new" || return
+  mv "$1/$3.new" "$1/$3"
+  grade "$1" "$2"
 }
 
 expect_caught() { # <checks> <description> <file> <old> <new>
-  local dir
-  dir=$(mktemp -d "$work_dir/mutant.XXXX")
-  copy_repo "$dir"
-  OLD=$4 NEW=$5 python3 - "$dir/$3" <<'PY'
-import os, sys
-path = sys.argv[1]
-text = open(path).read()
-old, new = os.environ["OLD"], os.environ["NEW"]
-if text.count(old) != 1:
-    sys.exit(f"mutation target found {text.count(old)} times: {old!r}")
-open(path, "w").write(text.replace(old, new))
-PY
-  run_mutant "$1" "$2" "$dir"
+  mutant "$2" run_mutant "$1" "$3" "$4" "$5"
 }
 
 expect_caught_jq() { # <checks> <description> <file> <jq-filter>
-  local dir
-  dir=$(mktemp -d "$work_dir/mutant.XXXX")
-  copy_repo "$dir"
-  jq "$4" "$dir/$3" >"$dir/$3.new" && mv "$dir/$3.new" "$dir/$3"
-  run_mutant "$1" "$2" "$dir"
+  mutant "$2" run_mutant_jq "$1" "$3" "$4"
 }
 
 overrides() { # <kind>...   the override checks of each kind, on both layers and in both modes
@@ -85,7 +59,7 @@ overrides() { # <kind>...   the override checks of each kind, on both layers and
 
 generator=nix/claude-settings.sh
 
-expect_pass
+mutate_baseline 'the files as committed' "$repo_dir/tests/agents.sh"
 
 expect_caught "common-deny-work $(overrides empty)" 'a profile array replaces the common one' "$generator" \
   'then $a + $b | dedupe' 'then $b'
@@ -234,5 +208,4 @@ expect_caught_jq orca-copy "the copy of Orca's entries loses one" nix/orca-hooks
 expect_caught_jq work-example-rules 'the work example adds no rule of its own' \
   profiles/work.example/claude/settings.work.json '.permissions.deny = []'
 
-echo "summary: $caught caught, $failures failed"
-((failures == 0)) && echo "every mutant is caught"
+mutate_finish
