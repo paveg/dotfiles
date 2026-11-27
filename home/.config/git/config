@@ -1,0 +1,15 @@
+[ghq]
+  root = ~/repos
+[core]
+  excludesFile = ~/.config/git/ignore
+[gpg]
+  format = ssh
+[commit]
+  gpgsign = true
+# Later includes win, so the work profile comes last.
+[include]
+  path = ~/.config/git/personal.gitconfig
+[include]
+  path = ~/.config/git/platform.gitconfig
+[include]
+  path = ~/.config/dots-work/git/include.gitconfig

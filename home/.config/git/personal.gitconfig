@@ -1,0 +1,5 @@
+[user]
+  name = Ryota Ikezawa
+  email = pavegy@gmail.com
+  # The public half of the signing key in 1Password, which keeps the private half.
+  signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC3c+G4Y5+gaeYYtfSQUE/7p4RtsQdfrKi4a8aRiN4Wn

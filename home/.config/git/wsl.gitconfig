@@ -1,0 +1,6 @@
+# Both run on the Windows side, where 1Password's agent is, and are found by
+# name on the Windows PATH that WSL appends (docs/design.md, 1Password agent).
+[core]
+  sshCommand = ssh.exe
+[gpg "ssh"]
+  program = op-ssh-sign-wsl.exe

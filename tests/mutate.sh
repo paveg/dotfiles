@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Break one condition of the shell files at a time and require the checks in
 # tests/shell.sh that cover it to fail. A surviving mutant means those checks
-# prove nothing. Every check has a mutant here except the `-ran` checks, which
-# guard this harness rather than the files under test, and
+# prove nothing. Every check has a mutant here except the `-ran` checks and
+# terminal-shell-ran-with-zle, which guard this harness rather than the files
+# under test, and
 # fixtures-interactive-shell-log-quiet, whose run has every optional file in
 # place and so cannot see one being read when it is missing.
 # Env: ZSH_BIN overrides the zsh to test.
@@ -138,8 +139,93 @@ expect_caught caller-atuin-home-follows-data-home 'ATUIN_HOME ignores XDG_DATA_H
   .config/zsh/.zshenv 'export ATUIN_HOME=$XDG_DATA_HOME/atuin' \
   'export ATUIN_HOME=$HOME/.local/share/atuin'
 
+expect_caught atuin-config-dir 'ATUIN_CONFIG_DIR is never set, so atuin reads $ATUIN_HOME/config.toml' \
+  .config/zsh/.zshenv $'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin\n' ''
+
+expect_caught atuin-config-dir 'ATUIN_CONFIG_DIR is set but not exported' \
+  .config/zsh/.zshenv 'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin' \
+  'ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin'
+
+expect_caught caller-atuin-config-dir-follows-config-home 'ATUIN_CONFIG_DIR ignores XDG_CONFIG_HOME' \
+  .config/zsh/.zshenv 'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin' \
+  'export ATUIN_CONFIG_DIR=$HOME/.config/atuin'
+
 expect_caught editor 'EDITOR is never set' \
   .config/zsh/.zshenv 'export EDITOR=nvim' ''
+
+expect_caught visual 'VISUAL is never set' \
+  .config/zsh/.zshenv $'export VISUAL=nvim\n' ''
+
+expect_caught pager 'PAGER is never set' \
+  .config/zsh/.zshenv $'export PAGER=less\n' ''
+
+expect_caught manpager 'MANPAGER is never set' \
+  .config/zsh/.zshenv $'export MANPAGER=\'less -R\'\n' ''
+
+expect_caught lang-c-utf8-when-en-us-absent 'LANG is en_US.UTF-8 whether or not the system has it' \
+  .config/zsh/.zshenv 'export LANG=C.UTF-8' 'export LANG=en_US.UTF-8'
+
+expect_caught lang-c-utf8-when-en-us-absent 'the fallback LANG is set but not exported' \
+  .config/zsh/.zshenv 'export LANG=C.UTF-8' 'LANG=C.UTF-8'
+
+expect_caught lang-c-utf8-when-en-us-absent \
+  'the LANG probe keeps the inherited locale, so a UTF-8 one passes for en_US.UTF-8' \
+  .config/zsh/.zshenv 'local LC_ALL=C; ' 'local LC_ALL; '
+
+# The host's own answer, as tests/shell.sh asks it: where libc cannot load
+# en_US.UTF-8, the check expects C.UTF-8 and these mutants cannot be caught.
+if [[ $(env -i LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null) == UTF-8 ]]; then
+  expect_caught lang-en-us-where-libc-has-it 'the LANG probe expects a codeset libc never names' \
+    .config/zsh/.zshenv '[[ $langinfo[CODESET] == UTF-8 ]]' '[[ $langinfo[CODESET] == utf8 ]]'
+  expect_caught lang-en-us-where-libc-has-it 'LANG is C.UTF-8 even where libc has en_US.UTF-8' \
+    .config/zsh/.zshenv 'export LANG=en_US.UTF-8' 'export LANG=C.UTF-8'
+else
+  echo "n/a: libc here cannot load en_US.UTF-8, so the en_US.UTF-8 branch cannot be mutation-tested"
+  skipped=$((skipped + 2))
+fi
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists the yaml files before config' \
+  .config/zsh/.zshenv '($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))' \
+  '($HOME/.kube/*.yaml(N-.) $HOME/.kube/config(N-.))'
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists every file in ~/.kube' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*(N-.)'
+
+expect_caught kubeconfig-lists-config-then-yaml \
+  'KUBECONFIG lists a *.yaml that is a directory or a dangling symlink' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*.yaml(N)'
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG leaves out a *.yaml symlink to a file' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*.yaml(N.)'
+
+expect_caught kubeconfig-skips-config-directory 'KUBECONFIG lists ~/.kube/config when it is a directory' \
+  .config/zsh/.zshenv '$HOME/.kube/config(N-.)' '$HOME/.kube/config(N)'
+
+expect_caught kubeconfig-drops-names-with-colon 'KUBECONFIG lists a name that holds a colon' \
+  .config/zsh/.zshenv $'    kube_files=(${kube_files:#*:*})\n' ''
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG is set but not exported' \
+  .config/zsh/.zshenv 'export KUBECONFIG=' 'KUBECONFIG='
+
+expect_caught kubeconfig-unset-without-kube-dir 'KUBECONFIG is exported empty with no ~/.kube' \
+  .config/zsh/.zshenv $'    if (( $#kube_files )); then\n      export KUBECONFIG=${(j.:.)kube_files}\n    fi' \
+  '    export KUBECONFIG=${(j.:.)kube_files}'
+
+expect_caught 'nonlogin-quiet-stderr login-quiet-stderr' \
+  'the KUBECONFIG globs fail with no ~/.kube' \
+  .config/zsh/.zshenv '$HOME/.kube/config(N-.)' '$HOME/.kube/config(-.)'
+
+expect_caught kubeconfig-caller-value-kept 'KUBECONFIG replaces the value the caller set' \
+  .config/zsh/.zshenv 'if [[ -z ${KUBECONFIG-} ]]; then' 'if true; then'
+
+expect_caught kube-dir-env-unchanged-apart-from-kubeconfig \
+  'the KUBECONFIG list is globbed after a cd, which changes PWD' \
+  .config/zsh/.zshenv 'local kube_files=($HOME/.kube/config(N-.) $HOME/.kube/*.yaml(N-.))' \
+  'cd $HOME/.kube; local kube_files=($PWD/config(N-.) $PWD/*.yaml(N-.))'
+
+expect_caught kube-dir-output-unchanged 'the KUBECONFIG block prints the list' \
+  .config/zsh/.zshenv '      export KUBECONFIG=${(j.:.)kube_files}' \
+  $'      export KUBECONFIG=${(j.:.)kube_files}\n      print -r -- $KUBECONFIG'
 
 # One directory at a time off the PATH list, which must fail the same checks in
 # both a non-login and a login shell.
@@ -225,11 +311,35 @@ expect_caught interactive-histsize-keeps-a-session \
   'in-memory history holds one line, so up-arrow is useless' \
   .config/zsh/.zshrc 'HISTSIZE=100000' 'HISTSIZE=1'
 
-expect_caught 'cache-dir-created caller-cache-dir-created caller-cache-holds-completion-dump' \
-  'the completion cache directory is not created' \
+# Ceiling: on a switched nix-darwin host, /etc/zshrc runs `bindkey -e` and sets
+# HIST_IGNORE_DUPS, and /etc/zshenv puts ~/.nix-profile's site-functions on
+# fpath, so there the keymap, HIST_IGNORE_DUPS and fpath mutants survive.
+expect_caught interactive-keymap-emacs 'EDITOR=nvim leaves zsh in the vi keymap' \
+  .config/zsh/.zshrc $'bindkey -e\n' ''
+
+expect_caught interactive-option-interactivecomments 'INTERACTIVE_COMMENTS is left off' \
+  .config/zsh/.zshrc 'INTERACTIVE_COMMENTS ' ''
+
+expect_caught interactive-option-autocd 'AUTO_CD is left off' \
+  .config/zsh/.zshrc ' AUTO_CD' ''
+
+expect_caught interactive-option-autopushd 'AUTO_PUSHD is left off' \
+  .config/zsh/.zshrc ' AUTO_PUSHD' ''
+
+expect_caught interactive-option-pushdignoredups 'PUSHD_IGNORE_DUPS is left off' \
+  .config/zsh/.zshrc ' PUSHD_IGNORE_DUPS' ''
+
+expect_caught interactive-option-no-beep 'the shell still beeps' \
+  .config/zsh/.zshrc ' NO_BEEP' ''
+
+expect_caught interactive-option-histignoredups 'HIST_IGNORE_DUPS is left off' \
+  .config/zsh/.zshrc ' HIST_IGNORE_DUPS' ''
+
+expect_caught 'completion-dump-created caller-cache-holds-completion-dump' \
+  'the completion cache directory is not created, so compinit writes no dump' \
   .config/zsh/.zshrc 'mkdir -p $XDG_CACHE_HOME/zsh' ''
 
-expect_caught 'caller-cache-dir-created caller-cache-home-cache-untouched' \
+expect_caught 'caller-cache-holds-completion-dump caller-cache-home-cache-untouched' \
   'the completion cache directory ignores XDG_CACHE_HOME' \
   .config/zsh/.zshrc 'mkdir -p $XDG_CACHE_HOME/zsh' 'mkdir -p $HOME/.cache/zsh'
 
@@ -238,6 +348,24 @@ expect_caught home-tree-adds-only-cache 'the completion dump lands outside the c
 
 expect_caught caller-cache-holds-completion-dump 'completion is never initialized' \
   .config/zsh/.zshrc 'compinit -i -d $XDG_CACHE_HOME/zsh/zcompdump' ''
+
+expect_caught insecure-fpath-completion-initialized \
+  'compinit asks about an insecure fpath directory, and with no terminal to answer it aborts' \
+  .config/zsh/.zshrc 'compinit -i -d' 'compinit -d'
+
+expect_caught 'completion-cache-in-xdg-cache home-allowlist' \
+  'the completion cache lands in $HOME' \
+  .config/zsh/.zshrc 'cache-path $XDG_CACHE_HOME/zsh/zcompcache' 'cache-path $HOME/.zcompcache'
+
+expect_caught completion-cache-in-xdg-cache 'completion functions never use their cache' \
+  .config/zsh/.zshrc "use-cache on" "use-cache off"
+
+expect_caught interactive-profile-completion-registered \
+  "the Nix profiles' completions are left off fpath" \
+  .config/zsh/.zshrc $'fpath=(${^_dots_path:h}/share/zsh/site-functions(N/) $fpath)\n' ''
+
+expect_caught interactive-skip-global-compinit "Ubuntu's global compinit is left on" \
+  .config/zsh/.zshenv $'skip_global_compinit=1\n' ''
 
 expect_caught 'interactive-promptsubst-off interactive-prompt-without-command-substitution' \
   'the prompt runs a command on every redraw' \
@@ -253,12 +381,81 @@ expect_caught interactive-ctrl-g-dots-widget 'Ctrl+g is left unbound' \
 expect_caught interactive-ctrl-g-dots-widget 'the ghq widget is bound to another key' \
   .config/zsh/.zshrc "bindkey '^g' dots-ghq-cd" "bindkey '^t' dots-ghq-cd"
 
+expect_caught 'interactive-ctrl-t-fzf-file-widget interactive-alt-c-fzf-cd-widget' \
+  "fzf's key bindings are never loaded" \
+  .config/zsh/.zshrc $'  if [[ -n $TTY ]]; then\n    eval "$(fzf --zsh)"\n  fi\n' ''
+
+expect_caught no-terminal-stderr-empty \
+  "fzf's key bindings load without a terminal, and its option restore fails on zle" \
+  .config/zsh/.zshrc $'  if [[ -n $TTY ]]; then\n    eval "$(fzf --zsh)"\n  fi\n' \
+  $'  eval "$(fzf --zsh)"\n'
+
+expect_caught no-terminal-stderr-empty \
+  "fzf's key bindings wait for the zle option, which reads on while .zshrc runs" \
+  .config/zsh/.zshrc '[[ -n $TTY ]]' '[[ -o zle ]]'
+
+expect_caught interactive-ctrl-r-atuin-widget "fzf's key bindings load after atuin's and take Ctrl+r" \
+  .config/zsh/.zshrc '  eval "$(atuin init zsh --disable-up-arrow)"' \
+  $'  eval "$(atuin init zsh --disable-up-arrow)"\n  eval "$(fzf --zsh)"'
+
 expect_caught interactive-ctrl-r-atuin-widget 'atuin is never initialized' \
   .config/zsh/.zshrc $'if (( $+commands[atuin] )); then\n  eval "$(atuin init zsh --disable-up-arrow)"\nfi\n' ''
 
 expect_caught interactive-ctrl-r-atuin-widget "atuin is told to leave Ctrl+r alone" \
   .config/zsh/.zshrc 'atuin init zsh --disable-up-arrow' \
   'atuin init zsh --disable-ctrl-r'
+
+expect_caught interactive-abbreviation-expands 'an abbreviation is left as typed' \
+  .config/zsh/.zshrc '    LBUFFER=${dots_abbreviations[$LBUFFER]}' '    :'
+
+expect_caught interactive-abbreviation-ll 'll is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  ll \'eza -l --git\'\n' ''
+
+expect_caught interactive-abbreviation-la 'la lists without hidden files' \
+  .config/zsh/.zshrc "la 'eza -la --git'" "la 'eza -l --git'"
+
+expect_caught interactive-abbreviation-lt 'lt is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  lt \'eza --tree --level=2\'\n' ''
+
+expect_caught interactive-abbreviation-b 'b is left out of the abbreviations' \
+  .config/zsh/.zshrc $'  b bat\n' ''
+
+expect_caught interactive-abbreviation-not-with-text-right \
+  'a word with text to its right expands, so Ctrl+a then g runs gitit status' \
+  .config/zsh/.zshrc ' && -z $RBUFFER' ''
+
+expect_caught interactive-abbreviation-not-in-vared 'an abbreviation expands in vared' \
+  .config/zsh/.zshrc '$CONTEXT == start && ' ''
+
+expect_caught interactive-abbreviation-not-after-pending-lines \
+  'an abbreviation expands after lines still pending' \
+  .config/zsh/.zshrc ' && -z $PREBUFFER' ''
+
+expect_caught 'interactive-abbreviation-not-on-continuation interactive-abbreviation-not-in-vared' \
+  'an abbreviation expands inside an open quote or a heredoc' \
+  .config/zsh/.zshrc '$CONTEXT == start && -z $PREBUFFER && ' ''
+
+expect_caught interactive-space-expands-abbreviations 'Space inserts a space without expanding' \
+  .config/zsh/.zshrc $'bindkey \' \' dots-abbreviation-space\n' ''
+
+expect_caught interactive-enter-expands-abbreviations 'Enter runs the line without expanding' \
+  .config/zsh/.zshrc $'bindkey \'^m\' dots-abbreviation-accept\n' ''
+
+expect_caught interactive-enter-clears-suggestion \
+  "zsh-autosuggestions redraws its suggestion on the line Enter accepted" \
+  .config/zsh/.zshrc $'ZSH_AUTOSUGGEST_CLEAR_WIDGETS+=(dots-abbreviation-accept)\n' ''
+
+expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command' \
+  .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  vi nvim\n'
+
+expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a command from the Nix profile' \
+  .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  rg \'rg --hidden\'\n'
+
+expect_caught interactive-abbreviations-shadow-nothing 'an abbreviation shadows a reserved word' \
+  .config/zsh/.zshrc $'  v nvim\n' $'  v nvim\n  foreach \'git log\'\n'
+
+expect_caught piped-stdout-as-bare 'the mouse reporting reset writes escape bytes into a pipe' \
+  .config/zsh/.zshrc '[[ -t 1 ]]' 'true'
 
 expect_caught interactive-zshrc-local-from-zdotdir \
   'the local zsh override is never sourced' \
@@ -270,7 +467,7 @@ expect_caught interactive-zshrc-local-from-zdotdir \
   $'if [[ -r $ZDOTDIR/.zshrc.local ]]; then\n  source $ZDOTDIR/.zshrc.local' \
   $'if [[ -r $HOME/.zshrc.local ]]; then\n  source $HOME/.zshrc.local'
 
-expect_caught 'interactive-shell-log-quiet caller-cache-interactive-shell-log-quiet' \
+expect_caught 'interactive-shell-log-quiet caller-cache-interactive-shell-log-quiet insecure-fpath-interactive-shell-log-quiet' \
   'the local zsh override is sourced even when it does not exist' \
   .config/zsh/.zshrc \
   $'if [[ -r $ZDOTDIR/.zshrc.local ]]; then\n  source $ZDOTDIR/.zshrc.local\nfi' \

@@ -108,9 +108,9 @@ expect_caught() { # <check>... <description> <file> <old> <new> [<file> <old> <n
 }
 
 h=$host
-last_package=$'    atuin\n  ];'
+last_package=$'    atuin\n  ]'
 with_package() { # <expression>
-  printf '    atuin\n    %s\n  ];' "$1"
+  printf '    atuin\n    %s\n  ]' "$1"
 }
 
 expect_pass

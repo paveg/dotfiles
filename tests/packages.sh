@@ -2,9 +2,13 @@
 # Check what the built configuration gives a host, with no Nix switch: the
 # package set is exactly the one the design names, unfree packages are admitted
 # by name only, every global CLI tool is in the home-manager profile and wins
-# over /usr/bin, the profile that PATH names serves that same profile, the zsh
-# and mise directories are real directories whose files link into the checkout,
-# and the global mise config refuses the asdf backend.
+# over /usr/bin, the profile that PATH names serves that same profile and the
+# zsh plugins, the zsh, mise, atuin and git directories are real directories
+# whose files link into the checkout, the ssh config is a store copy on macOS
+# alone, the global mise config refuses the asdf backend, the built atuin
+# accepts the atuin config, and on macOS the switch sets the launchd variables
+# for GUI apps and the generated /etc/zshrc leaves completion and the prompt to
+# $ZDOTDIR/.zshrc.
 # Usage: tests/packages.sh [repo-dir]
 # Env: DOTFILES_HOST selects the host (default: personal-mac on macOS, wsl
 #      elsewhere). ZSH_BIN overrides the zsh to test.
@@ -23,7 +27,7 @@ nix_bin=(nix --extra-experimental-features 'nix-command flakes')
 # Command names, not package names: what a caller types is the behaviour under
 # test. `gh` is not here; it becomes a wrapper in a later change.
 commands=(
-  claude git ghq fzf rg fd jq nvim just lazygit lefthook gitleaks
+  claude git ghq fzf rg fd bat eza zoxide jq nvim just lazygit lefthook gitleaks
   kubectl helm k9s stern ghtkn mise atuin
 )
 # The same set by nixpkgs attribute name, from docs/design.md "Packages", so a
@@ -31,9 +35,17 @@ commands=(
 # absent on purpose: the wrapper takes that name, and the package would collide
 # with it.
 packages=(
-  claude-code git ghq fzf ripgrep fd jq neovim just lazygit lefthook gitleaks
+  claude-code git ghq fzf ripgrep fd bat eza zoxide zsh-autosuggestions
+  zsh-syntax-highlighting jq neovim just lazygit lefthook gitleaks
   kubectl kubernetes-helm k9s stern ghtkn mise atuin
 )
+# What hosts/<host>.nix adds for that host alone, as command and package.
+if [[ $host == work-mac ]]; then
+  commands+=(peco)
+  packages+=(peco)
+fi
+# $ZDOTDIR/.zshrc sources share/<plugin>/<plugin>.zsh from the profiles on PATH.
+plugins=(zsh-autosuggestions zsh-syntax-highlighting)
 # home-manager puts these in home.packages itself, so the set under test is
 # not the whole list. Ceiling: a home-manager update that changes its own set
 # fails package-names, and the fix is to edit this list.
@@ -51,9 +63,16 @@ unfree_refused=(claude claude-code-x cursor raycast unrar vscode)
 linked_files=(
   .zshenv
   .config/zsh/.zshenv .config/zsh/.zprofile .config/zsh/.zshrc
-  .config/mise/config.toml
+  .config/mise/config.toml .config/atuin/config.toml
+  .config/git/config .config/git/ignore .config/git/personal.gitconfig
 )
-real_dirs=(.config/zsh .config/mise)
+real_dirs=(.config/zsh .config/mise .config/atuin .config/git)
+# launchd.user.envVariables on macOS, as <name>=<value>.
+launchd_vars=(ORCA_TELEMETRY_DISABLED=1 HOMEBREW_NO_ANALYTICS=1)
+# <link>:<file under home/>, where the file that is linked depends on the OS.
+platform=darwin
+[[ $host == wsl ]] && platform=wsl
+linked_files+=(".config/git/platform.gitconfig:.config/git/$platform.gitconfig")
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
@@ -205,6 +224,7 @@ if [[ $host == wsl ]]; then
   else
     is generation-home-path "$profile" "$(readlink "$generation/home-path" 2>"$work_dir/readlink.err")"
   fi
+  path_profile=$profile
 else
   system=$(build_attr "darwinConfigurations.$host.system" system)
   if [[ -z $system ]]; then
@@ -214,7 +234,41 @@ else
       per_user=$system/etc/profiles/per-user/$user/bin/$cmd
       is "per-user-$cmd" "$profile/bin/$cmd" "$(readlink "$per_user" 2>>"$work_dir/readlink.err")"
     done
+    # For apps that launchd starts without a shell: the switch sets each one in
+    # the primary user's launchd domain, so the line must carry that user.
+    for var in "${launchd_vars[@]}"; do
+      name=${var%%=*} value=${var#*=}
+      if grep -qE "sudo --user='?$user'? -- launchctl setenv $name '$value'\$" "$system/activate"; then
+        ok "launchd-$name"
+      else
+        fail "launchd-$name" "$system/activate has no user launchctl setenv $name '$value': $(grep -n 'launchctl setenv' "$system/activate" 2>&1 | tr '\n' ' ' | cut -c1-200)"
+      fi
+    done
+    path_profile=$system/etc/profiles/per-user/$user
+    # $ZDOTDIR/.zshrc runs the one compinit and sets the prompt, so the
+    # generated /etc/zshrc, read before it, does neither. The header proves the
+    # file is nix-darwin's and not missing.
+    etc_zshrc=$system/etc/zshrc
+    if grep -q '^# /etc/zshrc: DO NOT EDIT' "$etc_zshrc" 2>/dev/null; then
+      ok etc-zshrc-generated
+      is etc-zshrc-no-compinit "" "$(grep compinit "$etc_zshrc" | tr '\n' ' ')"
+      is etc-zshrc-no-promptinit "" "$(grep promptinit "$etc_zshrc" | tr '\n' ' ')"
+    else
+      fail etc-zshrc-generated "$etc_zshrc is missing or not nix-darwin's"
+    fi
   fi
+fi
+
+# nix-darwin's per-user profile links only environment.pathsToLink, so a
+# package can be in home.path and still be missing from the profile on PATH.
+if [[ -n ${path_profile-} ]]; then
+  for plugin in "${plugins[@]}"; do
+    if [[ -r $path_profile/share/$plugin/$plugin.zsh ]]; then
+      ok "plugin-$plugin"
+    else
+      fail "plugin-$plugin" "$path_profile/share/$plugin/$plugin.zsh is not readable"
+    fi
+  done
 fi
 
 if [[ -n $home_files ]]; then
@@ -229,11 +283,30 @@ if [[ -n $home_files ]]; then
   # checkout. The checkout exists only on the owner's machine, so follow the
   # links by name instead of asking the filesystem. A file copied into the
   # store has no second hop, and the store path is what fails the comparison.
-  for path in "${linked_files[@]}"; do
+  for entry in "${linked_files[@]}"; do
+    path=${entry%%:*} source=${entry#*:}
     store_link=$(readlink "$home_files/$path" 2>>"$work_dir/readlink.err")
     target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
-    is "link-$path" "$checkout/home/$path" "$target"
+    is "link-$path" "$checkout/home/$source" "$target"
   done
+  # The ssh config is a store copy, not a link into the checkout, and only on
+  # macOS: wsl hands ssh to Windows.
+  ssh_entry=$home_files/.ssh/config
+  if [[ $host == wsl ]]; then
+    if [[ -e $home_files/.ssh || -L $home_files/.ssh ]]; then
+      fail ssh-config "wsl gets $(ls -ld "$home_files/.ssh" 2>&1)"
+    else
+      ok ssh-config
+    fi
+  else
+    ssh_copy=$(readlink "$ssh_entry" 2>>"$work_dir/readlink.err")
+    if [[ $ssh_copy == /nix/store/* && -f $ssh_copy && ! -L $ssh_copy ]] &&
+      cmp -s "$ssh_copy" "$repo_dir/nix/ssh_config"; then
+      ok ssh-config
+    else
+      fail ssh-config "want a store copy of nix/ssh_config, got '$ssh_copy' ($(ls -ld "$ssh_copy" 2>&1))"
+    fi
+  fi
   if [[ -s $work_dir/readlink.err && $failures -gt 0 ]]; then
     echo "readlink stderr: $(brief "$work_dir/readlink.err")"
   fi
@@ -258,6 +331,22 @@ fi
 # asdf and nothing else: disabling a backend a project needs would be refused
 # the same way, and the message above does not say which backend is off.
 is mise-disable-backends '["asdf"]' "$(run_mise settings get disable_backends)"
+
+# The built atuin accepts the linked config.toml: with a key or value it
+# rejects, every atuin command fails with "could not load client settings",
+# and `atuin info` prints the config path only after loading it. A copy, so
+# nothing atuin writes lands in the checkout.
+atuin_dir=$work_dir/atuin
+mkdir -p "$atuin_dir/config" "$atuin_dir/home"
+cp "$repo_dir/home/.config/atuin/config.toml" "$atuin_dir/config/"
+atuin_out=$(cd "$work_dir" && env -i HOME="$atuin_dir/home" PATH=/usr/bin:/bin \
+  ATUIN_HOME="$atuin_dir/data" ATUIN_CONFIG_DIR="$atuin_dir/config" \
+  "$profile/bin/atuin" info 2>&1)
+if grep -qF "client config: \"$atuin_dir/config/config.toml\"" <<<"$atuin_out"; then
+  ok atuin-reads-config
+else
+  fail atuin-reads-config "$(tr '\n' ' ' <<<"$atuin_out" | cut -c1-300)"
+fi
 
 summary
 if ((failures > 0)); then exit 1; fi

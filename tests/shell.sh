@@ -42,33 +42,98 @@ field() { # <name> <text>
 
 # A fresh HOME holding this repository's files plus a fake Nix user profile, so
 # that a machine without Nix still has to resolve `git` from a Nix profile
-# rather than from /usr/bin.
+# rather than from /usr/bin, and a completion from the profile's
+# site-functions, under a name no system ships.
 new_home() { # <name>
   local home=$work_dir/$1
-  mkdir -p "$home/.nix-profile/bin"
+  mkdir -p "$home/.nix-profile/bin" "$home/.nix-profile/share/zsh/site-functions"
   cp -R "$home_src/." "$home/"
   printf '#!/bin/sh\necho fake-nix-profile-git\n' >"$home/.nix-profile/bin/git"
   chmod +x "$home/.nix-profile/bin/git"
+  printf '#compdef dots-stub-command\n' >"$home/.nix-profile/share/zsh/site-functions/_dots_stub"
   echo "$home"
 }
 
-# The commands `.zshrc` binds keys for. The atuin stub prints the same shape of
-# init script atuin does, including the Ctrl+r binding it leaves out when it is
-# told to.
+# A stub for each command the Nix profile installs, by the list
+# tests/packages.sh checks against the built profile, so an abbreviation that
+# shadows one is seen on a machine without Nix. Stubs that exist are kept.
+add_profile_stubs() { # <home>
+  local bin=$1/.nix-profile/bin commands=() cmd
+  eval "$(sed -n '/^commands=(/,/^)/p' "$repo_dir/tests/packages.sh")"
+  if ((${#commands[@]} == 0)); then
+    echo "no commands=( ) list in tests/packages.sh" >&2
+    exit 1
+  fi
+  for cmd in "${commands[@]}"; do
+    if [[ ! -e $bin/$cmd ]]; then
+      printf '#!/bin/sh\nexit 0\n' >"$bin/$cmd"
+      chmod +x "$bin/$cmd"
+    fi
+  done
+}
+
+# The commands `.zshrc` binds keys for. The fzf and atuin stubs print the same
+# shape of init script the real ones do: fzf binds Ctrl+t, Alt+c and Ctrl+r in
+# every keymap and then restores every option through `options=(...)`, which
+# fails on zle in a shell without one, and atuin binds Ctrl+r to atuin-search,
+# as 18.24 names it, unless it is told not to.
 add_command_stubs() { # <home>
   local bin=$1/.nix-profile/bin
   printf '#!/bin/sh\nexit 0\n' >"$bin/ghq"
-  printf '#!/bin/sh\nexit 0\n' >"$bin/fzf"
+  cat >"$bin/fzf" <<'STUB'
+#!/bin/sh
+case " $* " in
+*" --zsh "*) cat <<'ZSH' ;;
+zmodload zsh/parameter
+fzf_saved_options="options=(${(j: :)${(kv)options[@]}})"
+{
+fzf-file-widget() { : }
+fzf-cd-widget() { : }
+fzf-history-widget() { : }
+zle -N fzf-file-widget
+zle -N fzf-cd-widget
+zle -N fzf-history-widget
+for keymap in emacs vicmd viins; do
+  bindkey -M $keymap '^T' fzf-file-widget
+  bindkey -M $keymap '^[c' fzf-cd-widget
+  bindkey -M $keymap '^R' fzf-history-widget
+done
+} always {
+  eval $fzf_saved_options
+  unset fzf_saved_options
+}
+ZSH
+esac
+STUB
   cat >"$bin/atuin" <<'STUB'
 #!/bin/sh
-echo '_atuin_search_widget() { : }'
-echo 'zle -N _atuin_search_widget'
+echo '_atuin_search() { : }'
+echo 'zle -N atuin-search _atuin_search'
 case " $* " in
 *" --disable-ctrl-r "*) ;;
-*) echo "bindkey '^r' _atuin_search_widget" ;;
+*) echo "bindkey -M emacs '^r' atuin-search" ;;
 esac
 STUB
   chmod +x "$bin/ghq" "$bin/fzf" "$bin/atuin"
+}
+
+# `zsh -c printenv` on a libc that cannot load en_US.UTF-8 but can load
+# C.UTF-8, whose codeset LC_CTYPE asks for. glibc reads locales only from
+# $LOCPATH when it is set; macOS's libc has no such variable, so a sandbox
+# keeps it out of the en_US.UTF-8 directory instead.
+printenv_without_en_us() { # <home>
+  local env=(env -i HOME="$1" TERM=dumb PATH="$base_path" LC_CTYPE=C.UTF-8)
+  if [[ $(uname -s) == Darwin ]]; then
+    sandbox-exec -p '(version 1)(allow default)
+      (deny file-read* (subpath "/usr/share/locale/en_US.UTF-8"))' \
+      "${env[@]}" "$zsh_bin" -c printenv
+  else
+    mkdir -p "$work_dir/locales"
+    if [[ -d /usr/lib/locale/C.utf8 ]]; then
+      ln -sfn /usr/lib/locale/C.utf8 "$work_dir/locales/C.utf8"
+    fi
+    "${env[@]}" LOCPATH="$work_dir/locales" "$zsh_bin" -c printenv
+  fi
 }
 
 # A non-secret work profile and a local zsh override, with a decoy in $HOME that
@@ -93,18 +158,57 @@ write_probe() { # <script> <out-file>
   out=$(printf '%q' "$2")
   cat >"$1" <<EOF
 {
+  if [[ -o zle ]]; then print -r -- "ZLE=on"; else print -r -- "ZLE=off"; fi
   print -r -- "SAVEHIST=\$SAVEHIST"
   print -r -- "HISTFILE=\${HISTFILE-}"
   print -r -- "HISTSIZE=\$HISTSIZE"
   print -r -- "PROMPT=\$PROMPT"
   if [[ -o promptsubst ]]; then print -r -- "PROMPTSUBST=on"; else print -r -- "PROMPTSUBST=off"; fi
+  print -r -- "KEYMAP_MAIN=\$(bindkey -lL main)"
+  for option in interactivecomments autocd autopushd pushdignoredups beep histignoredups; do
+    if [[ -o \$option ]]; then print -r -- "OPTION_\$option=on"; else print -r -- "OPTION_\$option=off"; fi
+  done
+  print -r -- "COMPLETION_STUB=\${_comps[dots-stub-command]-none}"
+  print -r -- "COMPLETION_COUNT=\${#_comps}"
+  print -r -- "SKIP_GLOBAL_COMPINIT=\${skip_global_compinit-}"
   ctrl_g=\$(bindkey '^g'); ctrl_g=\${ctrl_g##* }
   ctrl_r=\$(bindkey '^r'); ctrl_r=\${ctrl_r##* }
+  ctrl_t=\$(bindkey '^t'); ctrl_t=\${ctrl_t##* }
+  alt_c=\$(bindkey '^[c'); alt_c=\${alt_c##* }
   print -r -- "CTRL_G=\$ctrl_g"
   print -r -- "CTRL_G_TYPE=\${widgets[\$ctrl_g]-none}"
   print -r -- "CTRL_R=\$ctrl_r"
+  print -r -- "CTRL_T=\$ctrl_t"
+  print -r -- "ALT_C=\$alt_c"
+  expanded() {
+    CONTEXT=\$1 PREBUFFER=\$2 LBUFFER=\$3 RBUFFER=\$4
+    dots-abbreviation-expand
+    print -r -- "\$LBUFFER"
+  }
+  print -r -- "ABBREVIATION_GST=\$(expanded start '' gst '')"
+  for name in ll la lt b; do
+    print -r -- "ABBREVIATION_\$name=\$(expanded start '' \$name '')"
+  done
+  print -r -- "ABBREVIATION_TEXT_RIGHT=\$(expanded start '' g 'it status')"
+  print -r -- "ABBREVIATION_CONTINUATION=\$(expanded cont 'echo "first'\$'\\n' gst '')"
+  print -r -- "ABBREVIATION_VARED=\$(expanded vared '' g '')"
+  print -r -- "ABBREVIATION_PREBUFFER=\$(expanded start 'echo "first'\$'\\n' gst '')"
+  space=\$(bindkey ' '); space=\${space##* }
+  enter=\$(bindkey '^m'); enter=\${enter##* }
+  print -r -- "SPACE_TYPE=\${widgets[\$space]-none}"
+  print -r -- "ENTER_TYPE=\${widgets[\$enter]-none}"
+  print -r -- "ENTER_CLEARS_SUGGESTION=\${ZSH_AUTOSUGGEST_CLEAR_WIDGETS[(Ie)\$enter]}"
+  for name in \${(k)dots_abbreviations}; do
+    if (( \$+commands[\$name] || \$+builtins[\$name] || \${reswords[(Ie)\$name]} )); then
+      print -r -- "SHADOWED \$name"
+    fi
+  done
   print -r -- "LOCAL_RC=\${DOTS_LOCAL_RC-}"
   alias | sed 's/^/ALIAS /'
+  () {
+    local curcontext=:complete:dots-probe: dots_probe_cache=1
+    _store_cache _dots_probe_cache dots_probe_cache
+  }
   print -r -- "DONE=yes"
 } >$out 2>&1
 exit
@@ -119,8 +223,42 @@ run_interactive() { # <home> <out-file> <log> [NAME=value]...
   shift 3
   write_probe "$out.zsh" "$out"
   (cd "$work_dir" &&
-    env -i HOME="$home" TERM=dumb PATH="$base_path" "$@" "$zsh_bin" -i \
+    detached env -i HOME="$home" TERM=dumb PATH="$base_path" "$@" "$zsh_bin" -i \
       <"$out.zsh" >"$log" 2>&1) || true
+}
+
+# The same probe in an interactive shell on a terminal of its own, which zsh's
+# zpty module gives on Linux and macOS alike, so that zle is on, as at a desk.
+# A shell still running after the deadline, such as one waiting at a prompt for
+# a key, is killed and leaves $terminal_timeout in <log>. `zpty -t` is not used
+# to see the exit: it blocks until the shell prints something.
+terminal_timeout="timed out waiting for the interactive shell"
+run_on_terminal() { # <home> <out-file> <log>
+  local home=$1 out=$2 log=$3
+  write_probe "$out.zsh" "$out"
+  (cd "$work_dir" && TIMEOUT_MESSAGE=$terminal_timeout "$zsh_bin" -fc '
+    zmodload zsh/zpty zsh/zselect || exit 1
+    zpty probe "${(j: :)${(q)@}}" || exit 1
+    fd=$REPLY deadline=$((SECONDS + 30))
+    while ((SECONDS < deadline)); do
+      zpty -r -t probe line
+      case $? in
+      0) print -rn -- "$line" ;;
+      2) zpty -d probe; exit 0 ;;
+      *) zselect -t 10 -r $fd ;;
+      esac
+    done
+    print
+    print -r -- "$TIMEOUT_MESSAGE"
+    zpty -d probe' run-on-terminal \
+    env -i HOME="$home" TERM=xterm-256color PATH="$base_path" \
+    "$zsh_bin" -i -c "source $(printf %q "$out.zsh")" >"$log" 2>&1) || true
+}
+
+# Without a controlling terminal, as under CI or an agent: zsh turns zle on
+# whenever it can open /dev/tty, even with stdin redirected.
+detached() { # <command>...
+  python3 -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$@"
 }
 
 # Lines in a shell's output that report a failure. zsh writes these when a file
@@ -210,7 +348,63 @@ is xdg-state-home "$home/.local/state" "$(field XDG_STATE_HOME "$vars")"
 is xdg-cache-home "$home/.cache" "$(field XDG_CACHE_HOME "$vars")"
 is zdotdir "$home/.config/zsh" "$(field ZDOTDIR "$vars")"
 is atuin-home "$home/.local/share/atuin" "$(field ATUIN_HOME "$vars")"
+# With ATUIN_HOME set, atuin reads $ATUIN_HOME/config.toml unless this is set.
+is atuin-config-dir "$home/.config/atuin" "$(field ATUIN_CONFIG_DIR "$vars")"
 is editor nvim "$(field EDITOR "$vars")"
+is visual nvim "$(field VISUAL "$vars")"
+is pager less "$(field PAGER "$vars")"
+is manpager 'less -R' "$(field MANPAGER "$vars")"
+
+# en_US.UTF-8 where libc can load it, and C.UTF-8 where it cannot, as on a
+# stock Ubuntu, where a missing LANG makes every child process warn. `locale`
+# loads a locale the same way, so it says which this host should get.
+if [[ $(env -i LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null) == UTF-8 ]]; then
+  want_lang=en_US.UTF-8
+else
+  want_lang=C.UTF-8
+fi
+is lang-en-us-where-libc-has-it "$want_lang" "$(field LANG "$vars")"
+is lang-c-utf8-when-en-us-absent C.UTF-8 \
+  "$(field LANG "$(printenv_without_en_us "$home" 2>/dev/null)")"
+
+# With no ~/.kube, KUBECONFIG is not exported at all, not even empty.
+is kubeconfig-unset-without-kube-dir 0 "$(grep -c '^KUBECONFIG=' <<<"$vars" || true)"
+
+# KUBECONFIG lists ~/.kube/config and then each ~/.kube/*.yaml that is a file or
+# a symlink to one, not a directory or a dangling symlink. The same HOME without
+# and then with the directory shows that nothing else changes.
+kube_home=$(new_home kube)
+kube_vars_before=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
+kube_output_before=$(run_zsh "$kube_home" -c true 2>&1) || true
+mkdir -p "$kube_home/.kube/x.yaml"
+touch "$kube_home/.kube/config" "$kube_home/.kube/homelab.yaml" "$kube_home/.kube/notes.txt" \
+  "$kube_home/cluster.conf"
+ln -s "$kube_home/cluster.conf" "$kube_home/.kube/linked.yaml"
+ln -s "$kube_home/.kube/missing" "$kube_home/.kube/dangling.yaml"
+kube_vars=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
+is kubeconfig-lists-config-then-yaml \
+  "$kube_home/.kube/config:$kube_home/.kube/homelab.yaml:$kube_home/.kube/linked.yaml" \
+  "$(field KUBECONFIG "$kube_vars")"
+kube_dir_config_home=$(new_home kube-config-dir)
+mkdir -p "$kube_dir_config_home/.kube/config"
+touch "$kube_dir_config_home/.kube/homelab.yaml"
+is kubeconfig-skips-config-directory "$kube_dir_config_home/.kube/homelab.yaml" \
+  "$(field KUBECONFIG "$(run_zsh "$kube_dir_config_home" -c printenv 2>/dev/null)")"
+# A name with a colon would split the list, and its tail would name a file
+# relative to the working directory.
+kube_colon_home=$(new_home kube-colon)
+mkdir -p "$kube_colon_home/.kube"
+touch "$kube_colon_home/.kube/config" "$kube_colon_home/.kube/team:prod.yaml"
+is kubeconfig-drops-names-with-colon "$kube_colon_home/.kube/config" \
+  "$(field KUBECONFIG "$(run_zsh "$kube_colon_home" -c printenv 2>/dev/null)")"
+is kube-dir-env-unchanged-apart-from-kubeconfig "" \
+  "$(diff <(grep -v '^KUBECONFIG=' <<<"$kube_vars_before" | LC_ALL=C sort) \
+    <(grep -v '^KUBECONFIG=' <<<"$kube_vars" | LC_ALL=C sort) | tr '\n' ' ')"
+is kube-dir-output-unchanged "$kube_output_before" "$(run_zsh "$kube_home" -c true 2>&1)"
+# A value the caller set, such as a cluster chosen for one session, is kept.
+is kubeconfig-caller-value-kept "$work_dir/caller-kubeconfig" \
+  "$(field KUBECONFIG "$(env -i HOME="$kube_home" TERM=dumb PATH="$base_path" \
+    KUBECONFIG="$work_dir/caller-kubeconfig" "$zsh_bin" -c printenv 2>/dev/null)")"
 
 nonlogin_path=$(run_zsh "$home" -c 'print -r -- $PATH' 2>/dev/null) || true
 check_path_holds path "$nonlogin_path" "$home" "$home/.local/share"
@@ -272,6 +466,53 @@ case $(field PROMPT "$probe_text") in
 *) ok interactive-prompt-without-command-substitution ;;
 esac
 
+# zsh picks the vi keymap when EDITOR or VISUAL contains "vi", which .zshenv's
+# EDITOR=nvim does, and that takes Ctrl+a, Ctrl+e and Ctrl+k away.
+is interactive-keymap-emacs 'bindkey -A emacs main' "$(field KEYMAP_MAIN "$probe_text")"
+for option in interactivecomments autocd autopushd pushdignoredups histignoredups; do
+  is "interactive-option-$option" on "$(field "OPTION_$option" "$probe_text")"
+done
+is interactive-option-no-beep off "$(field OPTION_beep "$probe_text")"
+
+# The one compinit in .zshrc sees each Nix profile's site-functions, where gh
+# and the other packages put their completions. Ubuntu's /etc/zsh/zshrc runs a
+# compinit of its own, dumping into $ZDOTDIR, unless skip_global_compinit is set.
+is interactive-profile-completion-registered _dots_stub \
+  "$(field COMPLETION_STUB "$probe_text")"
+is interactive-skip-global-compinit 1 "$(field SKIP_GLOBAL_COMPINIT "$probe_text")"
+
+# Abbreviations expand when Space or Enter runs a user widget, and, like an
+# alias would, only for names that are not already a command.
+is interactive-abbreviation-expands 'git status' "$(field ABBREVIATION_GST "$probe_text")"
+is interactive-abbreviation-ll 'eza -l --git' "$(field ABBREVIATION_ll "$probe_text")"
+is interactive-abbreviation-la 'eza -la --git' "$(field ABBREVIATION_la "$probe_text")"
+is interactive-abbreviation-lt 'eza --tree --level=2' "$(field ABBREVIATION_lt "$probe_text")"
+is interactive-abbreviation-b bat "$(field ABBREVIATION_b "$probe_text")"
+# Only a whole command line expands: not a word with text to its right (Ctrl+a
+# to fix a typo), not a line inside an open quote or a heredoc, not vared. The
+# probe sets the zle parameters as a widget sees them (measured under a pty):
+# CONTEXT is start at the primary prompt, cont at a continuation line, where
+# PREBUFFER holds the lines before it, and vared in vared.
+is interactive-abbreviation-not-with-text-right g "$(field ABBREVIATION_TEXT_RIGHT "$probe_text")"
+is interactive-abbreviation-not-on-continuation gst "$(field ABBREVIATION_CONTINUATION "$probe_text")"
+is interactive-abbreviation-not-in-vared g "$(field ABBREVIATION_VARED "$probe_text")"
+is interactive-abbreviation-not-after-pending-lines gst "$(field ABBREVIATION_PREBUFFER "$probe_text")"
+case $(field SPACE_TYPE "$probe_text") in
+user:*) ok interactive-space-expands-abbreviations ;;
+*) fail interactive-space-expands-abbreviations "Space runs $(field SPACE_TYPE "$probe_text")" ;;
+esac
+case $(field ENTER_TYPE "$probe_text") in
+user:*) ok interactive-enter-expands-abbreviations ;;
+*) fail interactive-enter-expands-abbreviations "Enter runs $(field ENTER_TYPE "$probe_text")" ;;
+esac
+# zsh-autosuggestions restores its suggestion after a widget it does not know
+# accepts the line, which leaves the suggestion drawn on the accepted line.
+if [[ $(field ENTER_CLEARS_SUGGESTION "$probe_text") == [1-9]* ]]; then
+  ok interactive-enter-clears-suggestion
+else
+  fail interactive-enter-clears-suggestion "Enter's widget is not in ZSH_AUTOSUGGEST_CLEAR_WIDGETS"
+fi
+
 # "Aliases: none by default": compare with a HOME that has no zsh files at all,
 # so zsh's own aliases and anything /etc adds are not counted.
 is interactive-no-aliases-added "" \
@@ -279,13 +520,20 @@ is interactive-no-aliases-added "" \
     <(grep '^ALIAS ' "$bare_probe" 2>/dev/null | LC_ALL=C sort) \
     <(grep '^ALIAS ' "$probe" 2>/dev/null | LC_ALL=C sort) | tr '\n' ' ')"
 
-if [[ -d $home/.cache/zsh ]]; then
-  ok cache-dir-created
+# compinit writes its dump only into a directory that exists, which .zshrc
+# creates; a completion function's cache creates its own.
+if [[ -f $home/.cache/zsh/zcompdump ]]; then
+  ok completion-dump-created
 else
-  fail cache-dir-created "$home/.cache/zsh does not exist"
+  fail completion-dump-created "$home/.cache/zsh/zcompdump does not exist"
 fi
 
 is no-history-file "" "$(cd "$home" && find . -name '*zsh_history*' | LC_ALL=C sort)"
+
+# The probe stores one completion cache entry, the way a completion function
+# does, so the use-cache and cache-path zstyles decide where it lands.
+is completion-cache-in-xdg-cache ./.cache/zsh/zcompcache/_dots_probe_cache \
+  "$(cd "$home" && find . -name _dots_probe_cache | LC_ALL=C sort)"
 
 stray=
 for entry in $(cd "$home" && ls -A); do
@@ -303,8 +551,10 @@ added=$(LC_ALL=C comm -13 <(echo "$before_tree") <(tree_of "$home") |
 is home-tree-adds-only-cache "" "$added"
 
 # The optional files: a work profile under the fixed ~/.config path, a local zsh
-# override in $ZDOTDIR, and the commands whose key bindings .zshrc sets up.
+# override in $ZDOTDIR, every command the Nix profile installs, and the ones
+# whose key bindings .zshrc sets up.
 fix_home=$(new_home fixtures)
+add_profile_stubs "$fix_home"
 add_command_stubs "$fix_home"
 add_fixtures "$fix_home"
 fix_vars=$(run_zsh "$fix_home" -c printenv 2>/dev/null) || true
@@ -316,11 +566,47 @@ run_interactive "$fix_home" "$fix_probe" "$fix_log"
 ran_and_quiet fixtures-interactive-shell "$fix_probe" "$fix_log"
 fix_text=$(cat "$fix_probe" 2>/dev/null) || true
 is interactive-zshrc-local-from-zdotdir zdotdir "$(field LOCAL_RC "$fix_text")"
-# Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named)
-# and Ctrl+r runs the widget atuin's init script binds.
+# Ctrl+g runs the repository's ghq widget (a user widget, whatever it is named).
 is interactive-ctrl-g-dots-widget "user:$(field CTRL_G "$fix_text")" \
   "$(field CTRL_G_TYPE "$fix_text")"
-is interactive-ctrl-r-atuin-widget _atuin_search_widget "$(field CTRL_R "$fix_text")"
+# No abbreviation is a command on PATH, the Nix profile's included, a builtin,
+# or a reserved word.
+is interactive-abbreviations-shadow-nothing "" \
+  "$(grep '^SHADOWED ' "$fix_probe" 2>/dev/null | tr '\n' ' ' || true)"
+
+# On a terminal, Ctrl+t and Alt+c run fzf's widgets, and Ctrl+r runs the widget
+# atuin's init script binds, which has to come after fzf's.
+term_probe=$work_dir/terminal.vars
+term_log=$work_dir/terminal.log
+run_on_terminal "$fix_home" "$term_probe" "$term_log"
+term_text=$(cat "$term_probe" 2>/dev/null) || true
+if grep -qxF "$terminal_timeout" "$term_log"; then
+  fail terminal-shell-ran-with-zle \
+    "$terminal_timeout; log: $(tail -c 200 "$term_log" | tr '\r\n' '  ')"
+else
+  is terminal-shell-ran-with-zle on "$(field ZLE "$term_text")"
+fi
+is interactive-ctrl-t-fzf-file-widget fzf-file-widget "$(field CTRL_T "$term_text")"
+is interactive-alt-c-fzf-cd-widget fzf-cd-widget "$(field ALT_C "$term_text")"
+is interactive-ctrl-r-atuin-widget atuin-search "$(field CTRL_R "$term_text")"
+
+# With no terminal, an interactive shell prints nothing on stderr: fzf's init
+# script restores options through one that cannot change there. The empty string,
+# not a shell with no zsh files, is the reference, because Ubuntu's /etc/zsh/zshrc
+# runs compinit in that shell and prints "initialization aborted".
+no_terminal_stderr() { # <home>
+  (cd "$work_dir" && detached env -i HOME="$1" TERM=xterm-256color PATH="$base_path" \
+    "$zsh_bin" -i -c 'echo hi' </dev/null 2>&1 >/dev/null) || true
+}
+is no-terminal-stderr-empty '' "$(no_terminal_stderr "$fix_home")"
+
+# A stdout that is not a terminal gets the commands' output and nothing else,
+# such as the escape sequences that turn mouse reporting off at the first prompt.
+piped_stdout() { # <home>
+  (cd "$work_dir" && printf 'echo hi\n' | detached env -i HOME="$1" TERM=xterm-256color \
+    PATH="$base_path" "$zsh_bin" -i 2>/dev/null | od -c) || true
+}
+is piped-stdout-as-bare "$(piped_stdout "$bare_home")" "$(piped_stdout "$home")"
 
 # Each XDG variable the caller sets is kept, ZDOTDIR follows XDG_CONFIG_HOME,
 # and everything derived from an XDG directory follows it too. $HOME holds only
@@ -343,6 +629,8 @@ is caller-xdg-state-home-kept "$alt/state" "$(field XDG_STATE_HOME "$alt_vars")"
 is caller-xdg-cache-home-kept "$alt/cache" "$(field XDG_CACHE_HOME "$alt_vars")"
 is caller-zdotdir-follows-config-home "$alt/config/zsh" "$(field ZDOTDIR "$alt_vars")"
 is caller-atuin-home-follows-data-home "$alt/data/atuin" "$(field ATUIN_HOME "$alt_vars")"
+is caller-atuin-config-dir-follows-config-home "$alt/config/atuin" \
+  "$(field ATUIN_CONFIG_DIR "$alt_vars")"
 is caller-static-env-from-home-config static-env "$(field DOTS_STATIC_ENV "$alt_vars")"
 is caller-quiet-stderr "" \
   "$(env -i "${alt_env[@]}" "$zsh_bin" -c true 2>&1 >/dev/null)"
@@ -359,6 +647,24 @@ for name in mise-shims aqua-bin; do
   fi
 done
 
+# A world-writable directory on fpath, which compaudit calls insecure on every
+# system (a group-writable one passes on Linux when the group is the user's
+# own), must not stop completion: without a terminal to answer compinit's
+# question, it would abort.
+insecure_home=$(new_home insecure-fpath)
+chmod o+w "$insecure_home/.nix-profile/share/zsh/site-functions"
+insecure_probe=$work_dir/insecure-fpath.vars
+insecure_log=$work_dir/insecure-fpath.log
+run_interactive "$insecure_home" "$insecure_probe" "$insecure_log"
+ran_and_quiet insecure-fpath-interactive-shell "$insecure_probe" "$insecure_log"
+insecure_count=$(field COMPLETION_COUNT "$(cat "$insecure_probe" 2>/dev/null)")
+if [[ $insecure_count == [0-9]* ]] && ((insecure_count > 0)); then
+  ok insecure-fpath-completion-initialized
+else
+  fail insecure-fpath-completion-initialized \
+    "_comps holds '$insecure_count' entries; log: $(tr '\n' ' ' <"$insecure_log" | cut -c1-200)"
+fi
+
 # The completion cache follows a caller-set XDG_CACHE_HOME, and nothing lands in
 # ~/.cache instead.
 cache_home=$(new_home caller-cache)
@@ -367,17 +673,10 @@ cache_probe=$work_dir/caller-cache.vars
 cache_log=$work_dir/caller-cache.log
 run_interactive "$cache_home" "$cache_probe" "$cache_log" XDG_CACHE_HOME="$alt_cache"
 ran_and_quiet caller-cache-interactive-shell "$cache_probe" "$cache_log"
-dump=
-if [[ -d $alt_cache/zsh ]]; then
-  ok caller-cache-dir-created
-  dump=$(find "$alt_cache/zsh" -type f | LC_ALL=C sort | sed -n 1p || true)
-else
-  fail caller-cache-dir-created "$alt_cache/zsh does not exist"
-fi
-if [[ -n $dump ]]; then
+if [[ -f $alt_cache/zsh/zcompdump ]]; then
   ok caller-cache-holds-completion-dump
 else
-  fail caller-cache-holds-completion-dump "no completion dump under $alt_cache/zsh"
+  fail caller-cache-holds-completion-dump "no completion dump at $alt_cache/zsh/zcompdump"
 fi
 if [[ -e $cache_home/.cache ]]; then
   fail caller-cache-home-cache-untouched \

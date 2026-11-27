@@ -3,13 +3,15 @@
 # tests/packages.sh that cover it to fail. A surviving mutant means those checks
 # prove nothing. The per-tool checks are mutated through `git` (which /usr/bin
 # also has) and `claude` (which it does not). These checks have no mutant:
-# host-user, profile-facts, build-home-files, build-system and build-generation
-# guard this harness rather than the files under test, and generation-home-path
-# is home-manager's own link to the profile this test already built.
+# host-user, profile-facts, build-home-files, build-system, build-generation and
+# etc-zshrc-generated guard this harness rather than the files under test, and
+# generation-home-path is home-manager's own link to the profile this test
+# already built.
 # The per-user group reads the built macOS system, so it needs a mac; CI runs
-# it in the darwin jobs and the common group on the Linux runner.
+# it in the darwin jobs and the common group on the Linux runner. The per-host
+# group's mutants depend on the host, so every job runs it.
 # Usage: tests/mutate-packages.sh [group]
-#        group: all (default), common, per-user
+#        group: all (default), common, per-user, per-host
 # Env: DOTFILES_HOST and ZSH_BIN are passed through to tests/packages.sh.
 set -uo pipefail
 
@@ -87,11 +89,15 @@ if runs common; then
   expect_caught 'bin-claude zsh-claude package-names' 'Claude Code is dropped from the list' \
     nix/packages.nix $'    claude-code\n' ''
 
+  expect_caught 'package-names plugin-zsh-syntax-highlighting' \
+    'the syntax-highlighting plugin is dropped from the list' \
+    nix/packages.nix $'    zsh-syntax-highlighting\n' ''
+
   expect_caught 'package-names' 'the real gh is added, which the wrapper needs the name of' \
-    nix/packages.nix $'    atuin\n  ];\n' $'    atuin\n    gh\n  ];\n'
+    nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    gh\n  ]\n'
 
   expect_caught 'package-names' 'a language runtime is installed globally' \
-    nix/packages.nix $'    atuin\n  ];\n' $'    atuin\n    nodejs\n  ];\n'
+    nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    nodejs\n  ]\n'
 
   expect_caught 'unfree-admitted build-profile' 'the unfree allowance no longer names claude-code' \
     flake.nix '[ "claude-code" ]' '[ ]'
@@ -110,11 +116,30 @@ if runs common; then
     flake.nix 'builtins.elem (nixpkgs.lib.getName pkg) [ "claude-code" ]' \
     'nixpkgs.lib.hasPrefix "claude-code" (nixpkgs.lib.getName pkg)'
 
-  expect_caught 'real-dir-.config/zsh real-dir-.config/mise' 'the zsh directory is linked as a whole' \
-    nix/home.nix $'  xdg.configFile = lib.genAttrs [ "zsh/.zshenv" "zsh/.zprofile" "zsh/.zshrc" "mise/config.toml" ] (path: {\n    source = link ".config/${path}";\n  });\n' \
-    $'  xdg.configFile."zsh".source = link ".config/zsh";\n'
+  expect_caught 'real-dir-.config/zsh real-dir-.config/mise real-dir-.config/atuin' \
+    'the zsh directory is linked as a whole' \
+    nix/home.nix $'      "zsh/.zshenv"\n      "zsh/.zprofile"\n      "zsh/.zshrc"\n      "mise/config.toml"\n      "atuin/config.toml"\n' \
+    $'      "zsh"\n'
 
-  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml' \
+  expect_caught 'real-dir-.config/mise' 'the mise directory is linked as a whole' \
+    nix/home.nix '"mise/config.toml"' '"mise"'
+
+  # The platform file goes too: a link inside a linked directory fails the build.
+  expect_caught 'real-dir-.config/git' 'the git directory is linked as a whole' \
+    nix/home.nix \
+    $'      "git/config"\n      "git/ignore"\n      "git/personal.gitconfig"\n    ] (path: {\n      source = link ".config/${path}";\n    })\n    // {\n      # The 1Password signer, and on wsl the ssh command, under the one name the git config includes.\n      "git/platform.gitconfig".source = link ".config/git/${platform}.gitconfig";\n    };\n' \
+    $'      "git"\n    ] (path: {\n      source = link ".config/${path}";\n    });\n'
+
+  expect_caught 'link-.config/git/personal.gitconfig' 'the personal identity is not linked' \
+    nix/home.nix $'      "git/personal.gitconfig"\n' ''
+
+  expect_caught 'link-.config/git/platform.gitconfig' 'the other OS'"'"'s signer is linked' \
+    nix/home.nix 'then "darwin" else "wsl"' 'then "wsl" else "darwin"'
+
+  expect_caught 'link-.config/atuin/config.toml real-dir-.config/atuin' 'the atuin config is not linked' \
+    nix/home.nix $'      "atuin/config.toml"\n' ''
+
+  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml link-.config/atuin/config.toml link-.config/git/config' \
     'the files are copied into the store instead of linked out of it' \
     nix/home.nix '    source = link ".config/${path}";' '    source = ../home/.config/${path};'
 
@@ -132,6 +157,9 @@ if runs common; then
 
   expect_caught 'mise-disable-backends' 'the global mise config disables a backend the projects use' \
     home/.config/mise/config.toml 'disable_backends = ["asdf"]' 'disable_backends = ["asdf", "aqua"]'
+
+  expect_caught 'atuin-reads-config' 'the atuin config sets a style atuin does not have' \
+    home/.config/atuin/config.toml 'style = "compact"' 'style = "bogus"'
 fi
 
 if runs per-user; then
@@ -140,6 +168,61 @@ if runs per-user; then
   else
     expect_caught 'per-user-git per-user-claude' 'the packages never reach the per-user profile' \
       nix/darwin.nix $'    useUserPackages = true;\n' ''
+
+    expect_caught launchd-ORCA_TELEMETRY_DISABLED 'GUI apps never get ORCA_TELEMETRY_DISABLED' \
+      nix/darwin.nix $'    ORCA_TELEMETRY_DISABLED = "1";\n' ''
+
+    expect_caught launchd-HOMEBREW_NO_ANALYTICS 'GUI apps get HOMEBREW_NO_ANALYTICS with another value' \
+      nix/darwin.nix 'HOMEBREW_NO_ANALYTICS = "1";' 'HOMEBREW_NO_ANALYTICS = "0";'
+
+    expect_caught 'launchd-ORCA_TELEMETRY_DISABLED launchd-HOMEBREW_NO_ANALYTICS' \
+      'the variables go to the system domain, not the user'"'"'s' \
+      nix/darwin.nix 'launchd.user.envVariables = {' 'launchd.envVariables = {'
+
+    expect_caught 'plugin-zsh-autosuggestions plugin-zsh-syntax-highlighting' \
+      'the per-user profile does not link the plugin directories' \
+      nix/darwin.nix $'    "/share/zsh-autosuggestions"\n    "/share/zsh-syntax-highlighting"\n' ''
+
+    expect_caught etc-zshrc-no-compinit "nix-darwin's /etc/zshrc runs compinit before .zshrc" \
+      nix/darwin.nix $'    enableCompletion = false;\n' ''
+
+    expect_caught etc-zshrc-no-compinit "nix-darwin's /etc/zshrc runs bashcompinit" \
+      nix/darwin.nix $'    enableBashCompletion = false;\n' ''
+
+    expect_caught etc-zshrc-no-promptinit "nix-darwin's /etc/zshrc loads a prompt theme" \
+      nix/darwin.nix $'    promptInit = "";\n' ''
+  fi
+fi
+
+# The host's own packages: what one host adds must not reach another.
+if runs per-host; then
+  if [[ $host == work-mac ]]; then
+    expect_caught 'bin-peco zsh-peco package-names' 'work-mac loses peco' \
+      hosts/work-mac.nix 'packages = pkgs: [ pkgs.peco ];' 'packages = pkgs: [ ];'
+
+    expect_caught 'bin-peco zsh-peco package-names' 'the host list is never added to the profile' \
+      nix/packages.nix $'  ]\n  ++ host.packages pkgs;\n' $'  ];\n'
+  else
+    expect_caught package-names "$host gets peco too" \
+      "hosts/$host.nix" 'packages = pkgs: [ ];' 'packages = pkgs: [ pkgs.peco ];'
+
+    expect_caught package-names 'peco moves into the list every host gets' \
+      nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    peco\n  ]\n'
+  fi
+
+  ssh_line='home.file.".ssh/config" = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin { source = ./ssh_config; };'
+  if [[ $host == wsl ]]; then
+    expect_caught ssh-config 'wsl gets the macOS ssh config' \
+      nix/home.nix 'lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {' 'lib.mkIf true {'
+  else
+    expect_caught ssh-config "$host gets no ssh config" \
+      nix/home.nix "  $ssh_line"$'\n' ''
+
+    expect_caught ssh-config 'the ssh config links into the checkout, where an edit changes it live' \
+      nix/home.nix 'source = ./ssh_config;' 'source = config.lib.file.mkOutOfStoreSymlink "${checkout}/nix/ssh_config";'
+
+    expect_caught ssh-config 'another file is installed as the ssh config' \
+      nix/home.nix 'source = ./ssh_config;' 'source = ../home/.config/git/ignore;'
   fi
 fi
 

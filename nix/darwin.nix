@@ -6,8 +6,28 @@
   nix.enable = false;
 
   system.primaryUser = host.user;
+  # For GUI apps, which launchd starts without a shell.
+  launchd.user.envVariables = {
+    ORCA_TELEMETRY_DISABLED = "1";
+    HOMEBREW_NO_ANALYTICS = "1";
+  };
   users.users.${host.user}.home = "/Users/${host.user}";
   system.stateVersion = 6;
+
+  # $ZDOTDIR/.zshrc runs the one compinit, after it has put each profile's
+  # completions on fpath, and sets its own prompt.
+  programs.zsh = {
+    enableCompletion = false;
+    enableBashCompletion = false;
+    promptInit = "";
+  };
+
+  # The per-user profile links only environment.pathsToLink, and .zshrc sources
+  # the plugins from these two directories in it.
+  environment.pathsToLink = [
+    "/share/zsh-autosuggestions"
+    "/share/zsh-syntax-highlighting"
+  ];
 
   home-manager = {
     useGlobalPkgs = true;
