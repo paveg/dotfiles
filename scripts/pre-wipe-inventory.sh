@@ -4,11 +4,11 @@
 # credential locations, containers, local databases, software to reinstall,
 # files no dotfiles manage, and LaunchAgents. The report is Markdown on stdout
 # and the run always exits 0. It writes nothing itself and runs no fetch. It
-# reads package managers' and VMs' files instead of running them; the tools it
-# does run are git (read-only, with every configured filter emptied), chezmoi,
-# ghq, docker, mas, defaults, and `uv tool dir` (offline, with no cache). Run on
-# an empty HOME and TMPDIR, it adds no path to either. For credential locations
-# it reports names, counts, and sizes only, never contents.
+# reads package managers', VMs', and chezmoi's files instead of running them;
+# the tools it does run are git (read-only, with every configured filter
+# emptied), ghq, docker, mas, defaults, and `uv tool dir` (offline, with no
+# cache). Run on an empty HOME and TMPDIR, it adds no path to either. For
+# credential locations it reports names, counts, and sizes only, never contents.
 # Usage: scripts/pre-wipe-inventory.sh >/tmp/inventory.md   (keep the report out
 #        of the checkout: it names private paths)
 #        scripts/pre-wipe-inventory.sh --backup-paths | tar --null -czf backup.tgz -T -
@@ -422,15 +422,19 @@ backup_paths() {
   return 0
 }
 
-chezmoi_paths=''
-chezmoi_state='chezmoi not installed, so nothing counts as managed by it'
-if have chezmoi; then
-  if chezmoi_paths=$(chezmoi managed 2>/dev/null); then
-    chezmoi_state='managed means listed by `chezmoi managed`'
-  else
-    chezmoi_paths=''
-    chezmoi_state='`chezmoi managed` failed, so nothing counts as managed by it'
-  fi
+# What chezmoi manages, read from the names in its source directory: running
+# chezmoi runs its hooks and templates and fetches its externals. Close enough
+# for the names the sections below check, though `.chezmoiignore`, externals,
+# and a `sourceDir` set in chezmoi's configuration are not read.
+chezmoi_source=$HOME/.local/share/chezmoi
+chezmoi_root=''
+[[ -f $chezmoi_source/.chezmoiroot ]] && read -r chezmoi_root <"$chezmoi_source/.chezmoiroot"
+chezmoi_paths=$(cd "$chezmoi_source/$chezmoi_root" 2>/dev/null && find . -mindepth 1 -name '.*' -prune -o -print |
+  sed -E 's|^\./||; s#(^|/)((create|modify|symlink|encrypted|private|readonly|empty|executable|exact|external)_)+#\1#g; s#(^|/)dot_#\1.#g; s#\.(tmpl|literal|age|asc)(/|$)#\2#g')
+if [[ -d $chezmoi_source ]]; then
+  chezmoi_state="managed means named in chezmoi's source directory \`$(tilde "$chezmoi_source")\`, read without running chezmoi"
+else
+  chezmoi_state="no chezmoi source directory at \`$(tilde "$chezmoi_source")\`, so nothing counts as managed by chezmoi"
 fi
 # What the new dotfiles link, approximated by the names under the checkout's
 # home/: close enough for the top-level names the unmanaged-files section checks.
