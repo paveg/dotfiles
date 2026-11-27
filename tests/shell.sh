@@ -365,6 +365,28 @@ is lang-en-us-where-libc-has-it "$want_lang" "$(field LANG "$vars")"
 is lang-c-utf8-when-en-us-absent C.UTF-8 \
   "$(field LANG "$(printenv_without_en_us "$home" 2>/dev/null)")"
 
+# With no ~/.kube, KUBECONFIG is not exported at all, not even empty.
+is kubeconfig-unset-without-kube-dir 0 "$(grep -c '^KUBECONFIG=' <<<"$vars" || true)"
+
+# KUBECONFIG lists ~/.kube/config and then each ~/.kube/*.yaml. The same HOME
+# without and then with the directory shows that nothing else changes.
+kube_home=$(new_home kube)
+kube_vars_before=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
+kube_output_before=$(run_zsh "$kube_home" -c true 2>&1) || true
+mkdir -p "$kube_home/.kube"
+touch "$kube_home/.kube/config" "$kube_home/.kube/homelab.yaml" "$kube_home/.kube/notes.txt"
+kube_vars=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
+is kubeconfig-lists-config-then-yaml \
+  "$kube_home/.kube/config:$kube_home/.kube/homelab.yaml" "$(field KUBECONFIG "$kube_vars")"
+is kube-dir-env-unchanged-apart-from-kubeconfig "" \
+  "$(diff <(grep -v '^KUBECONFIG=' <<<"$kube_vars_before" | LC_ALL=C sort) \
+    <(grep -v '^KUBECONFIG=' <<<"$kube_vars" | LC_ALL=C sort) | tr '\n' ' ')"
+is kube-dir-output-unchanged "$kube_output_before" "$(run_zsh "$kube_home" -c true 2>&1)"
+# A value the caller set, such as a cluster chosen for one session, is kept.
+is kubeconfig-caller-value-kept "$work_dir/caller-kubeconfig" \
+  "$(field KUBECONFIG "$(env -i HOME="$kube_home" TERM=dumb PATH="$base_path" \
+    KUBECONFIG="$work_dir/caller-kubeconfig" "$zsh_bin" -c printenv 2>/dev/null)")"
+
 nonlogin_path=$(run_zsh "$home" -c 'print -r -- $PATH' 2>/dev/null) || true
 check_path_holds path "$nonlogin_path" "$home" "$home/.local/share"
 is nonlogin-git-from-nix-profile "$home/.nix-profile/bin/git" \
