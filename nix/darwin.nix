@@ -1,4 +1,10 @@
-{ host, ... }:
+{ pkgs, host, ... }:
+let
+  agents = import ./agents.nix { inherit pkgs; };
+  # Claude Code skips a managed file it cannot read, so this is world-readable;
+  # root owns it, so the agent cannot change it without sudo.
+  managedSettings = "/Library/Application Support/ClaudeCode/managed-settings.d/50-dotfiles.json";
+in
 {
   nixpkgs.hostPlatform = host.system;
 
@@ -13,6 +19,14 @@
   };
   users.users.${host.user}.home = "/Users/${host.user}";
   system.stateVersion = 6;
+
+  # extraActivation runs as root under `set -e`, before postActivation, where
+  # home-manager writes settings.json: the drop-in is written first, and a
+  # failure stops the switch before settings.json (spec/settings_writers.tla).
+  system.activationScripts.extraActivation.text = ''
+    echo "writing the Claude Code managed-settings drop-in" >&2
+    ${pkgs.lib.getExe agents.claude-settings} managed ${host.profile} /Users/${host.user} ${pkgs.lib.escapeShellArg managedSettings}
+  '';
 
   # $ZDOTDIR/.zshrc runs the one compinit, after it has put each profile's
   # completions on fpath, and sets its own prompt.
@@ -34,7 +48,7 @@
     # Packages land in /etc/profiles/per-user/<user>/bin, which $ZDOTDIR/.zshenv
     # puts on PATH.
     useUserPackages = true;
-    extraSpecialArgs = { inherit host; };
+    extraSpecialArgs = { inherit host managedSettings; };
     users.${host.user} = ./home.nix;
   };
 }

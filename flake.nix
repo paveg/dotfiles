@@ -49,7 +49,12 @@
         # Not legacyPackages: a standalone home-manager takes its nixpkgs
         # configuration from the pkgs it is handed.
         pkgs = import nixpkgs { system = wsl.system; config = nixpkgsConfig; };
-        extraSpecialArgs = { host = wsl; };
+        # No managed-settings drop-in: on WSL /etc/claude-code is user-writable,
+        # so it would not keep the agent out (docs/design.md).
+        extraSpecialArgs = {
+          host = wsl;
+          managedSettings = null;
+        };
         modules = [ ./nix/home.nix ];
       };
     };

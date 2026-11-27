@@ -1,0 +1,13 @@
+{
+  "env": {},
+  "extraKnownMarketplaces": {},
+  "enabledPlugins": {},
+  "permissions": {
+    "deny": [
+      "Bash(kubectl delete *)",
+      "Bash(helm uninstall *)",
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)"
+    ]
+  }
+}

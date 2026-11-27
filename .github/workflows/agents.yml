@@ -1,0 +1,38 @@
+name: agents
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "home/.claude/**"
+      - "hosts/**"
+      - "nix/**"
+      - "profiles/**"
+      - "tests/agents.sh"
+      - "tests/mutate-agents.sh"
+      - ".github/workflows/agents.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  settings:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Generate settings.json for the personal and work profiles and check it
+        run: tests/agents.sh
+      - name: Check that each settings check fails on a deliberately broken generator
+        # macOS only: the generator runs on the same pinned Nix tools on both OSes.
+        if: matrix.os == 'macos-latest'
+        run: tests/mutate-agents.sh
