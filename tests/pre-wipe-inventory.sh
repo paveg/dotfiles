@@ -228,6 +228,14 @@ docker_login=$home/.docker/config.json
 printf '%s\n' "$marker" >"$docker_login"
 ln "$docker_login" "$memory/hardlinked.md"
 ln -s "$home/Documents/report.txt" "$memory/outside.md"
+# Backup roots whose real path is elsewhere: a memory directory linked to gh's
+# configuration, and agent notes in HOME itself, outside HOME, and, accepted,
+# in a directory of their own below HOME.
+gh_dir=$home/.config/gh
+mkdir -p "$gh_dir" "$home/.claude/projects/-linked" "$work_dir/outside-notes" "$home/notes-elsewhere"
+printf '%s\n' "$marker" >"$gh_dir/hosts.yml"
+ln -s "$gh_dir" "$home/.claude/projects/-linked/memory"
+printf 'note\n' | tee "$work_dir/outside-notes/note.md" "$home/notes-elsewhere/note.md" >/dev/null
 # The agent notes are a repository with no remote.
 fixture_git init -q "$notes"
 commit "$notes" note.md note
@@ -349,6 +357,10 @@ env -i HOME="$home" PATH="$tools_bin:$brew_prefix/bin:$stub_bin" PNPM_HOME="$roo
   "$bash_bin" "$script" >"$work_dir/out-tools" 2>"$work_dir/err-tools" || status=$?
 env -i HOME="$home" PATH="$paths_bin" LC_ALL=C "$bash_bin" "$script" --backup-paths >"$work_dir/paths" 2>"$work_dir/err-paths" || status=$?
 env -i HOME="$home" PATH="$no_realpath_bin" LC_ALL=C "$bash_bin" "$script" --backup-paths >"$work_dir/paths-no-realpath" 2>"$work_dir/err-no-realpath" || status=$?
+for notes_case in home:"$home" outside:"$work_dir/outside-notes" elsewhere:"$home/notes-elsewhere"; do
+  env -i HOME="$home" PATH="$paths_bin" AGENT_NOTES_DIR="${notes_case#*:}" LC_ALL=C "$bash_bin" "$script" --backup-paths \
+    >"$work_dir/paths-notes-${notes_case%%:*}" 2>"$work_dir/err-notes-${notes_case%%:*}" || status=$?
+done
 snapshot >"$work_dir/after"
 # ~/.ssh as a symlink into Documents instead, which is no backup root.
 rm "$home/.ssh"
@@ -356,6 +368,12 @@ mkdir -p "$home/Documents/ssh"
 printf '%s\n' "$marker" >"$home/Documents/ssh/$key_name"
 ln -s "$home/Documents/ssh" "$home/.ssh"
 env -i HOME="$home" PATH="$paths_bin" LC_ALL=C "$bash_bin" "$script" --backup-paths >"$work_dir/paths-ssh-documents" 2>/dev/null || status=$?
+# The default agent notes as a symlink to a directory elsewhere in HOME.
+mv "$notes" "$home/notes-moved"
+ln -s "$home/notes-moved" "$notes"
+env -i HOME="$home" PATH="$paths_bin" LC_ALL=C "$bash_bin" "$script" --backup-paths >"$work_dir/paths-notes-moved" 2>"$work_dir/err-notes-moved" || status=$?
+rm "$notes"
+mv "$home/notes-moved" "$notes"
 
 if [[ $status == 0 ]]; then ok exit-0; else fail exit-0 "exit $status"; fi
 if grep -q '^## Summary' "$work_dir/out"; then ok summary-section; else fail summary-section "no '## Summary' heading"; fi
@@ -523,6 +541,24 @@ moved=$(tr '\0' '\n' <"$work_dir/paths-ssh-documents")
 has ssh-in-documents-run "$moved" "$memory/MEMORY.md"
 leaked=$(while IFS= read -r -d '' record; do if [[ $record == "$home/Documents"/* || $record == "$home/.ssh"/* ]]; then printf '%s ' "$record"; fi; done <"$work_dir/paths-ssh-documents")
 if [[ -n $leaked ]]; then fail ssh-in-documents-not-listed "$leaked"; else ok ssh-in-documents-not-listed; fi
+# shellcheck disable=SC2088
+has refused-memory-root "$left_out" '`~/.claude/projects/-linked/memory`: left out of `--backup-paths`: its real path `~/.config/gh`'
+records_outside() { # <paths file> <dir>...   each record below none of the dirs
+  local record dir
+  while IFS= read -r -d '' record; do
+    for dir in "${@:2}"; do [[ $record == "$dir"/* ]] && continue 2; done
+    printf '%s ' "$record"
+  done <"$1"
+}
+for notes_case in home outside moved; do
+  leaked=$(records_outside "$work_dir/paths-notes-$notes_case" "$memory")
+  if [[ -n $leaked ]]; then fail "refused-notes-not-listed $notes_case" "$leaked"; else ok "refused-notes-not-listed $notes_case"; fi
+done
+has refused-notes-home "$(cat "$work_dir/err-notes-home")" 'Left out: `~`: AGENT_NOTES_DIR resolves to `~`'
+has refused-notes-outside "$(cat "$work_dir/err-notes-outside")" "Left out: \`$work_dir/outside-notes\`: AGENT_NOTES_DIR resolves to"
+# shellcheck disable=SC2088
+has refused-notes-moved "$(cat "$work_dir/err-notes-moved")" 'Left out: `~/.local/share/agent-notes`: its real path `~/notes-moved`'
+has notes-below-home-listed "$(tr '\0' '\n' <"$work_dir/paths-notes-elsewhere")" "$home/notes-elsewhere/note.md"
 
 # Run as printed, code span by code span, a next step keeps every commit the
 # report counted. The steps write refs and a bundle, so they run after the
