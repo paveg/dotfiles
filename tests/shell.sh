@@ -257,6 +257,8 @@ is xdg-state-home "$home/.local/state" "$(field XDG_STATE_HOME "$vars")"
 is xdg-cache-home "$home/.cache" "$(field XDG_CACHE_HOME "$vars")"
 is zdotdir "$home/.config/zsh" "$(field ZDOTDIR "$vars")"
 is atuin-home "$home/.local/share/atuin" "$(field ATUIN_HOME "$vars")"
+# With ATUIN_HOME set, atuin reads $ATUIN_HOME/config.toml unless this is set.
+is atuin-config-dir "$home/.config/atuin" "$(field ATUIN_CONFIG_DIR "$vars")"
 is editor nvim "$(field EDITOR "$vars")"
 is visual nvim "$(field VISUAL "$vars")"
 is pager less "$(field PAGER "$vars")"
@@ -437,6 +439,8 @@ is caller-xdg-state-home-kept "$alt/state" "$(field XDG_STATE_HOME "$alt_vars")"
 is caller-xdg-cache-home-kept "$alt/cache" "$(field XDG_CACHE_HOME "$alt_vars")"
 is caller-zdotdir-follows-config-home "$alt/config/zsh" "$(field ZDOTDIR "$alt_vars")"
 is caller-atuin-home-follows-data-home "$alt/data/atuin" "$(field ATUIN_HOME "$alt_vars")"
+is caller-atuin-config-dir-follows-config-home "$alt/config/atuin" \
+  "$(field ATUIN_CONFIG_DIR "$alt_vars")"
 is caller-static-env-from-home-config static-env "$(field DOTS_STATIC_ENV "$alt_vars")"
 is caller-quiet-stderr "" \
   "$(env -i "${alt_env[@]}" "$zsh_bin" -c true 2>&1 >/dev/null)"

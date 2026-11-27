@@ -138,6 +138,17 @@ expect_caught caller-atuin-home-follows-data-home 'ATUIN_HOME ignores XDG_DATA_H
   .config/zsh/.zshenv 'export ATUIN_HOME=$XDG_DATA_HOME/atuin' \
   'export ATUIN_HOME=$HOME/.local/share/atuin'
 
+expect_caught atuin-config-dir 'ATUIN_CONFIG_DIR is never set, so atuin reads $ATUIN_HOME/config.toml' \
+  .config/zsh/.zshenv $'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin\n' ''
+
+expect_caught atuin-config-dir 'ATUIN_CONFIG_DIR is set but not exported' \
+  .config/zsh/.zshenv 'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin' \
+  'ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin'
+
+expect_caught caller-atuin-config-dir-follows-config-home 'ATUIN_CONFIG_DIR ignores XDG_CONFIG_HOME' \
+  .config/zsh/.zshenv 'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin' \
+  'export ATUIN_CONFIG_DIR=$HOME/.config/atuin'
+
 expect_caught editor 'EDITOR is never set' \
   .config/zsh/.zshenv 'export EDITOR=nvim' ''
 

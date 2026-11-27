@@ -28,6 +28,9 @@ export MANPAGER='less -R'
 # unless this is set; .zshrc runs the one compinit.
 skip_global_compinit=1
 export ATUIN_HOME=$XDG_DATA_HOME/atuin
+# With ATUIN_HOME set, atuin reads and creates $ATUIN_HOME/config.toml unless
+# this is set.
+export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin
 
 if [[ -r $HOME/.config/dots-work/env/static.env ]]; then
   source $HOME/.config/dots-work/env/static.env

@@ -115,11 +115,15 @@ if runs common; then
     flake.nix 'builtins.elem (nixpkgs.lib.getName pkg) [ "claude-code" ]' \
     'nixpkgs.lib.hasPrefix "claude-code" (nixpkgs.lib.getName pkg)'
 
-  expect_caught 'real-dir-.config/zsh real-dir-.config/mise' 'the zsh directory is linked as a whole' \
-    nix/home.nix $'  xdg.configFile = lib.genAttrs [ "zsh/.zshenv" "zsh/.zprofile" "zsh/.zshrc" "mise/config.toml" ] (path: {\n    source = link ".config/${path}";\n  });\n' \
+  expect_caught 'real-dir-.config/zsh real-dir-.config/mise real-dir-.config/atuin' \
+    'the zsh directory is linked as a whole' \
+    nix/home.nix $'  xdg.configFile = lib.genAttrs [ "zsh/.zshenv" "zsh/.zprofile" "zsh/.zshrc" "mise/config.toml" "atuin/config.toml" ] (path: {\n    source = link ".config/${path}";\n  });\n' \
     $'  xdg.configFile."zsh".source = link ".config/zsh";\n'
 
-  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml' \
+  expect_caught 'link-.config/atuin/config.toml real-dir-.config/atuin' 'the atuin config is not linked' \
+    nix/home.nix ' "atuin/config.toml" ]' ' ]'
+
+  expect_caught 'link-.config/zsh/.zshrc link-.config/mise/config.toml link-.config/atuin/config.toml' \
     'the files are copied into the store instead of linked out of it' \
     nix/home.nix '    source = link ".config/${path}";' '    source = ../home/.config/${path};'
 

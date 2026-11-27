@@ -3,7 +3,7 @@
 # package set is exactly the one the design names, unfree packages are admitted
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile and the
-# zsh plugins, the zsh and mise directories are real directories whose files
+# zsh plugins, the zsh, mise and atuin directories are real directories whose files
 # link into the checkout, the global mise config refuses the asdf backend, and
 # on macOS the generated /etc/zshrc leaves completion and the prompt to
 # $ZDOTDIR/.zshrc.
@@ -56,9 +56,9 @@ unfree_refused=(claude claude-code-x cursor raycast unrar vscode)
 linked_files=(
   .zshenv
   .config/zsh/.zshenv .config/zsh/.zprofile .config/zsh/.zshrc
-  .config/mise/config.toml
+  .config/mise/config.toml .config/atuin/config.toml
 )
-real_dirs=(.config/zsh .config/mise)
+real_dirs=(.config/zsh .config/mise .config/atuin)
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
