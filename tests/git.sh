@@ -96,7 +96,7 @@ add_worktree() { # <repo> <worktree-dir> <branch>
 }
 
 # Each identity is read four ways: from <dir> and through git -C from <home>,
-# each without PWD (as env -i, hooks and agents run git) and with it.
+# each without PWD (as env -i runs git) and with it, as a shell sets it.
 identity_is() { # <name> <home> <dir> <want-name> <want-email> <want-signing-key>
   local name=$1 home=$2 dir=$3 suffix field got with_pwd
   local -a want=("$4" "$5" "$6") keys=(user.name user.email user.signingkey) labels=(name email signing-key)
