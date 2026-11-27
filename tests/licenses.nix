@@ -279,6 +279,10 @@ let
       cask = map (cask: cask.name or cask) system.homebrew.casks;
       brew = map (brew: brew.name or brew) system.homebrew.brews;
     };
+  # Brewfile lines given as raw text install what the lists above do not name.
+  brewfileInstalls = builtins.filter (
+    line: builtins.match "[[:space:]]*(cask|brew|mas)([^A-Za-z0-9_].*)?" line != null
+  ) (lib.splitString "\n" system.homebrew.extraConfig);
   installed = lib.concatLists (lib.attrValues installs);
   byHand = builtins.filter (name: !builtins.elem name installed) (
     lib.attrNames recorded.outsideNix.${host}
@@ -291,5 +295,6 @@ lib.concatMapStrings (line: line + "\n") (
   )
   ++ lib.concatLists (lib.mapAttrsToList (source: map (outsideRow source)) installs)
   ++ lib.optionals (host == "wsl") (map (name: unreadRow "winget" name "unparsed") unparsedWinget)
+  ++ lib.optional (isDarwin && brewfileInstalls != [ ]) (unreadRow "homebrew" "extraConfig" "unread")
   ++ map (outsideRow "by-hand") byHand
 )

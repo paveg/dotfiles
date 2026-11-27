@@ -253,6 +253,11 @@ if [[ $host != wsl ]]; then
     'a Homebrew formula has no entry in nix/licenses.nix' \
     nix/darwin.nix $'  nix.enable = false;\n' $'  nix.enable = false;\n  homebrew.brews = [ "jq" ];\n'
 
+  expect_caught "unread-$h-extraConfig" \
+    'a Homebrew cask is given through homebrew.extraConfig, which the check does not read' \
+    nix/darwin.nix $'  nix.enable = false;\n' \
+    $'  nix.enable = false;\n  homebrew.extraConfig = \'\'\n    cask "karabiner-elements"\n  \'\';\n'
+
   expect_caught "unfree-$h-unrar" \
     'an unfree system package that is not allowed by name' \
     nix/darwin.nix '{ host, ... }:' '{ host, pkgs, ... }:' \
