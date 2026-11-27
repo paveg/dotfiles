@@ -342,12 +342,12 @@ expect_caught 'interactive-ctrl-t-fzf-file-widget interactive-alt-c-fzf-cd-widge
   "fzf's key bindings are never loaded" \
   .config/zsh/.zshrc $'  if [[ -n $TTY ]]; then\n    eval "$(fzf --zsh)"\n  fi\n' ''
 
-expect_caught no-terminal-stderr-as-bare \
+expect_caught no-terminal-stderr-empty \
   "fzf's key bindings load without a terminal, and its option restore fails on zle" \
   .config/zsh/.zshrc $'  if [[ -n $TTY ]]; then\n    eval "$(fzf --zsh)"\n  fi\n' \
   $'  eval "$(fzf --zsh)"\n'
 
-expect_caught no-terminal-stderr-as-bare \
+expect_caught no-terminal-stderr-empty \
   "fzf's key bindings wait for the zle option, which reads on while .zshrc runs" \
   .config/zsh/.zshrc '[[ -n $TTY ]]' '[[ -o zle ]]'
 

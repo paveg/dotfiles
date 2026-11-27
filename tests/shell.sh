@@ -522,15 +522,15 @@ is interactive-ctrl-t-fzf-file-widget fzf-file-widget "$(field CTRL_T "$term_tex
 is interactive-alt-c-fzf-cd-widget fzf-cd-widget "$(field ALT_C "$term_text")"
 is interactive-ctrl-r-atuin-widget atuin-search "$(field CTRL_R "$term_text")"
 
-# With no terminal, an interactive shell prints on stderr only what one with no
-# zsh files prints: fzf's init script restores options through one that cannot
-# change there.
+# With no terminal, an interactive shell prints nothing on stderr: fzf's init
+# script restores options through one that cannot change there. The empty string,
+# not a shell with no zsh files, is the reference, because Ubuntu's /etc/zsh/zshrc
+# runs compinit in that shell and prints "initialization aborted".
 no_terminal_stderr() { # <home>
   (cd "$work_dir" && detached env -i HOME="$1" TERM=xterm-256color PATH="$base_path" \
     "$zsh_bin" -i -c 'echo hi' </dev/null 2>&1 >/dev/null) || true
 }
-is no-terminal-stderr-as-bare "$(no_terminal_stderr "$bare_home")" \
-  "$(no_terminal_stderr "$fix_home")"
+is no-terminal-stderr-empty '' "$(no_terminal_stderr "$fix_home")"
 
 # A stdout that is not a terminal gets the commands' output and nothing else,
 # such as the escape sequences that turn mouse reporting off at the first prompt.
