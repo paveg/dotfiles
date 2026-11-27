@@ -272,6 +272,10 @@ if [[ $host == wsl ]]; then
     'design.md gains a winget install with an option the check does not know' \
     docs/design.md "$onepassword_line" "$(with_winget '--bogus Example.Tool')"
 
+  expect_caught 'unparsed-wsl-Example.One_Example.Two' \
+    'design.md gains a winget install that names two packages' \
+    docs/design.md "$onepassword_line" "$(with_winget 'Example.One Example.Two')"
+
   expect_caught 'no-entry-wsl-raycast' \
     'a winget install without --id has no entry' \
     nix/licenses.nix $'      raycast = unfree;\n' ''
