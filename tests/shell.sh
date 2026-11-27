@@ -458,10 +458,12 @@ is interactive-no-aliases-added "" \
     <(grep '^ALIAS ' "$bare_probe" 2>/dev/null | LC_ALL=C sort) \
     <(grep '^ALIAS ' "$probe" 2>/dev/null | LC_ALL=C sort) | tr '\n' ' ')"
 
-if [[ -d $home/.cache/zsh ]]; then
-  ok cache-dir-created
+# compinit writes its dump only into a directory that exists, which .zshrc
+# creates; a completion function's cache creates its own.
+if [[ -f $home/.cache/zsh/zcompdump ]]; then
+  ok completion-dump-created
 else
-  fail cache-dir-created "$home/.cache/zsh does not exist"
+  fail completion-dump-created "$home/.cache/zsh/zcompdump does not exist"
 fi
 
 is no-history-file "" "$(cd "$home" && find . -name '*zsh_history*' | LC_ALL=C sort)"
@@ -603,17 +605,10 @@ cache_probe=$work_dir/caller-cache.vars
 cache_log=$work_dir/caller-cache.log
 run_interactive "$cache_home" "$cache_probe" "$cache_log" XDG_CACHE_HOME="$alt_cache"
 ran_and_quiet caller-cache-interactive-shell "$cache_probe" "$cache_log"
-dump=
-if [[ -d $alt_cache/zsh ]]; then
-  ok caller-cache-dir-created
-  dump=$(find "$alt_cache/zsh" -type f | LC_ALL=C sort | sed -n 1p || true)
-else
-  fail caller-cache-dir-created "$alt_cache/zsh does not exist"
-fi
-if [[ -n $dump ]]; then
+if [[ -f $alt_cache/zsh/zcompdump ]]; then
   ok caller-cache-holds-completion-dump
 else
-  fail caller-cache-holds-completion-dump "no completion dump under $alt_cache/zsh"
+  fail caller-cache-holds-completion-dump "no completion dump at $alt_cache/zsh/zcompdump"
 fi
 if [[ -e $cache_home/.cache ]]; then
   fail caller-cache-home-cache-untouched \

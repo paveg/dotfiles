@@ -292,11 +292,11 @@ expect_caught interactive-option-no-beep 'the shell still beeps' \
 expect_caught interactive-option-histignoredups 'HIST_IGNORE_DUPS is left off' \
   .config/zsh/.zshrc ' HIST_IGNORE_DUPS' ''
 
-expect_caught 'cache-dir-created caller-cache-dir-created caller-cache-holds-completion-dump' \
-  'the completion cache directory is not created' \
+expect_caught 'completion-dump-created caller-cache-holds-completion-dump' \
+  'the completion cache directory is not created, so compinit writes no dump' \
   .config/zsh/.zshrc 'mkdir -p $XDG_CACHE_HOME/zsh' ''
 
-expect_caught 'caller-cache-dir-created caller-cache-home-cache-untouched' \
+expect_caught 'caller-cache-holds-completion-dump caller-cache-home-cache-untouched' \
   'the completion cache directory ignores XDG_CACHE_HOME' \
   .config/zsh/.zshrc 'mkdir -p $XDG_CACHE_HOME/zsh' 'mkdir -p $HOME/.cache/zsh'
 
