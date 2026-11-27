@@ -1,0 +1,10 @@
+{
+  "env": {
+    "OTEL_SERVICE_NAME": "claude-code",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_TRACES_EXPORTER": "none",
+    "OTEL_METRICS_INCLUDE_SESSION_ID": "false",
+    "OTEL_METRICS_INCLUDE_VERSION": "true"
+  }
+}

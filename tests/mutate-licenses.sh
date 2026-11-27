@@ -332,12 +332,10 @@ if [[ $host != wsl ]]; then
 
   expect_caught "unfree-$h-unrar" \
     'an unfree system package that is not allowed by name' \
-    nix/darwin.nix '{ host, ... }:' '{ host, pkgs, ... }:' \
     nix/darwin.nix $'  nix.enable = false;\n' $'  nix.enable = false;\n  environment.systemPackages = [ pkgs.unrar ];\n'
 
   expect_caught "unfree-$h-corefonts" \
     'an unfree font that is not allowed by name' \
-    nix/darwin.nix '{ host, ... }:' '{ host, pkgs, ... }:' \
     nix/darwin.nix $'  nix.enable = false;\n' $'  nix.enable = false;\n  fonts.packages = [ pkgs.corefonts ];\n'
 
   expect_caught "no-licence-$h-darwin-rebuild" \
