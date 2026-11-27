@@ -191,6 +191,16 @@ expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists the yaml files
 expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG lists every file in ~/.kube' \
   .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*(N-.)'
 
+expect_caught kubeconfig-lists-config-then-yaml \
+  'KUBECONFIG lists a *.yaml that is a directory or a dangling symlink' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*.yaml(N)'
+
+expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG leaves out a *.yaml symlink to a file' \
+  .config/zsh/.zshenv '$HOME/.kube/*.yaml(N-.)' '$HOME/.kube/*.yaml(N.)'
+
+expect_caught kubeconfig-skips-config-directory 'KUBECONFIG lists ~/.kube/config when it is a directory' \
+  .config/zsh/.zshenv '$HOME/.kube/config(N-.)' '$HOME/.kube/config(N)'
+
 expect_caught kubeconfig-lists-config-then-yaml 'KUBECONFIG is set but not exported' \
   .config/zsh/.zshenv 'export KUBECONFIG=' 'KUBECONFIG='
 

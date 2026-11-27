@@ -368,16 +368,26 @@ is lang-c-utf8-when-en-us-absent C.UTF-8 \
 # With no ~/.kube, KUBECONFIG is not exported at all, not even empty.
 is kubeconfig-unset-without-kube-dir 0 "$(grep -c '^KUBECONFIG=' <<<"$vars" || true)"
 
-# KUBECONFIG lists ~/.kube/config and then each ~/.kube/*.yaml. The same HOME
-# without and then with the directory shows that nothing else changes.
+# KUBECONFIG lists ~/.kube/config and then each ~/.kube/*.yaml that is a file or
+# a symlink to one, not a directory or a dangling symlink. The same HOME without
+# and then with the directory shows that nothing else changes.
 kube_home=$(new_home kube)
 kube_vars_before=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
 kube_output_before=$(run_zsh "$kube_home" -c true 2>&1) || true
-mkdir -p "$kube_home/.kube"
-touch "$kube_home/.kube/config" "$kube_home/.kube/homelab.yaml" "$kube_home/.kube/notes.txt"
+mkdir -p "$kube_home/.kube/x.yaml"
+touch "$kube_home/.kube/config" "$kube_home/.kube/homelab.yaml" "$kube_home/.kube/notes.txt" \
+  "$kube_home/cluster.conf"
+ln -s "$kube_home/cluster.conf" "$kube_home/.kube/linked.yaml"
+ln -s "$kube_home/.kube/missing" "$kube_home/.kube/dangling.yaml"
 kube_vars=$(run_zsh "$kube_home" -c printenv 2>/dev/null) || true
 is kubeconfig-lists-config-then-yaml \
-  "$kube_home/.kube/config:$kube_home/.kube/homelab.yaml" "$(field KUBECONFIG "$kube_vars")"
+  "$kube_home/.kube/config:$kube_home/.kube/homelab.yaml:$kube_home/.kube/linked.yaml" \
+  "$(field KUBECONFIG "$kube_vars")"
+kube_dir_config_home=$(new_home kube-config-dir)
+mkdir -p "$kube_dir_config_home/.kube/config"
+touch "$kube_dir_config_home/.kube/homelab.yaml"
+is kubeconfig-skips-config-directory "$kube_dir_config_home/.kube/homelab.yaml" \
+  "$(field KUBECONFIG "$(run_zsh "$kube_dir_config_home" -c printenv 2>/dev/null)")"
 is kube-dir-env-unchanged-apart-from-kubeconfig "" \
   "$(diff <(grep -v '^KUBECONFIG=' <<<"$kube_vars_before" | LC_ALL=C sort) \
     <(grep -v '^KUBECONFIG=' <<<"$kube_vars" | LC_ALL=C sort) | tr '\n' ' ')"
