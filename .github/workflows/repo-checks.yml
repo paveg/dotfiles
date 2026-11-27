@@ -19,10 +19,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
-      # Without --log-opts gitleaks scans every ref (git log --all), so a leak
-      # on an unrelated branch would fail every pull request.
       - name: Scan the whole history of the checked-out commit
-        run: nix shell --inputs-from . nixpkgs#gitleaks --command gitleaks git --redact --verbose --log-opts=HEAD .
+        run: nix shell --inputs-from . nixpkgs#gitleaks --command tests/gitleaks.sh
+      - name: Check that the scan refuses what it must
+        run: nix shell --inputs-from . nixpkgs#gitleaks --command tests/mutate-gitleaks.sh
 
   deny-paths:
     runs-on: ubuntu-latest
