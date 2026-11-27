@@ -98,6 +98,10 @@ write_probe() { # <script> <out-file>
   print -r -- "HISTSIZE=\$HISTSIZE"
   print -r -- "PROMPT=\$PROMPT"
   if [[ -o promptsubst ]]; then print -r -- "PROMPTSUBST=on"; else print -r -- "PROMPTSUBST=off"; fi
+  print -r -- "KEYMAP_MAIN=\$(bindkey -lL main)"
+  for option in interactivecomments autocd autopushd pushdignoredups beep histignoredups; do
+    if [[ -o \$option ]]; then print -r -- "OPTION_\$option=on"; else print -r -- "OPTION_\$option=off"; fi
+  done
   ctrl_g=\$(bindkey '^g'); ctrl_g=\${ctrl_g##* }
   ctrl_r=\$(bindkey '^r'); ctrl_r=\${ctrl_r##* }
   print -r -- "CTRL_G=\$ctrl_g"
@@ -271,6 +275,14 @@ case $(field PROMPT "$probe_text") in
   "PROMPT=$(field PROMPT "$probe_text")" ;;
 *) ok interactive-prompt-without-command-substitution ;;
 esac
+
+# zsh picks the vi keymap when EDITOR or VISUAL contains "vi", which .zshenv's
+# EDITOR=nvim does, and that takes Ctrl+a, Ctrl+e and Ctrl+k away.
+is interactive-keymap-emacs 'bindkey -A emacs main' "$(field KEYMAP_MAIN "$probe_text")"
+for option in interactivecomments autocd autopushd pushdignoredups histignoredups; do
+  is "interactive-option-$option" on "$(field "OPTION_$option" "$probe_text")"
+done
+is interactive-option-no-beep off "$(field OPTION_beep "$probe_text")"
 
 # "Aliases: none by default": compare with a HOME that has no zsh files at all,
 # so zsh's own aliases and anything /etc adds are not counted.

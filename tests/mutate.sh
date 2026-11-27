@@ -225,6 +225,29 @@ expect_caught interactive-histsize-keeps-a-session \
   'in-memory history holds one line, so up-arrow is useless' \
   .config/zsh/.zshrc 'HISTSIZE=100000' 'HISTSIZE=1'
 
+# Ceiling: a switched nix-darwin host's /etc/zshrc runs `bindkey -e` and sets
+# HIST_IGNORE_DUPS itself, so there those two mutants survive.
+expect_caught interactive-keymap-emacs 'EDITOR=nvim leaves zsh in the vi keymap' \
+  .config/zsh/.zshrc $'bindkey -e\n' ''
+
+expect_caught interactive-option-interactivecomments 'INTERACTIVE_COMMENTS is left off' \
+  .config/zsh/.zshrc 'INTERACTIVE_COMMENTS ' ''
+
+expect_caught interactive-option-autocd 'AUTO_CD is left off' \
+  .config/zsh/.zshrc ' AUTO_CD' ''
+
+expect_caught interactive-option-autopushd 'AUTO_PUSHD is left off' \
+  .config/zsh/.zshrc ' AUTO_PUSHD' ''
+
+expect_caught interactive-option-pushdignoredups 'PUSHD_IGNORE_DUPS is left off' \
+  .config/zsh/.zshrc ' PUSHD_IGNORE_DUPS' ''
+
+expect_caught interactive-option-no-beep 'the shell still beeps' \
+  .config/zsh/.zshrc ' NO_BEEP' ''
+
+expect_caught interactive-option-histignoredups 'HIST_IGNORE_DUPS is left off' \
+  .config/zsh/.zshrc ' HIST_IGNORE_DUPS' ''
+
 expect_caught 'cache-dir-created caller-cache-dir-created caller-cache-holds-completion-dump' \
   'the completion cache directory is not created' \
   .config/zsh/.zshrc 'mkdir -p $XDG_CACHE_HOME/zsh' ''

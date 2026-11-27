@@ -3,6 +3,12 @@ SAVEHIST=0
 HISTSIZE=100000
 unset HISTFILE
 
+setopt INTERACTIVE_COMMENTS AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS NO_BEEP HIST_IGNORE_DUPS
+
+# Before any other binding: EDITOR=nvim makes zsh start in the vi keymap, and a
+# key bound before this line would land there.
+bindkey -e
+
 mkdir -p $XDG_CACHE_HOME/zsh
 
 autoload -Uz compinit
