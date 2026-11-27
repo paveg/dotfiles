@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Check <config> (default nix/ssh_config), which nix/home.nix installs as
 # ~/.ssh/config on macOS, with no Nix switch: ssh to GitHub goes through the
-# 1Password agent's socket. On wsl git hands ssh to Windows instead, which
+# 1Password agent's socket, and pve gets its own block. On wsl git hands ssh to Windows instead, which
 # tests/git.sh checks. OpenSSH expands ~ from the passwd entry, not $HOME, so
 # a temporary HOME cannot stand in for the real one: the file is passed with
 # -F, which also keeps /etc/ssh/ssh_config out, and the socket is expected
@@ -48,6 +48,23 @@ resolved() { # <host> <key>
 is identity-agent-github "$socket" "$(resolved github.com identityagent)"
 # Every host, as 1Password's docs give it, not GitHub alone.
 is identity-agent-any-host "$socket" "$(resolved host.example.invalid identityagent)"
+# The pve block stays on pve.
+is github-hostname github.com "$(resolved github.com hostname)"
+is github-no-host-key-alias "" "$(resolved github.com hostkeyalias)"
+is github-not-forced-root "$(id -un)" "$(resolved github.com user)"
+
+# The Proxmox host on the LAN: only the 1Password key whose public half the
+# IdentityFile names, no agent forwarding, and a host key pinned under its
+# alias, so another machine at that address fails closed.
+is pve-hostname 192.168.10.5 "$(resolved pve hostname)"
+is pve-user root "$(resolved pve user)"
+is pve-identity-agent "$socket" "$(resolved pve identityagent)"
+# ssh -G prints the path as written, unexpanded.
+is pve-identity-file '~/.ssh/pve_ed25519.pub' "$(resolved pve identityfile)"
+is pve-identities-only yes "$(resolved pve identitiesonly)"
+is pve-forward-agent no "$(resolved pve forwardagent)"
+is pve-host-key-alias pve "$(resolved pve hostkeyalias)"
+is pve-strict-host-key-checking true "$(resolved pve stricthostkeychecking)"
 
 echo "summary: $checks checks, $failures failed ($("$ssh_bin" -V 2>&1), config $config)"
 if ((failures > 0)); then exit 1; fi
