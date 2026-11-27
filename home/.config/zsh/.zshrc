@@ -79,8 +79,8 @@ if (( $+commands[atuin] )); then
 fi
 
 # Abbreviations instead of aliases: Space or Enter expands one typed as the
-# whole line so far, so the full command is what runs and what atuin records.
-# Only names that are not a command already.
+# whole command line, at the primary prompt, so the full command is what runs
+# and what atuin records. Only names that are not a command already.
 typeset -A dots_abbreviations=(
   g git
   ga 'git add'
@@ -104,7 +104,8 @@ typeset -A dots_abbreviations=(
   v nvim
 )
 dots-abbreviation-expand() {
-  if [[ -n $LBUFFER && -n ${dots_abbreviations[$LBUFFER]-} ]]; then
+  if [[ $CONTEXT == start && -z $PREBUFFER && -z $RBUFFER &&
+    -n $LBUFFER && -n ${dots_abbreviations[$LBUFFER]-} ]]; then
     LBUFFER=${dots_abbreviations[$LBUFFER]}
   fi
 }

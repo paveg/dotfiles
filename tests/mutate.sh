@@ -331,6 +331,21 @@ expect_caught interactive-ctrl-r-atuin-widget "atuin is told to leave Ctrl+r alo
 expect_caught interactive-abbreviation-expands 'an abbreviation is left as typed' \
   .config/zsh/.zshrc '    LBUFFER=${dots_abbreviations[$LBUFFER]}' '    :'
 
+expect_caught interactive-abbreviation-not-with-text-right \
+  'a word with text to its right expands, so Ctrl+a then g runs gitit status' \
+  .config/zsh/.zshrc ' && -z $RBUFFER' ''
+
+expect_caught interactive-abbreviation-not-in-vared 'an abbreviation expands in vared' \
+  .config/zsh/.zshrc '$CONTEXT == start && ' ''
+
+expect_caught interactive-abbreviation-not-after-pending-lines \
+  'an abbreviation expands after lines still pending' \
+  .config/zsh/.zshrc ' && -z $PREBUFFER' ''
+
+expect_caught 'interactive-abbreviation-not-on-continuation interactive-abbreviation-not-in-vared' \
+  'an abbreviation expands inside an open quote or a heredoc' \
+  .config/zsh/.zshrc '$CONTEXT == start && -z $PREBUFFER && ' ''
+
 expect_caught interactive-space-expands-abbreviations 'Space inserts a space without expanding' \
   .config/zsh/.zshrc $'bindkey \' \' dots-abbreviation-space\n' ''
 

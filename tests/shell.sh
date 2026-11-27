@@ -143,7 +143,16 @@ write_probe() { # <script> <out-file>
   print -r -- "CTRL_R=\$ctrl_r"
   print -r -- "CTRL_T=\$ctrl_t"
   print -r -- "ALT_C=\$alt_c"
-  LBUFFER=gst; dots-abbreviation-expand; print -r -- "ABBREVIATION_GST=\$LBUFFER"
+  expanded() {
+    CONTEXT=\$1 PREBUFFER=\$2 LBUFFER=\$3 RBUFFER=\$4
+    dots-abbreviation-expand
+    print -r -- "\$LBUFFER"
+  }
+  print -r -- "ABBREVIATION_GST=\$(expanded start '' gst '')"
+  print -r -- "ABBREVIATION_TEXT_RIGHT=\$(expanded start '' g 'it status')"
+  print -r -- "ABBREVIATION_CONTINUATION=\$(expanded cont 'echo "first'\$'\\n' gst '')"
+  print -r -- "ABBREVIATION_VARED=\$(expanded vared '' g '')"
+  print -r -- "ABBREVIATION_PREBUFFER=\$(expanded start 'echo "first'\$'\\n' gst '')"
   space=\$(bindkey ' '); space=\${space##* }
   enter=\$(bindkey '^m'); enter=\${enter##* }
   print -r -- "SPACE_TYPE=\${widgets[\$space]-none}"
@@ -356,6 +365,15 @@ is interactive-skip-global-compinit 1 "$(field SKIP_GLOBAL_COMPINIT "$probe_text
 # Abbreviations expand when Space or Enter runs a user widget, and, like an
 # alias would, only for names that are not already a command.
 is interactive-abbreviation-expands 'git status' "$(field ABBREVIATION_GST "$probe_text")"
+# Only a whole command line expands: not a word with text to its right (Ctrl+a
+# to fix a typo), not a line inside an open quote or a heredoc, not vared. The
+# probe sets the zle parameters as a widget sees them (measured under a pty):
+# CONTEXT is start at the primary prompt, cont at a continuation line, where
+# PREBUFFER holds the lines before it, and vared in vared.
+is interactive-abbreviation-not-with-text-right g "$(field ABBREVIATION_TEXT_RIGHT "$probe_text")"
+is interactive-abbreviation-not-on-continuation gst "$(field ABBREVIATION_CONTINUATION "$probe_text")"
+is interactive-abbreviation-not-in-vared g "$(field ABBREVIATION_VARED "$probe_text")"
+is interactive-abbreviation-not-after-pending-lines gst "$(field ABBREVIATION_PREBUFFER "$probe_text")"
 case $(field SPACE_TYPE "$probe_text") in
 user:*) ok interactive-space-expands-abbreviations ;;
 *) fail interactive-space-expands-abbreviations "Space runs $(field SPACE_TYPE "$probe_text")" ;;
