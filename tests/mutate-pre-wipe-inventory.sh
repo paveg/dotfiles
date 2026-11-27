@@ -94,7 +94,7 @@ expect_caught 'npm is run instead of read' 'npm_packages() { node_packages "${np
 expect_caught 'a vite-plus Node runtime is not read' '"${VITE_PLUS_HOME:-$HOME/.vite-plus}"/js_runtime/node/* ' ''
 expect_caught 'the npm bundled with Node is listed' "'/^(npm|corepack)\$/!p' npm_packages" 'p npm_packages'
 expect_caught 'scoped npm packages are missed' 'for entry in "$dir"/* "$dir"/@*/*; do' 'for entry in "$dir"/*; do'
-expect_caught 'colima VMs are not read' '"${COLIMA_HOME:-$HOME/.colima}"/_lima/*/lima.yaml; do' 'do'
+expect_caught 'colima VMs are not read' '"${COLIMA_HOME:-$HOME/.colima}"/_lima/*/lima.yaml; do' '; do'
 expect_caught 'nothing is marked as in nix/packages.nix' 'nix_covers() { [[ -n $nix_names ]] && grep' 'nix_covers() { false && grep'
 expect_caught 'the run exits non-zero' '
 exit 0
