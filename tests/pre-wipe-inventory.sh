@@ -164,6 +164,10 @@ credential_dir=$home/.ssh
 key_name=id_test
 mkdir -p "$credential_dir"
 printf '%s\n' "$marker" >"$credential_dir/$key_name"
+# Env files outside the ghq root: in a repository under ~ and in a linked worktree.
+env_name=.env.local
+printf '%s\n' "$marker" >"$home/work/work-repo/$env_name"
+printf '%s\n' "$marker" >"$home/wt/linked-detached/$env_name"
 
 # Only git and the utilities a POSIX script needs; no brew, docker, nix, or the
 # other optional tools, so every optional probe takes its "not installed" path.
@@ -257,6 +261,11 @@ has config-repo-listed "$(cat "$work_dir/out")" '- **needs action:** `~/.config/
 has music-listed "$(cat "$work_dir/out")" '- **needs action:** `~/Music`'
 has atuin-confirm "$(grep -F 'atuin data' "$work_dir/out")" 'confirm this is in 1Password or can be re-created'
 has credential-listed "$(cat "$work_dir/out")" "$key_name"
+credentials=$(sed -n '/^## Credentials/,/^## Containers/p' "$work_dir/out")
+# shellcheck disable=SC2088
+has env-outside-ghq-root "$credentials" "\`~/work/work-repo/$env_name\`"
+# shellcheck disable=SC2088
+has env-in-linked-worktree "$credentials" "\`~/wt/linked-detached/$env_name\`"
 if grep -qF -- "$marker" "$work_dir/out" "$work_dir/err"; then
   fail credential-contents-not-printed 'the fixture key contents appear in the output'
 else

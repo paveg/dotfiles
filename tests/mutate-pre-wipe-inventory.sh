@@ -48,6 +48,7 @@ expect_caught 'a repository clean filter runs' 'done < <(filter_overrides "$1")'
 expect_caught 'the bundle next step is wrong' 'name=${name%.git}.bundle' 'name=${name%.git}.tar'
 expect_caught 'the push next step is wrong' '    echo "next: \`git -C $quoted push $remote$6\`"' '    echo "next: push"'
 expect_caught 'uncommitted work is not committed first' "((\$3)) && steps='commit the uncommitted and untracked work'" ':'
+expect_caught 'env files the walk finds are dropped' "*) env_files=\$env_files\$path\$'\\n' ;;" '*) : ;;'
 expect_caught 'clean repositories are listed' 'if [[ -z $findings ]]; then
     repo_clean' 'if [[ -z $findings && 1 == 2 ]]; then
     repo_clean'

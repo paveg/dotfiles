@@ -242,12 +242,10 @@ next_step() { # <repository> <remotes> <dirty> <stashes> <commits on no branch> 
 
 repo_count=0
 repo_clean=0
-repo_dirs=''
 
 report_repo() { # <label> <main work tree or bare repository> <work|bare>
   local findings line
   repo_count=$((repo_count + 1))
-  repo_dirs=$repo_dirs$2$'\n'
   findings=$(repo_findings "$2" "$3")
   if [[ -z $findings ]]; then
     repo_clean=$((repo_clean + 1))
@@ -265,14 +263,17 @@ done <<<"$ghq_roots_real"
 prune_list='`~/Library/Caches`, `~/.Trash`, and every `.cache`, `node_modules`, and `nix/store` directory'
 
 # Every work tree (its `.git` is a directory or, for a linked worktree, a
-# submodule, or `--separate-git-dir`, a file) and every bare-repository candidate.
+# submodule, or `--separate-git-dir`, a file), every bare-repository candidate,
+# and every `.env`-style file.
 walk() {
   find "${walk_roots[@]}" \( -path "$home_real/Library/Caches" -o -path "$home_real/.Trash" -o -name .cache -o -name node_modules -o -path '*/nix/store' \) -prune \
-    -o -name .git -print -prune -o -name HEAD -type f -print 2>/dev/null
+    -o -name .git -print -prune -o -name HEAD -type f -print \
+    -o \( -name .env -o -name '.env.*' -o -name .envrc -o -name .dev.vars \) ! -type d -print 2>/dev/null
 }
 
 repo_list=''
 seen_repos=''
+env_files=''
 
 add_repo() { # <work tree or bare-repository candidate> <work|bare>   one entry per repository, keyed by its common git dir
   local dir=$1 kind=$2 out git_dir common
@@ -378,6 +379,7 @@ while IFS= read -r path; do
   case $path in
     */.git) add_repo "${path%/.git}" work ;;
     */HEAD) add_repo "${path%/HEAD}" bare ;;
+    *) env_files=$env_files$path$'\n' ;;
   esac
 done < <(walk)
 notes_real=$(real_path "$notes_dir")
@@ -460,22 +462,14 @@ for path in .ssh .aws .kube .config/gcloud .config/op .gnupg .netrc .codex .clau
     note "\`~/$path\`: not found"
   fi
 done
-note "\`.env\` files (also \`.env.*\`, \`.envrc\`, \`.dev.vars\`) in every repository above to 6 levels, and directly under \`~\`:"
+note "\`.env\` files (also \`.env.*\`, \`.envrc\`, \`.dev.vars\`) the repository walk reached, except tracked ones and \`.env.example\`, \`.env.sample\`, and \`.env.template\`:"
 found=0
 while IFS= read -r file; do
   [[ -n $file ]] || continue
   git_ro -C "${file%/*}" ls-files --error-unmatch -- "${file##*/}" >/dev/null 2>&1 && continue
   found=1
   needs_action "$(describe_location "$file")"
-done < <(
-  {
-    while IFS= read -r dir; do
-      [[ -n $dir ]] && find "$dir" -maxdepth 6 \( -name .git -o -name node_modules \) -prune -o \
-        \( -name .env -o -name '.env.*' -o -name .envrc -o -name .dev.vars \) ! -type d -print 2>/dev/null
-    done <<<"$repo_dirs"
-    find "$HOME" -maxdepth 1 \( -name .env -o -name '.env.*' -o -name .envrc \) ! -type d -print 2>/dev/null
-  } | sed -E '/\.env\.(example|sample|template)$/d' | LC_ALL=C sort -u
-)
+done < <(printf '%s' "$env_files" | sed -E '/\.env\.(example|sample|template)$/d' | LC_ALL=C sort -u)
 ((found)) || note 'none found'
 
 section 'Containers and VMs' 'export or recreate each listed image, volume, and VM; their data lives inside the VM disk and is lost with it.'
