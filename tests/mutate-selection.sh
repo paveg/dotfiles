@@ -76,13 +76,13 @@ workflow=tests/workflow-changed.sh
 mutant 'a workflow leaves out a path its paths filter matched' run_workflow_selection hooks-runs \
   "$workflow" 'nix/ghtkn-render.sh hosts tests/hooks.sh' 'nix/ghtkn-render.sh tests/hooks.sh'
 mutant 'a change to the workflow selection runs only the workflows that name it' run_workflow_selection \
-  'hooks-runs agents-runs spec-runs' "$workflow" 'mutate_inputs tests/workflow-changed.sh tests/lib' ':'
+  'hooks-runs agents-runs spec-runs bootstrap-runs' "$workflow" 'mutate_inputs tests/workflow-changed.sh tests/lib' ':'
 mutant 'a workflow or flake change runs only the workflows that name it' run_workflow_selection \
-  'shell-runs hooks-runs agents-runs nix-runs spec-runs' "$lib" \
+  'shell-runs hooks-runs agents-runs nix-runs spec-runs bootstrap-runs' "$lib" \
   'for input in .github/workflows flake.nix flake.lock "${mutate_input_paths[@]}"; do' \
   'for input in "${mutate_input_paths[@]}"; do'
 mutant 'a pull request that changes no input runs every workflow' run_workflow_selection \
-  'shell-skips hooks-skips agents-skips nix-skips spec-skips' "$workflow" \
+  'shell-skips hooks-skips agents-skips nix-skips spec-skips bootstrap-skips' "$workflow" \
   'if [[ $mutate_mode == none ]]; then' 'if false; then'
 mutant 'an unset MUTATE_BASE runs only the workflows whose inputs changed' run_workflow_selection push-runs \
   "$lib" '    echo "mode: full (MUTATE_BASE is unset)"' '    mutate_mode=none; echo "mode: full (MUTATE_BASE is unset)"'

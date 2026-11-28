@@ -90,7 +90,10 @@ expect agents-runs agents true "${every[@]}" home/case hosts/case.nix nix/case p
   tests/mutate-agents.sh tests/auto-mode.expected.json
 expect nix-runs nix true "${every[@]}" docs/design.md home/case hosts/case.nix nix/case tests/case
 expect spec-runs spec true "${every[@]}" spec/case
-for workflow in shell hooks agents nix spec; do
+# bootstrap never had a paths filter: one path per input.
+expect bootstrap-runs bootstrap true "${every[@]}" scripts/bootstrap.sh spec/bootstrap.tla hosts/wsl.nix \
+  profiles/work.example/case tests/bootstrap.sh tests/mutate-bootstrap.sh
+for workflow in shell hooks agents nix spec bootstrap; do
   expect "$workflow-skips" "$workflow" false README.md docs/adr/case.md
 done
 
@@ -136,7 +139,7 @@ is rename-out-runs changed=true "$(decide "$repo" shell MUTATE_BASE=main)"
 
 # The changes job of every workflow runs every check when the decision code
 # changed, before the pull request's own copy of it decides.
-for workflow in shell hooks agents nix spec; do
+for workflow in shell hooks agents nix spec bootstrap; do
   file=$repo_dir/.github/workflows/$workflow.yml
   if grep -qF 'git diff --quiet "origin/$BASE...HEAD" -- tests/workflow-changed.sh tests/lib' "$file" &&
     grep -qF "changed: \${{ steps.guard.outputs.self == 'true' && 'true' || steps.inputs.outputs.changed }}" "$file"; then
