@@ -199,6 +199,8 @@ expect_caught "$(each "$all" installs-runtimes-after-the-last-switch)" 'mise ins
   '  switch
   mise install' '  mise install
   switch'
+expect_caught 'a-checkout-without-lefthook-config-gets-no-hooks a-checkout-without-lefthook-config-is-kept' \
+  'lefthook install runs without a lefthook.yml' $S 'if [[ -f lefthook.yml ]]; then' 'if true; then'
 expect_caught "$(each "$all" runs-the-expected-commands)" 'the git hooks are not installed' $S \
   '    lefthook install' '    :'
 

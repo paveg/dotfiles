@@ -132,7 +132,10 @@ SH
   # ADR 0004: 111 is ghtkn's exit for a locked or unauthenticated agent.
   stub ghtkn <<<'exit 111'
   stub ssh-add.exe <<<'echo "The agent has no identities." >&2; exit 1'
-  for name in determinate-nixd mise lefthook ksm; do stub "$name" </dev/null; done
+  for name in determinate-nixd mise ksm; do stub "$name" </dev/null; done
+  # lefthook install writes an example lefthook.yml where there is none, as
+  # 2.2.2 does (docs/design.md, Bootstrap step 10).
+  stub lefthook <<<'[ "$1" != install ] || [ -f lefthook.yml ] || echo "# example" >lefthook.yml'
   for name in mise ghtkn lefthook; do
     printf '#!/bin/sh\necho "decoy %s $*" >>"%s"\nexit 1\n' "$name" "$log" >"$case_dir/decoys/bin/$name"
     chmod +x "$case_dir/decoys/bin/$name"
@@ -429,6 +432,18 @@ mv "$case_dir/nix" "$stubs/nix"
 bash_env=$case_dir/trace.bash file_limit=''
 run personal-mac
 is a-run-killed-recording-the-host-then-finishes '0 personal-mac' "$status $(recorded)"
+
+# The checkout as it is today has no lefthook.yml: no hooks are installed, and
+# nothing is added to it.
+new_case no-lefthook-config personal-mac
+do_human_steps personal-mac
+seed_checkout
+kept=repos/github.com/paveg/dotfiles
+kept_before=$(kept_state)
+run personal-mac
+is a-checkout-without-lefthook-config-gets-no-hooks "0 $(expected_log personal-mac | grep -vx '.* lefthook install')" \
+  "$status $(cat "$log")"
+is a-checkout-without-lefthook-config-is-kept "$kept_before" "$(kept_state)"
 
 # Upstream Nix: each Mac waits for Determinate Nix; wsl goes on with it, unless
 # it has nix-command off.
