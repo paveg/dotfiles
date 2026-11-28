@@ -2,3 +2,11 @@
 # asdf plugins are unverified shell scripts (ADR 0006). mise then refuses any
 # asdf: tool with "backend asdf is disabled by disable_backends".
 disable_backends = ["asdf"]
+
+# Global defaults (ADR 0012).
+[tools]
+go = "1.27.4"
+node = "24.22.3"
+pnpm = "12.23.0"
+deno = "2.9.8"
+ruby = "4.0.10"
