@@ -4,7 +4,7 @@
 { lib }:
 with lib.licenses;
 let
-  # MoonBit's official installer, on every host (ADR 0012): the compiler's
+  # MoonBit's official installer, on personal-mac and wsl (ADR 0012): the compiler's
   # licence, then that of moon and core.
   moonbit = [
     {
@@ -36,7 +36,7 @@ in
 
   outsideNix = {
     personal-mac = { inherit moonbit; };
-    work-mac = { inherit moonbit; };
+    work-mac = { };
     # MoonBit inside WSL; the Windows side, by winget id, and the font, installed by hand.
     wsl = {
       inherit moonbit;
