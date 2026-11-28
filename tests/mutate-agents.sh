@@ -66,7 +66,7 @@ overrides() { # <kind>...   the override checks of each kind, on both layers and
 
 generator=nix/claude-settings.sh
 
-mutate_inputs "${copied[@]}" tests/agents.sh tests/mutate-agents.sh tests/lib/
+mutate_inputs "${copied[@]}" tests/agents.sh tests/auto-mode.expected.json tests/mutate-agents.sh tests/lib/
 mutate_baseline 'the files as committed' "$repo_dir/tests/agents.sh"
 
 expect_caught "common-deny-work $(overrides empty)" 'a profile array replaces the common one' "$generator" \

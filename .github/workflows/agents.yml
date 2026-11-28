@@ -12,6 +12,7 @@ on:
       - "nix/**"
       - "profiles/**"
       - "tests/agents.sh"
+      - "tests/auto-mode.expected.json"
       - "tests/mutate-agents.sh"
       - "tests/lib/mutate.sh"
       - ".github/workflows/**"
