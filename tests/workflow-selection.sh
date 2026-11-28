@@ -5,8 +5,9 @@
 # ran on every pull request runs it, one path per entry of that filter, and so
 # does a change to the decision itself; README.md or docs/adr/ alone does not.
 # An unset MUTATE_BASE, a base git does not know, a base with no merge base, a
-# shallow clone, and an input whose name git would quote all run it, and an
-# unknown workflow name fails.
+# shallow clone, an input whose name git would quote, a deleted input and an
+# input moved out of the inputs all run it, every workflow guards the decision
+# code against deciding for itself, and an unknown workflow name fails.
 # Usage: tests/workflow-selection.sh [script [helper]]
 #        (default: tests/workflow-changed.sh and tests/lib/mutate.sh)
 set -uo pipefail
@@ -40,6 +41,8 @@ mkdir -p "$repo/tests/lib"
 cp "$script" "$repo/tests/workflow-changed.sh"
 cp "$helper" "$repo/tests/lib/mutate.sh"
 echo base >"$repo/README.md"
+mkdir -p "$repo/home"
+echo kept >"$repo/home/kept"
 fixture_git -C "$repo" add -A
 fixture_git -C "$repo" commit -qm base
 
@@ -119,6 +122,29 @@ is shallow-clone-runs changed=true "$(decide "$work_dir/shallow" shell MUTATE_BA
 # Without -z, git quotes this path, and the quoted name is under no input.
 change $'home/new\nline \xc3\xa9'
 is unusual-name-runs changed=true "$(decide "$repo" shell MUTATE_BASE=main)"
+
+# Deleting an input, or moving it out of the inputs, changes it.
+fixture_git -C "$repo" checkout -qf -B case main
+fixture_git -C "$repo" rm -q home/kept
+fixture_git -C "$repo" commit -qm case
+is delete-runs changed=true "$(decide "$repo" shell MUTATE_BASE=main)"
+fixture_git -C "$repo" checkout -qf -B case main
+mkdir -p "$repo/docs"
+fixture_git -C "$repo" mv home/kept docs/kept
+fixture_git -C "$repo" commit -qm case
+is rename-out-runs changed=true "$(decide "$repo" shell MUTATE_BASE=main)"
+
+# The changes job of every workflow runs every check when the decision code
+# changed, before the pull request's own copy of it decides.
+for workflow in shell hooks agents nix spec; do
+  file=$repo_dir/.github/workflows/$workflow.yml
+  if grep -qF 'git diff --quiet "origin/$BASE...HEAD" -- tests/workflow-changed.sh tests/lib' "$file" &&
+    grep -qF "changed: \${{ steps.guard.outputs.self == 'true' && 'true' || steps.inputs.outputs.changed }}" "$file"; then
+    ok "$workflow-guards-its-decision"
+  else
+    fail "$workflow-guards-its-decision" "$file lacks the guard on tests/workflow-changed.sh and tests/lib"
+  fi
+done
 
 change README.md
 out=$(decide "$repo" no-such-workflow MUTATE_BASE=main)

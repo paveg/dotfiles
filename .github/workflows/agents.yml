@@ -20,15 +20,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      changed: ${{ steps.inputs.outputs.changed }}
+      changed: ${{ steps.guard.outputs.self == 'true' && 'true' || steps.inputs.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Run every check when the decision code itself changed
+        id: guard
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          # The decision below runs this pull request's own copy of the
+          # script, so a change to it must not decide for itself. Any git
+          # error also lands in the else branch, which runs every check.
+          if git diff --quiet "origin/$BASE...HEAD" -- tests/workflow-changed.sh tests/lib; then
+            echo self=false >>"$GITHUB_OUTPUT"
+          else
+            echo self=true >>"$GITHUB_OUTPUT"
+          fi
       - name: Decide whether the pull request changed an input of this workflow
         id: inputs
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.guard.outputs.self != 'true'
         run: tests/workflow-changed.sh agents >>"$GITHUB_OUTPUT"
 
   # The Linux checks run in the first shard below, which keeps the jobs a pull
