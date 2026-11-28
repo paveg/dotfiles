@@ -639,7 +639,7 @@ Work and personal are kept apart by the host, never by guessing:
 
 Notes:
 
-- Every step must be safe to rerun, so a stopped run is resumed by running the same command again. Step 7 achieves this by skipping what already exists; `ksm profile init` itself consumes a one-time token and is never repeated. This is a requirement on the script, not yet a tested property.
+- Every step must be safe to rerun, so a stopped run is resumed by running the same command again. Step 7 achieves this by skipping what already exists; `ksm profile init` itself consumes a one-time token and is never repeated. `tests/bootstrap.sh` checks it with every command stubbed: a second complete run changes nothing below `$HOME`.
 - `DOTFILES_REF`, when set, makes step 4 run `git fetch origin <ref>` and `git checkout --detach FETCH_HEAD` in the checkout after `ghq get`, so CI runs the bootstrap against the commit under test. `ghq get` alone cannot do this: it takes only a branch name, and on an existing checkout it runs no git command (measured). Without `DOTFILES_REF`, step 4 never moves an existing checkout.
 - The first run executes `scripts/bootstrap.sh` from `main` without a prior review step, which is the same trust as the clone in step 4. Later runs use the checkout: `scripts/bootstrap.sh <host>`.
 - `GHQ_ROOT` overrides ghq's root before any git config exists (measured: `GHQ_ROOT=/tmp/x ghq root` printed `/tmp/x`).
