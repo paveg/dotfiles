@@ -10,8 +10,9 @@ Agents call `gh` and git all day. A long-lived token stored by `gh auth login` o
 ## Decision
 
 - Every host gets GitHub tokens from ghtkn; `gh auth login` is never used.
-- `gh` is an executable wrapper (`writeShellScriptBin "gh"`) that calls the real binary by store path. The real `gh` is not in `home.packages`.
-  - With `GH_TOKEN` or `GITHUB_TOKEN` set, it runs the real `gh` directly.
+- `gh` is an executable wrapper (`nix/gh.sh`, built with `writeShellApplication`) that calls the real binary by store path. The real `gh` is not in `home.packages`.
+  - With `GH_TOKEN` or `GITHUB_TOKEN` holding more than whitespace, it runs the real `gh` directly.
+  - It does the same for a first argument that `gh` runs with no auth check and no API call, such as help, `--version` and shell completion (the list is in `nix/gh.sh`), so a locked agent leaves them working. Completions that call the API, such as `pr create --reviewer`, then get no token.
   - Otherwise it runs `ghtkn exec -e GH_TOKEN:<app> -- <real gh>`, reading `<app>` from `~/.config/ghtkn/gh-app`.
   - On exit code 111 it tells the user to run `ghtkn agent unlock --enable-refresh`.
 - Profiles:
