@@ -72,9 +72,12 @@ trace() { # >file
 # A fresh case: a throwaway HOME, a stub for every command the script calls,
 # and no human step done. A human step's command is stubbed even then, failing
 # as it does before the person acts: the script puts the switched profile on
-# PATH, and on a bootstrapped Mac that holds the real ghtkn. The home-manager
-# switch puts decoys in ~/.nix-profile/bin, so a stub left behind that
-# directory on PATH is seen.
+# PATH, and on a bootstrapped Mac that holds the real ghtkn. The stub nix
+# writes below HOME what the real one does: `nix shell` the cache in
+# ~/.cache/nix (measured by a review agent), and the home-manager switch the
+# ~/.nix-profile link to ~/.local/state/nix/profiles/profile (the layout nix
+# 2.33.0 creates, measured). That profile holds decoys, so a stub left behind
+# ~/.nix-profile/bin on PATH is seen.
 new_case() { # <name> <host>
   local os=Darwin name
   [[ $2 != wsl ]] || os=Linux
@@ -87,12 +90,19 @@ new_case() { # <name> <host>
   stub nix <<'SH'
 case $1 in
 shell)
+  mkdir -p "$HOME/.cache/nix"
   while [ "$1" != -c ]; do shift; done
   shift
   exec "$@"
   ;;
 eval) echo ryota ;;
-run) [ "$2" != home-manager ] || { mkdir -p "$HOME/.nix-profile" && cp -R "$case_dir/decoys/bin" "$HOME/.nix-profile/"; } ;;
+run)
+  if [ "$2" = home-manager ]; then
+    mkdir -p "$HOME/.local/state/nix/profiles"
+    ln -sfn "$case_dir/decoys" "$HOME/.local/state/nix/profiles/profile"
+    ln -sfn "$HOME/.local/state/nix/profiles/profile" "$HOME/.nix-profile"
+  fi
+  ;;
 esac
 SH
   stub sudo <<'SH'
@@ -184,6 +194,28 @@ snapshot() {
 
 paths() { (cd "$home" && find . | LC_ALL=C sort); }
 
+# What a run may add below HOME: the recorded host, the checkout, and what the
+# stub nix writes there.
+allowed='\./\.config
+\./\.config/dotfiles
+\./\.config/dotfiles/host
+\./\.cache
+\./\.cache/nix(/.*)?
+\./\.local
+\./\.local/state
+\./\.local/state/nix
+\./\.local/state/nix/profiles(/[^/]+)?
+\./\.nix-profile
+\./repos
+\./repos/github\.com
+\./repos/github\.com/paveg
+\./repos/github\.com/paveg/dotfiles(/.*)?'
+
+# The paths below HOME that are new since <before> and not allowed.
+gained() { # <before>
+  LC_ALL=C comm -13 <(echo "$1") <(paths) | grep -vxE -f <(echo "$allowed") | tr '\n' ' ' || true
+}
+
 # The step actions of Next's Steps disjunction, ordered by the pc each one
 # requires.
 model_steps() {
@@ -270,8 +302,7 @@ for host in personal-mac work-mac wsl; do
   is "$host-installs-runtimes-after-the-last-switch" 'switch switch mise install ' \
     "$(awk '$2 == "nix" && $3 == "run" { print "switch" } $2 == "mise" { print "mise", $3 }' "$log" | tr '\n' ' ')"
   is "$host-records-the-host" "$host" "$(cat "$home/.config/dotfiles/host" 2>/dev/null || true)"
-  is "$host-home-gains-only-allowlisted-entries" '' "$(LC_ALL=C comm -13 <(echo "$before") <(paths) |
-    grep -vxE '\./\.config|\./\.config/dotfiles(/host)?|\./repos(/.*)?|\./\.nix-profile(/.*)?' | tr '\n' ' ' || true)"
+  is "$host-home-gains-only-allowlisted-entries" '' "$(gained "$before")"
   if [[ $host != work-mac ]]; then
     is "$host-never-calls-ksm" '' "$(awk '$2 == "ksm"' "$log")"
     is "$host-has-no-work-profile" absent "$([[ -e $home/.config/dots-work ]] && echo present || echo absent)"

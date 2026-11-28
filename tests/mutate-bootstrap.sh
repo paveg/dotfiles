@@ -71,6 +71,9 @@ expect_caught "$(each "$all" rerun-changes-nothing)" 'every run appends the host
 expect_caught "$(each "$all" home-gains-only-allowlisted-entries)" 'the script writes a file of its own below HOME' $S \
   'StepRecordHost() {' 'StepRecordHost() {
   : >"$HOME/.bootstrap-state"'
+expect_caught "$(each "$all" home-gains-only-allowlisted-entries)" 'the script keeps a file beside the checkout' $S \
+  '  cd "$checkout"' '  cd "$checkout"
+  : >"$HOME/repos/.bootstrap-state"'
 
 expect_caught 'personal-mac-waits-at-StepSignIn work-mac-waits-at-StepWorkProfile wsl-waits-at-StepGhtknAuth personal-mac-stops-on-upstream-nix' \
   'the waiting status is 1' $S 'waiting=75' 'waiting=1'
