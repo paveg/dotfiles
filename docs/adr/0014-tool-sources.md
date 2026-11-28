@@ -26,7 +26,7 @@ The owner decided on 2026-11-28:
 
 P8 keeps two rules from its earlier version: a manual install is the last rung, and a tool on a later rung names why the earlier ones do not work. This ADR also reads the decision in two ways that the owner did not state. A vendor's own tap counts as a cask source, as it already does for Orca (ADR 0010). An entry in the global mise config with a package-manager backend (`npm:`, `cargo:`, `go:`, `pipx:`, `gem:`) counts as a language package manager install.
 
-The planned macOS apps change source as follows. Each licence is the one its `outsideNix` entry records:
+The planned macOS apps change source as follows. Each licence is the one its `outsideNix` entry will record once the app is installed:
 
 | App | Before | After | Licence | Source of the licence |
 |---|---|---|---|---|
@@ -47,7 +47,7 @@ Three planned installs stay in Nix, because none of them is a GUI app: the 1Pass
 - nix-darwin's check no longer needs App Management for the switching terminals, so the bootstrap's checklist and the acceptance criteria drop that grant. Whether Homebrew needs that grant or any other prompt to write a cask into `/Applications`, at the desk or over SSH, is **Unverified**.
 - A switch installs a missing cask and does not upgrade an installed one. nix-darwin passes `--no-upgrade` to `brew bundle` while `homebrew.onActivation.upgrade` keeps its default `false` (`modules/homebrew.nix:132-134` and `:195`). The four homebrew/cask casks set `auto_updates` (measured, `brew info --cask --json=v2`), so those apps update themselves. Their versions then differ between hosts, and no diff in this repository shows an update.
 - 1Password now arrives through `brew bundle`, and the bootstrap needs it before step 6. nix-homebrew sets Homebrew up at the start of nix-darwin's Homebrew step (`lib.mkBefore`, nix-homebrew `modules/default.nix:597-606`), so the first switch installs the casks. That file was read at nix-homebrew `b279e78`, its default branch on 2026-11-28, because nix-homebrew is not a flake input yet.
-- The unfree allowance shrinks to the packages nixpkgs still builds: `claude-code` and `_1password-cli`. `raycast` and `_1password-gui` leave it with their apps.
+- The planned unfree allowance shrinks to the packages nixpkgs still builds: `claude-code` and `_1password-cli`. `raycast` and `_1password-gui` leave the plan with their apps. Today `flake.nix` admits only `claude-code` (measured), because `programs._1password` is not enabled yet.
 - The KSM CLI on `work-mac` is the first tool the language-package-manager exception may cover. nixpkgs has no attribute for it (measured: of the ten attribute names that contain `keeper` or start with `ksm`, none is Keeper's). An install with a language package manager gets an `outsideNix.work-mac` entry. A local derivation would keep it in Nix. design.md leaves that choice open.
 - `tests/licenses.sh` does not find a language package manager install. Its `outsideNix` entry is kept by hand, as the Windows-side font's is, and nothing fails when the entry is missing.
 - `wsl` does not change: it has no Homebrew, and its Windows apps come from winget.
