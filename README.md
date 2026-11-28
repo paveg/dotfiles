@@ -11,7 +11,7 @@ Nix-based dotfiles for agent-first development on macOS and WSL2. One command tu
 | Area | Choice | Decision |
 |---|---|---|
 | Nix | Determinate Nix, nix-darwin on macOS, standalone home-manager on WSL2, one committed `flake.lock` | [ADR 0001](docs/adr/0001-nix-stack.md) |
-| Where tools come from | Nix first: a module, then a nixpkgs package, then a Homebrew cask, then a manual install | [design: Principles](docs/design.md#principles) |
+| Where tools come from | Nix for everything but macOS apps: a module, then a nixpkgs package. macOS apps from Homebrew casks first. A language package manager only for a global tool that nixpkgs lacks | [design: Principles](docs/design.md#principles), [ADR 0014](docs/adr/0014-tool-sources.md) |
 | Shell | zsh with `ZDOTDIR` under `~/.config`, PATH built in `.zshenv` so non-interactive shells and agents see the same tools | [design: Shell](docs/design.md#shell) |
 | Project tools | mise in shims mode; TLA+ and Lean as flake templates | [ADR 0006](docs/adr/0006-project-layer-mise-shims.md) |
 | Language runtimes | Nix installs only the version managers (mise, uv, rustup, elan); mise holds the global defaults | [ADR 0012](docs/adr/0012-language-runtimes-from-version-managers.md) |

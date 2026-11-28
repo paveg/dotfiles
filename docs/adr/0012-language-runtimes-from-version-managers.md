@@ -1,6 +1,6 @@
 # ADR 0012: Language runtimes from version managers
 
-- Status: Accepted
+- Status: Accepted. Amended by [ADR 0014](0014-tool-sources.md): the runtimes installed here bring language package managers, and a global CLI tool comes from one of them only when nixpkgs lacks it.
 - Date: 2026-11-28
 
 ## Context
