@@ -118,8 +118,10 @@ expect_caught 'render-refuses-directory render-refuses-link-to-directory' \
 expect_caught render-replaces-dangling-link 'the render refuses a dangling link it could replace' \
   "$render" '[[ -e $target && ! -f $target ]]' '[[ ( -L $target || -e $target ) && ! -f $target ]]'
 
-expect_caught render-mode 'the rendered file is readable by other users' \
-  "$render" 'tmp=$(mktemp "$target.XXXXXX")' 'tmp=$target.new'
+# mktemp and the umask each keep the file 0600, so neither alone is a mutant of
+# render-mode; the directories the render makes depend on the umask alone.
+expect_caught render-umask-modes 'the render makes its directories with the caller'"'"'s umask' \
+  "$render" $'umask 077\n' ''
 
 expect_caught 'render-inject-failed-keeps-file render-signed-in' 'op inject writes over the file in place' \
   "$render" 'if ! "$op" inject <"$template" >"$tmp"; then' 'if ! "$op" inject <"$template" >"$target"; then'
@@ -138,7 +140,13 @@ expect_caught render-mktemp-failed 'a temporary file that cannot be created fail
   "$render" ' || skip "no temporary file could be created"' ''
 
 expect_caught render-stamp-failed-warns 'a hash that cannot be stored fails the switch' \
-  "$render" ' || warn "$target is rendered, but its hash could not be stored in $stamp, so the next switch renders it again"' ''
+  "$render" $' ||\n  warn "$target is rendered, but its hash could not be stored in $stamp, so the next switch renders it again"' ''
+
+expect_caught render-replaces-stamp-link 'the hash is written through a link in its place' \
+  "$render" '{ tmp=$(mktemp "$stamp.XXXXXX") && echo "$hash" >"$tmp" && mv -fT "$tmp" "$stamp"; }' '{ echo "$hash" >"$stamp"; }'
+
+expect_caught render-stamp-failed-warns 'the hash is moved into a directory in its place' \
+  "$render" 'mv -fT "$tmp" "$stamp"' 'mv -f "$tmp" "$stamp"'
 
 expect_caught render-stamp-failed-warns 'a warning fails the switch' \
   "$render" $'  echo "ghtkn-render: warning: $1" >&2\n  exit 0' $'  echo "ghtkn-render: warning: $1" >&2\n  exit 1'

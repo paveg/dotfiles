@@ -14,6 +14,7 @@ template=$1
 target=$2
 op=$3
 stamp=$target.template-sha256
+umask 077
 
 hash=$(sha256sum <"$template")
 hash=${hash%% *}
@@ -49,4 +50,6 @@ if ! "$op" inject <"$template" >"$tmp"; then
   skip "op inject failed"
 fi
 mv -fT "$tmp" "$target" || skip "the rendered file could not be moved into place"
-echo "$hash" >"$stamp" || warn "$target is rendered, but its hash could not be stored in $stamp, so the next switch renders it again"
+# The hash goes the same way, so a link in its place is replaced, not followed.
+{ tmp=$(mktemp "$stamp.XXXXXX") && echo "$hash" >"$tmp" && mv -fT "$tmp" "$stamp"; } ||
+  warn "$target is rendered, but its hash could not be stored in $stamp, so the next switch renders it again"

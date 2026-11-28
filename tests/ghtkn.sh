@@ -15,8 +15,9 @@
 # never calls op otherwise, and skips with a warning and exit 0 when op is
 # missing, signed out, or fails, keeping the old file, when the target is a
 # directory or a link to one, and when its directory or temporary file cannot
-# be made; a hash it cannot store warns. A render killed in the middle of inject leaves
-# no partial file. The committed template
+# be made; a hash it cannot store warns. Under any umask what it makes is its
+# owner's alone, a link in the hash's place is replaced, and a render killed
+# in the middle of inject leaves no partial file. The committed template
 # holds references, not client IDs, and defines the app gh-app.personal names.
 # tests/packages.sh checks that the profile installs this same wrapper and
 # that the switch runs this same render step.
@@ -387,6 +388,25 @@ else
   fail render-stamp-failed-warns "rc $(cat "$work_dir/render.rc"), stderr: $(render_err)"
 fi
 is render-stamp-failed-leaves-no-temp "ghtkn.yaml ghtkn.yaml.template-sha256" "$(ls "${stamp_dir_target%/*}" | tr '\n' ' ' | sed 's/ $//')"
+
+# Under umask 000 the directories it makes, the file and the hash are still
+# its owner's alone, and a link in the hash's place is replaced, not written
+# through.
+umask_target=$work_dir/render-umask/ghtkn/ghtkn.yaml
+(umask 000 && render "$template" "$umask_target" op STUB_OP_SIGNED_IN=1)
+modes=
+for path in "$work_dir/render-umask" "${umask_target%/*}" "$umask_target" "$umask_target.template-sha256"; do
+  modes="$modes $(ls -ld "$path" 2>&1 | cut -c1-10)"
+done
+is render-umask-modes " drwx------ drwx------ -rw------- -rw-------" "$modes"
+link_target=$work_dir/render-stamp-link/ghtkn.yaml
+mkdir -p "${link_target%/*}"
+echo decoy >"${link_target%/*}/decoy"
+ln -s decoy "$link_target.template-sha256"
+render "$template" "$link_target" op STUB_OP_SIGNED_IN=1
+stamp_kind=regular
+[[ -L $link_target.template-sha256 ]] && stamp_kind=link
+is render-replaces-stamp-link "decoy regular $stamp_before" "$(cat "${link_target%/*}/decoy") $stamp_kind $(cat "$link_target.template-sha256")"
 
 # The committed template: its client IDs are references, it selects the agent
 # backend (ghtkn's default is the OS keyring), and it defines the app that
