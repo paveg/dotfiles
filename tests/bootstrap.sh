@@ -314,6 +314,20 @@ mkdir -p "$home/.config/dotfiles"
 echo personal-mac >"$home/.config/dotfiles/host"
 expect_refused unrecorded-host-refused work-mac
 
+# A command that fails with 75 or 2 must not read as a person's step or a
+# refused host. The failed switch also comes after the host is recorded.
+new_case failed-switch personal-mac
+do_human_steps personal-mac
+stub sudo <<<'exit 75'
+run personal-mac
+is a-switch-exiting-75-fails-the-run-with-1 '1 StepFirstSwitch personal-mac' "$status $(last_step) $(recorded)"
+expect_refused failed-switch-then-refuses-work-mac work-mac
+new_case failed-mise wsl
+do_human_steps wsl
+stub mise <<<'exit 2'
+run wsl
+is mise-exiting-2-fails-the-run-with-1 '1 StepSecondSwitch' "$status $(last_step)"
+
 new_case upstream-nix personal-mac
 do_human_steps personal-mac
 rm "$stubs/determinate-nixd"

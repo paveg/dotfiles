@@ -82,6 +82,19 @@ expect_caught "$(each "$all" waits-at-StepSignIn-with-the-host-recorded) persona
 record_host() {' \
   'StepInstallHooks() {' 'StepInstallHooks() {
   record_host'
+expect_caught 'a-switch-exiting-75-fails-the-run-with-1 failed-switch-then-refuses-work-mac' \
+  'the host is recorded after the first switch' $S \
+  'StepRecordHost() {' 'StepRecordHost() { :; }
+
+record_host() {' \
+  'StepFirstSwitch() { switch; }' 'StepFirstSwitch() {
+  switch
+  record_host
+}'
+expect_caught 'a-switch-exiting-75-fails-the-run-with-1 mise-exiting-2-fails-the-run-with-1' \
+  "a failed command's status is the run's" $S "trap 'exit 1' ERR" ':'
+expect_caught 'a-switch-exiting-75-fails-the-run-with-1 mise-exiting-2-fails-the-run-with-1' \
+  'the ERR trap is not inherited by the steps' $S 'set -Eeuo pipefail' 'set -euo pipefail'
 waiting_runs='personal-mac-waits-at-StepSignIn work-mac-waits-at-StepWorkProfile wsl-waits-at-StepGhtknAuth'
 expect_caught "$(each "$waiting_runs" gaining-only-allowlisted-entries)" 'a waiting run writes a file below HOME' $S \
   '  say "waiting for a person: $1' '  : >"$HOME/.bootstrap-waiting"

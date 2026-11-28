@@ -7,12 +7,14 @@
 #        scripts/bootstrap.sh <host>     (<host>: personal-mac, work-mac or wsl)
 # Exit:  0 finished; 2 the host is missing or does not fit this machine, and
 #        nothing changed; 75 waiting for a person: do what the last line says,
-#        then run the same command again. Any other status is a failed step.
+#        then run the same command again; 1 a step failed, whatever status the
+#        command that failed returned, so 2 and 75 mean only the above.
 # Env:   DOTFILES_TEST_STUB_DIR, set only by tests, goes first on PATH after
 #        every PATH change, so a stub always wins over the real command.
 # Runs on macOS's bash 3.2. Everything is in functions and main runs on the
 # last line, so a download cut short runs nothing.
-set -euo pipefail
+set -Eeuo pipefail
+trap 'exit 1' ERR
 
 steps='StepCheckHost StepInstallNix StepRecordHost StepClone StepFirstSwitch
   StepSignIn StepWorkProfile StepSecondSwitch StepGhtknAuth StepInstallHooks'
