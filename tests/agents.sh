@@ -273,6 +273,9 @@ check_tiers() { # <side> <settings-file>
     jq -e --argjson want "$tier_soft_deny" \
     '.autoMode.soft_deny as $l | any($l[]; . == "$defaults")
      and all($want[]; . as [$label, $term] | [$l[] | select(startswith($label) and contains($term))] | length == 1)' "$file"
+  check "tier-auto-allow-$side" "autoMode.allow lacks \$defaults or the squash-merge entry, or that entry names no --squash" \
+    jq -e '.autoMode.allow as $l | any($l[]; . == "$defaults")
+     and ([$l[] | select(startswith("Squash-merging a reviewed pull request: ") and contains("--squash"))] | length == 1)' "$file"
 }
 check_tiers personal "$work_dir/personal/.claude/settings.json"
 check_tiers work "$work_dir/work/.claude/settings.json"

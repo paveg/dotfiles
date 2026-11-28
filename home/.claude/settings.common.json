@@ -50,6 +50,10 @@
       "Recursive delete outside scratch space: `rm -rf` on a path outside the session's scratchpad and the temporary directories (`$TMPDIR` and `/tmp`).",
       "Changing gh's default repository: `gh repo set-default`, which changes the repository that later `gh` commands act on when they name none.",
       "Editing git remotes: `git remote set-url`, `git remote add`, `git remote rename`, or `git remote remove`, which change where later pushes and fetches go."
+    ],
+    "allow": [
+      "$defaults",
+      "Squash-merging a reviewed pull request: `gh pr merge <number> --squash`, with or without `--delete-branch`, of a pull request in the repository being worked in, once its required status checks have passed. This never covers `--admin` or any other way around the rulesets, which hard_deny blocks."
     ]
   }
 }
