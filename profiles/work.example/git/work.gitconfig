@@ -4,3 +4,11 @@
   # PLACEHOLDER, not a key: the real profile holds the public half of the work
   # signing key in 1Password. Without it, work commits use the personal key.
   signingkey = ssh-ed25519 AAAAPLACEHOLDER-work-signing-public-key
+# Work repositories fetch and push over HTTPS with a ghtkn token. The empty
+# helper drops any earlier one, such as the osxkeychain that Apple's git sets;
+# useHttpPath hands ghtkn the owner, which ghtkn.yaml's git_owners maps to the
+# write app.
+[credential "https://github.com"]
+  helper =
+  helper = !ghtkn git-credential
+  useHttpPath = true

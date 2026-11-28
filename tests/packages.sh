@@ -4,7 +4,15 @@
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile and the
 # zsh plugins, the zsh, mise, atuin and git directories are real directories
-# whose files link into the checkout, the ssh config is a store copy on macOS
+# whose files link into the checkout, the gh there is the wrapper that
+# tests/ghtkn.sh checks and brings gh's zsh completion, ~/.config/ghtkn is a
+# real directory whose files come from the checkout on personal hosts and from
+# the work profile on work-mac, only personal hosts run the ghtkn.yaml render
+# step that tests/ghtkn.sh checks, with /usr/local/bin/op on macOS and op.exe
+# from the switch's PATH on wsl, the
+# ghtkn agent runs the profile's ghtkn from launchd on macOS and systemd on
+# wsl and is restarted only after a failure, the ssh config is a store copy on
+# macOS
 # alone, the global mise config refuses the asdf backend, the built atuin
 # accepts the atuin config, and on macOS the switch sets the launchd variables
 # for GUI apps and the generated /etc/zshrc leaves completion and the prompt to
@@ -25,17 +33,17 @@ zsh_bin=${ZSH_BIN:-$(command -v zsh)}
 nix_bin=(nix --extra-experimental-features 'nix-command flakes')
 
 # Command names, not package names: what a caller types is the behaviour under
-# test. `gh` is not here; it becomes a wrapper in a later change.
+# test. `gh` is the wrapper around ghtkn.
 commands=(
-  claude git ghq fzf rg fd bat eza zoxide jq nvim just lazygit lefthook gitleaks
+  claude git gh ghq fzf rg fd bat eza zoxide jq nvim just lazygit lefthook gitleaks
   kubectl helm k9s stern ghtkn mise uv rustup elan atuin
 )
-# The same set by nixpkgs attribute name, from docs/design.md "Packages", so a
-# package that ships no command of its own is still accounted for. `gh` is
-# absent on purpose: the wrapper takes that name, and the package would collide
-# with it.
+# The same set by name, from docs/design.md "Packages", so a package that ships
+# no command of its own is still accounted for. `gh` is the wrapper that
+# nix/ghtkn.nix builds under nixpkgs' name; the real package would collide with
+# it, and gh-is-wrapper tells the two apart.
 packages=(
-  claude-code git ghq fzf ripgrep fd bat eza zoxide zsh-autosuggestions
+  claude-code git gh ghq fzf ripgrep fd bat eza zoxide zsh-autosuggestions
   zsh-syntax-highlighting jq neovim just lazygit lefthook gitleaks
   kubectl kubernetes-helm k9s stern ghtkn mise uv rustup elan atuin
 )
@@ -66,7 +74,18 @@ linked_files=(
   .config/mise/config.toml .config/atuin/config.toml
   .config/git/config .config/git/ignore .config/git/personal.gitconfig
 )
-real_dirs=(.config/zsh .config/mise .config/atuin .config/git)
+real_dirs=(.config/zsh .config/mise .config/atuin .config/git .config/ghtkn)
+# What gh and ghtkn read from ~/.config/ghtkn: the personal hosts link the app
+# for gh from the checkout and render ghtkn.yaml themselves, and work-mac links
+# both from the work profile, whose canonical copy lives in ~/.config/dots-work.
+if [[ $host == work-mac ]]; then
+  work_profile_links=(.config/ghtkn/ghtkn.yaml:ghtkn/ghtkn.yaml .config/ghtkn/gh-app:ghtkn/gh-app)
+  not_linked=()
+else
+  linked_files+=(.config/ghtkn/gh-app:.config/ghtkn/gh-app.personal)
+  work_profile_links=()
+  not_linked=(.config/ghtkn/ghtkn.yaml)
+fi
 # launchd.user.envVariables on macOS, as <name>=<value>.
 launchd_vars=(ORCA_TELEMETRY_DISABLED=1 HOMEBREW_NO_ANALYTICS=1)
 # <link>:<file under home/>, where the file that is linked depends on the OS.
@@ -244,6 +263,13 @@ else
         fail "launchd-$name" "$system/activate has no user launchctl setenv $name '$value': $(grep -n 'launchctl setenv' "$system/activate" 2>&1 | tr '\n' ' ' | cut -c1-200)"
       fi
     done
+    # The ghtkn agent runs the profile's own ghtkn, starts at login, and is
+    # restarted only after a failure, since `ghtkn agent stop` exits 0.
+    plist=$system/user/Library/LaunchAgents/org.nixos.ghtkn-agent.plist
+    agent_args=$(for index in 0 1 2 3; do plutil -extract "ProgramArguments.$index" raw -o - "$plist" 2>/dev/null; done)
+    is agent-launchd-command "$(readlink "$profile/bin/ghtkn") agent start" "$(tr '\n' ' ' <<<"$agent_args" | sed 's/ $//')"
+    is agent-launchd-restart "RunAtLoad=true SuccessfulExit=false" \
+      "RunAtLoad=$(plutil -extract RunAtLoad raw -o - "$plist" 2>&1) SuccessfulExit=$(plutil -extract KeepAlive.SuccessfulExit raw -o - "$plist" 2>&1)"
     path_profile=$system/etc/profiles/per-user/$user
     # $ZDOTDIR/.zshrc runs the one compinit and sets the prompt, so the
     # generated /etc/zshrc, read before it, does neither. The header proves the
@@ -269,6 +295,57 @@ if [[ -n ${path_profile-} ]]; then
       fail "plugin-$plugin" "$path_profile/share/$plugin/$plugin.zsh is not readable"
     fi
   done
+  # The one compinit in .zshrc reads each profile's site-functions, so the
+  # wrapper has to bring gh's completion there.
+  got=$(env -i HOME="$zsh_home" TERM=dumb PATH=/usr/bin:/bin "$zsh_bin" -fc \
+    "fpath=($path_profile/share/zsh/site-functions \$fpath); autoload -Uz compinit; compinit -D -u; files=(\${^fpath}/_gh(N)); print -r -- \${_comps[gh]-none} \${files[1]-none}" \
+    2>"$work_dir/zsh.err")
+  # The first _gh on fpath must be the profile's: a CI runner's own gh puts
+  # one in zsh's vendor completions too.
+  is completion-gh "_gh $path_profile/share/zsh/site-functions/_gh" "$got"
+fi
+
+# The gh in the profile is the wrapper tests/ghtkn.sh checks, built once: the
+# real gh has the same name, so package-names cannot tell the two apart.
+nix_system=$("${nix_bin[@]}" eval --raw --file "$repo_dir/hosts/$host.nix" system 2>"$work_dir/system-name.err")
+wrapper=$(build_attr "packages.$nix_system.gh" wrapper)
+is gh-is-wrapper "${wrapper:-no wrapper built}/bin/gh" "$(readlink "$profile/bin/gh" 2>>"$work_dir/readlink.err")"
+
+# On personal hosts the switch runs the render step tests/ghtkn.sh checks, on
+# the committed template, into the file ghtkn reads, with the op the host
+# calls; work-mac links its ghtkn.yaml instead. A cached eval of the darwin
+# activation fails on Nix 2.33 (tests/agents.sh).
+render_line=$("${nix_bin[@]}" --option eval-cache false eval --raw "path:$repo_dir#$root_attr" \
+  --apply "c: let a = ($hm_expr).home.activation; in if a ? ghtknConfig then a.ghtknConfig.data else \"none\"" \
+  2>"$work_dir/render-line.err")
+read -r -a render_words <<<"$(tr '\n' ' ' <<<"$render_line")"
+if [[ $host == work-mac ]]; then
+  is activation-no-ghtkn-render none "${render_words[*]-}"
+else
+  # macOS names op by path: nix-darwin activates under `env -i` with a PATH
+  # that lacks /usr/local/bin. wsl finds op.exe on the switch's PATH.
+  op_cmd=/usr/local/bin/op
+  [[ $host == wsl ]] && op_cmd=op.exe
+  render_bin=$(build_attr "packages.$nix_system.ghtkn-render" render)
+  template_arg=${render_words[2]-}
+  is activation-ghtkn-render \
+    "run ${render_bin:-no render step built}/bin/ghtkn-render <template> $home_dir/.config/ghtkn/ghtkn.yaml $op_cmd" \
+    "${render_words[0]-} ${render_words[1]-} <template> ${render_words[3]-} ${render_words[4]-}${render_words[5]+ ${render_words[*]:5}}"
+  if [[ $template_arg == /nix/store/* ]] && cmp -s "$template_arg" "$repo_dir/home/.config/ghtkn/ghtkn.personal.yaml.tpl"; then
+    ok activation-ghtkn-template
+  else
+    fail activation-ghtkn-template "'$template_arg' is not a store copy of home/.config/ghtkn/ghtkn.personal.yaml.tpl"
+  fi
+  # home-manager starts its activation with only its own tools on PATH, where
+  # the render step would never find op.exe.
+  if [[ $host == wsl ]]; then
+    path_line=$(grep '^export PATH=' "${generation-}/activate" 2>&1)
+    if [[ $path_line == *'${PATH:+:}$PATH"' ]]; then
+      ok activation-keeps-switch-path
+    else
+      fail activation-keeps-switch-path "the activation sets $(cut -c1-200 <<<"$path_line")"
+    fi
+  fi
 fi
 
 if [[ -n $home_files ]]; then
@@ -289,6 +366,20 @@ if [[ -n $home_files ]]; then
     target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
     is "link-$path" "$checkout/home/$source" "$target"
   done
+  for entry in ${work_profile_links[@]+"${work_profile_links[@]}"}; do
+    path=${entry%%:*} source=${entry#*:}
+    store_link=$(readlink "$home_files/$path" 2>>"$work_dir/readlink.err")
+    target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
+    is "link-$path" "$home_dir/.config/dots-work/$source" "$target"
+  done
+  # A file the host writes itself must not be a link that home-manager owns.
+  for path in ${not_linked[@]+"${not_linked[@]}"}; do
+    if [[ -e $home_files/$path || -L $home_files/$path ]]; then
+      fail "not-linked-$path" "home-manager links it: $(ls -ld "$home_files/$path" 2>&1)"
+    else
+      ok "not-linked-$path"
+    fi
+  done
   # The ssh config is a store copy, not a link into the checkout, and only on
   # macOS: wsl hands ssh to Windows.
   ssh_entry=$home_files/.ssh/config
@@ -305,6 +396,17 @@ if [[ -n $home_files ]]; then
       ok ssh-config
     else
       fail ssh-config "want a store copy of nix/ssh_config, got '$ssh_copy' ($(ls -ld "$ssh_copy" 2>&1))"
+    fi
+  fi
+  # On wsl the ghtkn agent is a systemd user service, as on macOS a LaunchAgent.
+  if [[ $host == wsl ]]; then
+    unit_dir=$home_files/.config/systemd/user
+    is agent-systemd-command "ExecStart=$(readlink "$profile/bin/ghtkn") agent start Restart=on-failure" \
+      "$(grep -E '^(ExecStart|Restart)=' "$unit_dir/ghtkn-agent.service" 2>&1 | tr '\n' ' ' | sed 's/ $//')"
+    if [[ -e $unit_dir/default.target.wants/ghtkn-agent.service ]]; then
+      ok agent-systemd-enabled
+    else
+      fail agent-systemd-enabled "default.target does not want ghtkn-agent.service: $(ls "$unit_dir" 2>&1 | tr '\n' ' ')"
     fi
   fi
   if [[ -s $work_dir/readlink.err && $failures -gt 0 ]]; then

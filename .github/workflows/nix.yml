@@ -79,6 +79,9 @@ jobs:
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/packages.sh
+      - name: Check the gh wrapper and the ghtkn.yaml render step with a stub ghtkn and op
+        if: needs.changes.outputs.changed != 'false' && matrix.host == 'personal-mac'
+        run: tests/ghtkn.sh
       - name: Check that the per-user profile checks fail on a broken copy
         if: needs.changes.outputs.changed != 'false'
         env:
@@ -93,7 +96,7 @@ jobs:
   wsl:
     needs: changes
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.changes.outputs.changed != 'false'
@@ -118,6 +121,12 @@ jobs:
       - name: Check what the wsl profile gives the host
         if: needs.changes.outputs.changed != 'false'
         run: tests/packages.sh
+      - name: Check the gh wrapper and the ghtkn.yaml render step with a stub ghtkn and op
+        if: needs.changes.outputs.changed != 'false'
+        run: tests/ghtkn.sh
+      - name: Check that the gh wrapper and render step checks fail on a broken copy
+        if: needs.changes.outputs.changed != 'false'
+        run: MUTATE_OS=linux tests/mutate-ghtkn.sh
       - name: Check that the host-independent package checks fail on a broken copy
         if: needs.changes.outputs.changed != 'false'
         run: tests/mutate-packages.sh common

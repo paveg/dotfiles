@@ -17,6 +17,19 @@ in
     ORCA_TELEMETRY_DISABLED = "1";
     HOMEBREW_NO_ANALYTICS = "1";
   };
+  # The ghtkn agent that holds every gh and git token (ADR 0004), the same
+  # build as the ghtkn on PATH. It starts locked, so each start needs
+  # `ghtkn agent unlock --enable-refresh`. Restarted only after a failure:
+  # `ghtkn agent stop` exits 0.
+  launchd.user.agents.ghtkn-agent.serviceConfig = {
+    ProgramArguments = [
+      (pkgs.lib.getExe pkgs.ghtkn)
+      "agent"
+      "start"
+    ];
+    RunAtLoad = true;
+    KeepAlive.SuccessfulExit = false;
+  };
   users.users.${host.user}.home = "/Users/${host.user}";
   system.stateVersion = 6;
 

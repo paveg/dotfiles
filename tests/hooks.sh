@@ -73,7 +73,7 @@ new_tree() { # <name>
   local dir=$work_dir/$1
   mkdir -p "$dir/nix" "$dir/home/.claude"
   command cp "$src_dir/flake.nix" "$src_dir/flake.lock" "$dir/"
-  command cp "$src_dir/nix/agents.nix" "$dir/nix/"
+  command cp "$src_dir/nix/agents.nix" "$src_dir/nix/ghtkn.nix" "$src_dir/nix/gh.sh" "$src_dir/nix/ghtkn-render.sh" "$dir/nix/"
   command cp -R "$src_dir/hosts" "$dir/hosts"
   command cp -R "$src_dir/home/.claude/hooks" "$dir/home/.claude/hooks"
   echo "$dir"

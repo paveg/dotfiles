@@ -161,4 +161,27 @@ expect_caught ssh-command-wsl 'wsl runs the Linux ssh, which cannot reach 1Passw
 expect_caught ssh-command-darwin 'macOS hands ssh to a Windows binary' \
   "$darwin" '[gpg "ssh"]' $'[core]\n  sshCommand = ssh.exe\n[gpg "ssh"]'
 
+work=profile/git/work.gitconfig
+expect_caught 'work-credential-from-ghtkn work-credential-sends-owner work-credential-drops-system-helper' \
+  'work repositories get no credential helper' \
+  "$work" $'  helper = !ghtkn git-credential\n' ''
+
+expect_caught work-credential-drops-system-helper 'an earlier helper, such as osxkeychain, answers before ghtkn' \
+  "$work" $'  helper =\n  helper = !ghtkn' '  helper = !ghtkn'
+
+expect_caught work-credential-sends-owner 'ghtkn never learns the owner, so pushes get the read app' \
+  "$work" $'  useHttpPath = true\n' ''
+
+expect_caught work-credential-other-host-skips-ghtkn 'ghtkn is asked for a host other than GitHub' \
+  "$work" '[credential "https://github.com"]' '[credential]'
+
+expect_caught personal-credential-skips-ghtkn 'every repository asks ghtkn, the personal ones included' \
+  "$config" "$work_include" $'[credential "https://github.com"]\n  helper = !ghtkn git-credential\n'"$work_include"
+
+expect_caught 'work-ghtkn-gh-app-defined work-ghtkn-push-app' 'gh-app names an app ghtkn.yaml does not define' \
+  profile/ghtkn/gh-app 'example-org/write' 'example-org/writer'
+
+expect_caught work-ghtkn-push-app 'no app claims the work org, so pushes get the default app' \
+  profile/ghtkn/ghtkn.yaml $'    git_owners:\n      - example-org\n' ''
+
 mutate_finish

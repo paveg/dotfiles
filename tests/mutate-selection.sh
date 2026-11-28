@@ -74,7 +74,7 @@ mutant 'a diff that cannot be computed runs nothing' run_selection unknown-diff-
 
 workflow=tests/workflow-changed.sh
 mutant 'a workflow leaves out a path its paths filter matched' run_workflow_selection hooks-runs \
-  "$workflow" 'nix/agents.nix hosts tests/hooks.sh' 'nix/agents.nix tests/hooks.sh'
+  "$workflow" 'nix/ghtkn-render.sh hosts tests/hooks.sh' 'nix/ghtkn-render.sh tests/hooks.sh'
 mutant 'a change to the workflow selection runs only the workflows that name it' run_workflow_selection \
   'hooks-runs agents-runs spec-runs' "$workflow" 'mutate_inputs tests/workflow-changed.sh tests/lib' ':'
 mutant 'a workflow or flake change runs only the workflows that name it' run_workflow_selection \

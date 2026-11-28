@@ -60,8 +60,17 @@ if runs common; then
     'the syntax-highlighting plugin is dropped from the list' \
     nix/packages.nix $'    zsh-syntax-highlighting\n' ''
 
-  expect_caught 'package-names' 'the real gh is added, which the wrapper needs the name of' \
+  expect_caught 'package-names' 'the real gh is added next to the wrapper, which needs its name' \
     nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    gh\n  ]\n'
+
+  expect_caught gh-is-wrapper 'the real gh is installed in place of the wrapper' \
+    nix/vaults.nix 'home.packages = [ builds.gh ];' 'home.packages = [ pkgs.gh ];'
+
+  expect_caught 'bin-gh zsh-gh package-names gh-is-wrapper' 'the gh wrapper is not installed' \
+    nix/vaults.nix $'  home.packages = [ builds.gh ];\n' ''
+
+  expect_caught completion-gh 'the wrapper brings no zsh completion' \
+    nix/ghtkn.nix $'        ln -s ${pkgs.gh}/share/zsh/site-functions/_gh $out/share/zsh/site-functions/_gh\n' ''
 
   expect_caught 'package-names' 'a language runtime is installed globally' \
     nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    nodejs\n  ]\n'
@@ -158,6 +167,19 @@ if runs per-user; then
 
     expect_caught etc-zshrc-no-promptinit "nix-darwin's /etc/zshrc loads a prompt theme" \
       nix/darwin.nix $'    promptInit = "";\n' ''
+
+    expect_caught 'agent-launchd-command agent-launchd-restart' 'the ghtkn agent never runs on macOS' \
+      nix/darwin.nix \
+      $'  launchd.user.agents.ghtkn-agent.serviceConfig = {\n    ProgramArguments = [\n      (pkgs.lib.getExe pkgs.ghtkn)\n      "agent"\n      "start"\n    ];\n    RunAtLoad = true;\n    KeepAlive.SuccessfulExit = false;\n  };\n' ''
+
+    expect_caught agent-launchd-command 'the LaunchAgent runs ghtkn agent without start' \
+      nix/darwin.nix $'      "agent"\n      "start"\n' $'      "agent"\n'
+
+    expect_caught agent-launchd-restart 'the LaunchAgent restarts the agent after ghtkn agent stop too' \
+      nix/darwin.nix 'KeepAlive.SuccessfulExit = false;' 'KeepAlive = true;'
+
+    expect_caught agent-launchd-restart 'the agent does not start at login' \
+      nix/darwin.nix $'    RunAtLoad = true;\n' ''
   fi
 fi
 
@@ -177,10 +199,61 @@ if runs per-host; then
       nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    peco\n  ]\n'
   fi
 
+  personal_app_link='{ "ghtkn/gh-app".source = linkHome ".config/ghtkn/gh-app.personal"; }'
+  if [[ $host == work-mac ]]; then
+    expect_caught 'link-.config/ghtkn/ghtkn.yaml link-.config/ghtkn/gh-app' \
+      'work-mac links the personal app instead of the work profile'"'"'s files' \
+      nix/vaults.nix 'if host.profile == "work" then' 'if false then'
+
+    expect_caught 'link-.config/ghtkn/ghtkn.yaml link-.config/ghtkn/gh-app' \
+      'work-mac links the ghtkn files from outside the work profile'"'"'s ghtkn directory' \
+      nix/vaults.nix '/.config/dots-work/ghtkn/${name}' '/.config/dots-work/${name}'
+
+    expect_caught activation-no-ghtkn-render 'work-mac renders the personal ghtkn.yaml over its link' \
+      nix/vaults.nix 'home.activation.ghtknConfig = lib.mkIf personal (' 'home.activation.ghtknConfig = lib.mkIf true ('
+  else
+    expect_caught 'activation-ghtkn-render activation-ghtkn-template' "$host never renders ghtkn.yaml" \
+      nix/vaults.nix 'home.activation.ghtknConfig = lib.mkIf personal (' 'home.activation.ghtknConfig = lib.mkIf false ('
+
+    if [[ $host == wsl ]]; then
+      expect_caught activation-keeps-switch-path 'wsl empties the activation PATH, so the render step finds no op.exe' \
+        nix/vaults.nix $'  home.emptyActivationPath = lib.mkIf (personal && !isDarwin) false;\n' ''
+    else
+      expect_caught activation-ghtkn-render "$host looks op up on a PATH that nix-darwin's activation does not give it" \
+        nix/vaults.nix 'then "/usr/local/bin/op" else' 'then "op" else'
+    fi
+
+    expect_caught activation-ghtkn-render "$host calls the other OS's op" \
+      nix/vaults.nix 'then "/usr/local/bin/op" else "op.exe"' 'then "op.exe" else "/usr/local/bin/op"'
+
+    expect_caught activation-ghtkn-render "$host renders a file ghtkn does not read" \
+      nix/vaults.nix '/ghtkn/ghtkn.yaml"}' '/ghtkn/config.yaml"}'
+
+    expect_caught link-.config/ghtkn/gh-app "$host gives gh no app" \
+      nix/vaults.nix "$personal_app_link" '{ }'
+
+    expect_caught 'link-.config/ghtkn/gh-app not-linked-.config/ghtkn/ghtkn.yaml' \
+      "$host links the work profile's ghtkn files" \
+      nix/vaults.nix 'if host.profile == "work" then' 'if true then'
+
+    expect_caught real-dir-.config/ghtkn "$host links the ghtkn directory as a whole, so ghtkn.yaml lands in the checkout" \
+      nix/vaults.nix "$personal_app_link" '{ "ghtkn".source = linkHome ".config/ghtkn"; }'
+  fi
+
   ssh_line='home.file.".ssh/config" = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin { source = ./ssh_config; };'
   if [[ $host == wsl ]]; then
     expect_caught ssh-config 'wsl gets the macOS ssh config' \
       nix/home.nix 'lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {' 'lib.mkIf true {'
+
+    expect_caught 'agent-systemd-command agent-systemd-enabled' 'wsl gets no ghtkn agent' \
+      nix/vaults.nix 'systemd.user.services.ghtkn-agent = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {' \
+      'systemd.user.services.ghtkn-agent = lib.mkIf false {'
+
+    expect_caught agent-systemd-command 'the unit restarts the agent after ghtkn agent stop too' \
+      nix/vaults.nix 'Restart = "on-failure";' 'Restart = "always";'
+
+    expect_caught agent-systemd-enabled 'the unit is installed but never started' \
+      nix/vaults.nix $'    Install.WantedBy = [ "default.target" ];\n' ''
   else
     expect_caught ssh-config "$host gets no ssh config" \
       nix/home.nix "  $ssh_line"$'\n' ''

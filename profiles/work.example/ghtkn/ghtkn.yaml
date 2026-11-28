@@ -1,0 +1,16 @@
+# PLACEHOLDER client IDs: the real profile holds the work GitHub Apps' own.
+# The none app comes first, but env/static.env makes the read app the default
+# through GHTKN_APP, and git_owners gives git pushes the write app.
+backend:
+  type: agent
+apps:
+  - name: example-org/none
+    client_id: PLACEHOLDER-none-client-id
+  - name: example-org/read
+    client_id: PLACEHOLDER-read-client-id
+  - name: example-org/git
+    client_id: PLACEHOLDER-git-client-id
+  - name: example-org/write
+    client_id: PLACEHOLDER-write-client-id
+    git_owners:
+      - example-org

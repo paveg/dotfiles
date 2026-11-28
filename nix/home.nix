@@ -9,6 +9,7 @@ in
   imports = [
     ./packages.nix
     ./agents-home.nix
+    ./vaults.nix
   ];
 
   _module.args.linkHome = link;

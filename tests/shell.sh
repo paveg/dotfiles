@@ -4,11 +4,15 @@
 # files from <home-dir> (default home/), and `env -i` starts zsh as `zsh -c`,
 # `zsh -lc`, and an interactive shell fed commands on stdin. Exported variables
 # are read with `printenv` from a child process, so a missing `export` fails.
-# Usage: tests/shell.sh [home-dir]   Env: ZSH_BIN overrides the zsh to test.
+# The work profile's static.env comes from <work-profile-dir> (default
+# profiles/work.example/), placed where work-mac keeps the real one.
+# Usage: tests/shell.sh [home-dir] [work-profile-dir]
+# Env: ZSH_BIN overrides the zsh to test.
 set -euo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 home_src=${1:-$repo_dir/home}
+profile_src=${2:-$repo_dir/profiles/work.example}
 zsh_bin=${ZSH_BIN:-$(command -v zsh)}
 base_path=/usr/bin:/bin:/usr/sbin:/sbin
 # $ZDOTDIR/.zshenv builds the per-user Nix directory from $USERNAME, which zsh
@@ -559,6 +563,26 @@ add_command_stubs "$fix_home"
 add_fixtures "$fix_home"
 fix_vars=$(run_zsh "$fix_home" -c printenv 2>/dev/null) || true
 is static-env-sourced static-env "$(field DOTS_STATIC_ENV "$fix_vars")"
+
+# On work-mac every shell lets aqua read its registry through ghtkn, with a
+# default app the work ghtkn.yaml defines. No shell, work or personal, sets a
+# variable that makes aqua ignore ghtkn (ADR 0004).
+work_home=$(new_home work-profile)
+mkdir -p "$work_home/.config/dots-work"
+cp -R "$profile_src/." "$work_home/.config/dots-work/"
+work_vars=$(run_zsh "$work_home" -c printenv 2>/dev/null) || true
+is work-aqua-ghtkn-enabled true "$(field AQUA_GHTKN_ENABLED "$work_vars")"
+work_app=$(field GHTKN_APP "$work_vars")
+if [[ -n $work_app ]] && grep -qxF "  - name: $work_app" "$profile_src/ghtkn/ghtkn.yaml"; then
+  ok work-ghtkn-app-defined
+else
+  fail work-ghtkn-app-defined "GHTKN_APP is '$work_app', which $profile_src/ghtkn/ghtkn.yaml does not define"
+fi
+personal_vars=$(run_zsh "$(new_home personal-env)" -c printenv 2>/dev/null) || true
+for name in GITHUB_TOKEN AQUA_GITHUB_TOKEN AQUA_KEYRING_ENABLED; do
+  is "never-set-$name" "personal 0, work 0" \
+    "personal $(grep -c "^$name=" <<<"$personal_vars"), work $(grep -c "^$name=" <<<"$work_vars")"
+done
 
 fix_probe=$work_dir/fixtures.vars
 fix_log=$work_dir/fixtures.log

@@ -16,7 +16,7 @@ run_mutant() { # <dir> <check>... <file> <old> <new>
   local dir=$1 checks=$2 file=$3 old=$4 new=$5 out check missing=
   mkdir -p "$dir/nix" "$dir/home/.claude"
   command cp "$repo_dir/flake.nix" "$repo_dir/flake.lock" "$dir/"
-  command cp "$repo_dir/nix/agents.nix" "$dir/nix/"
+  command cp "$repo_dir/nix/agents.nix" "$repo_dir/nix/ghtkn.nix" "$repo_dir/nix/gh.sh" "$repo_dir/nix/ghtkn-render.sh" "$dir/nix/"
   command cp -R "$repo_dir/hosts" "$dir/hosts"
   command cp -R "$repo_dir/home/.claude/hooks" "$dir/home/.claude/hooks"
   mutate_apply "$dir/$file" "$old" "$new" || return
@@ -38,7 +38,7 @@ guard=home/.claude/hooks/lib/guard.sh
 db=home/.claude/hooks/block-destructive-db.sh
 sensitive=home/.claude/hooks/block-sensitive-read.sh
 
-mutate_inputs flake.nix flake.lock nix/agents.nix hosts home/.claude/hooks tests/hooks.sh \
+mutate_inputs flake.nix flake.lock nix/agents.nix nix/ghtkn.nix nix/gh.sh nix/ghtkn-render.sh hosts home/.claude/hooks tests/hooks.sh \
   tests/fixtures/hooks tests/mutate-hooks.sh tests/lib/
 mutate_baseline 'the guards as committed' "$repo_dir/tests/hooks.sh"
 

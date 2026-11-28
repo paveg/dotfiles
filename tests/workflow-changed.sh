@@ -15,7 +15,7 @@ mutate_inputs tests/workflow-changed.sh tests/lib
 case ${1-} in
 shell) mutate_inputs home nix profiles tests scripts/pre-wipe-inventory.sh ;;
 hooks)
-  mutate_inputs home/.claude/hooks nix/agents.nix hosts tests/hooks.sh tests/mutate-hooks.sh \
+  mutate_inputs home/.claude/hooks nix/agents.nix nix/ghtkn.nix nix/gh.sh nix/ghtkn-render.sh hosts tests/hooks.sh tests/mutate-hooks.sh \
     tests/fixtures/hooks tests/reply-language.sh tests/fixtures/reply-language
   ;;
 agents) mutate_inputs home hosts nix profiles tests/agents.sh tests/mutate-agents.sh tests/auto-mode.expected.json ;;
