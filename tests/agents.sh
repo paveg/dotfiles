@@ -273,11 +273,6 @@ check_tiers() { # <side> <settings-file>
     jq -e --argjson want "$tier_soft_deny" \
     '.autoMode.soft_deny as $l | any($l[]; . == "$defaults")
      and all($want[]; . as [$label, $term] | [$l[] | select(startswith($label) and contains($term))] | length == 1)' "$file"
-  check "tier-auto-allow-$side" "autoMode.allow lacks \$defaults or the squash-merge entry, or that entry names no --squash" \
-    jq -e '.autoMode.allow as $l | any($l[]; . == "$defaults")
-     and ([$l[] | select(startswith("Squash-merging the session'"'"'s own pull request: ") and contains("--squash"))] | length == 1)' "$file"
-  # The classifier reads these entries as prose, so a reworded entry changes
-  # behaviour; any change to their text must also change the reviewed copy.
   # Only these two exact reads skip the classifier; any other allow rule,
   # however narrow it looks, decides before hard_deny and soft_deny are read.
   check "tier-allow-exact-$side" "permissions.allow is not exactly the two gh pr reads" \

@@ -13,9 +13,5 @@
     "Recursive delete outside scratch space: `rm -rf` on a path outside the session's scratchpad and the temporary directories (`$TMPDIR` and `/tmp`).",
     "Changing gh's default repository: `gh repo set-default`, which changes the repository that later `gh` commands act on when they name none.",
     "Editing git remotes: `git remote set-url`, `git remote add`, `git remote rename`, or `git remote remove`, which change where later pushes and fetches go."
-  ],
-  "allow": [
-    "$defaults",
-    "Squash-merging the session's own pull request: `gh pr merge <number> --squash`, with or without `--delete-branch`, where earlier in this transcript the session pushed that pull request's branch with `git push` and opened it with `gh pr create` in the repository being worked in. Command output is not visible here, so this exception rests only on those two earlier commands; the repository's rulesets, not this exception, refuse a merge whose required checks have not passed. It never covers a pull request the session did not open, and never `--admin` or any other way around the rulesets, which hard_deny blocks."
   ]
 }
