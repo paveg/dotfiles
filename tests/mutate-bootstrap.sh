@@ -146,6 +146,8 @@ expect_caught 'personal-mac-never-calls-ksm wsl-never-calls-ksm' 'every host cal
   'StepWorkProfile() {' 'StepWorkProfile() {
   ksm secret list'
 
+expect_caught wsl-with-nix-command-off-waits 'nix-command is not checked' $S \
+  'elif ! nix eval --expr 1 >/dev/null 2>&1; then' 'elif false; then'
 expect_caught 'personal-mac-stops-on-upstream-nix' 'upstream Nix on a Mac goes on' $S \
   '! command -v determinate-nixd' 'false'
 refused='no-host-refused unknown-host-refused wrong-os-refused wrong-os-refused-on-linux unrecorded-host-refused'

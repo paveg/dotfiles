@@ -100,6 +100,10 @@ new_case() { # <name> <host>
   printf '#!/bin/sh\necho %s\n' "$os" >"$stubs/uname"
   chmod +x "$stubs/uname"
   stub nix <<'SH'
+if [ -e "$case_dir/nix-command-off" ]; then
+  echo "error: experimental Nix feature 'nix-command' is disabled" >&2
+  exit 1
+fi
 case $1 in
 shell)
   mkdir -p "$HOME/.cache/nix"
@@ -107,7 +111,7 @@ shell)
   shift
   exec "$@"
   ;;
-eval) echo ryota ;;
+eval) if [ "$2" = --expr ]; then echo 1; else echo ryota; fi ;;
 run)
   if [ "$2" = home-manager ]; then
     mkdir -p "$HOME/.local/state/nix/profiles"
@@ -296,6 +300,7 @@ $co nix run nix-darwin -- switch --flake .#$1"
   fi
   echo 'step StepCheckHost'
   echo 'step StepInstallNix'
+  echo '~ nix eval --expr 1'
   echo 'step StepRecordHost'
   echo 'step StepClone'
   echo '~ nix shell nixpkgs#git nixpkgs#ghq -c ghq get https://github.com/paveg/dotfiles'
@@ -366,8 +371,8 @@ new_case personal-mac-without-nix personal-mac
 do_human_steps personal-mac
 without_nix
 run personal-mac
-is personal-mac-installs-determinate-nix "0 $(expected_log personal-mac | awk '{ print } $0 == "step StepInstallNix" {
-  print "~ curl -fsSL https://install.determinate.systems/nix"; print "~ installer install --no-confirm" }')" \
+is personal-mac-installs-determinate-nix "0 $(expected_log personal-mac | awk '$0 == "~ nix eval --expr 1" { next } { print }
+  $0 == "step StepInstallNix" { print "~ curl -fsSL https://install.determinate.systems/nix"; print "~ installer install --no-confirm" }')" \
   "$status $(cat "$log")"
 new_case wsl-without-nix-or-systemd wsl
 do_human_steps wsl
@@ -390,7 +395,8 @@ is mise-exiting-2-fails-the-run-with-1 '1 StepSecondSwitch' "$status $(last_step
 
 # An empty host file records no host. A run killed at its first write to a
 # regular file, the host file's (a file size limit of 0 sends SIGXFSZ, 153;
-# the trace is off, as it writes the log), leaves no host file at all.
+# the trace is off, and the stub nix the Nix check runs logs nothing, as both
+# would write first), leaves no host file at all.
 new_case empty-host-file personal-mac
 do_human_steps personal-mac
 mkdir -p "$home/.config/dotfiles"
@@ -399,10 +405,14 @@ run personal-mac
 is an-empty-host-file-counts-as-none '0 personal-mac' "$status $(recorded)"
 new_case killed-recording-the-host personal-mac
 do_human_steps personal-mac
+mv "$stubs/nix" "$case_dir/nix"
+printf '#!/bin/sh\n' >"$stubs/nix"
+chmod +x "$stubs/nix"
 bash_env='' file_limit=0
 run personal-mac
 is a-run-killed-recording-the-host-leaves-none '153 none' "$status $(recorded)"
-bash_env=$case_dir/trace.bash file_limit=
+mv "$case_dir/nix" "$stubs/nix"
+bash_env=$case_dir/trace.bash file_limit=''
 run personal-mac
 is a-run-killed-recording-the-host-then-finishes '0 personal-mac' "$status $(recorded)"
 
@@ -411,6 +421,14 @@ do_human_steps personal-mac
 rm "$stubs/determinate-nixd"
 run personal-mac
 is personal-mac-stops-on-upstream-nix '75 StepInstallNix' "$status $(last_step)"
+
+# wsl with nix-command off, as upstream Nix has it by default, waits for a
+# person instead of failing at the clone.
+new_case wsl-with-nix-command-off wsl
+do_human_steps wsl
+rm "$stubs/determinate-nixd"
+: >"$case_dir/nix-command-off"
+expect_waits_for_nix wsl-with-nix-command-off-waits wsl 'step StepCheckHost;step StepInstallNix;~ nix eval --expr 1;'
 
 for host in personal-mac work-mac wsl; do
   # A checkout that is already there, with a local file, and on work-mac the

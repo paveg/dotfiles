@@ -96,6 +96,8 @@ StepInstallNix() {
     load_nix
   elif [[ $host != wsl ]] && ! command -v determinate-nixd >/dev/null; then
     wait_for_person "this Mac runs upstream Nix; install Determinate Nix from its macOS package (docs/design.md, Bootstrap)"
+  elif ! nix eval --expr 1 >/dev/null 2>&1; then
+    wait_for_person "this Nix has nix-command off; put 'experimental-features = nix-command flakes' in /etc/nix/nix.conf, or install Determinate Nix (docs/design.md, Bootstrap)"
   fi
 }
 
