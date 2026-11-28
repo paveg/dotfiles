@@ -39,8 +39,11 @@ The installer downloads two archives from `cli.moonbitlang.com`: `binaries/<vers
 - Section 14, "Commercially or Competitively Offering the Program as a Service", applies when you make the Program available to third parties as a service. You then have to publish the Service Source Code.
 - "MoonBit Compiler Exceptions to the MoonBit Public Source License": when the compiler embeds portions of itself in your output, you may convey them under the MIT License.
 - The build tool, https://github.com/moonbitlang/moon, and the standard library, https://github.com/moonbitlang/core, are Apache-2.0.
+- The compiler's README calls the licence a relaxed SSPL with two exceptions, and one of them reads "Modifications to the compiler are allowed for non-commercial purposes." The fetch of `LICENSE.TXT` showed no such sentence: its only uses of "commercial" are in section 7 ("occasionally and noncommercially", about conveying object code) and in section 14.
 
-So by the licence text, running the unmodified toolchain to build your own software is allowed, and that includes software for the work machine. Whether the company accepts this licence on `work-mac` is the owner's decision. The licence is not free in nixpkgs' sense: the compiler's README calls it a relaxed SSPL, and nixpkgs marks `sspl` as `free = false`. `nix/licenses.nix` records MoonBit as a list of two licences. The first is this one, with `free = false` and `redistributable = true`. The second is `asl20`.
+So by the licence text, running the unmodified toolchain to build your own software is allowed, and that includes software for the work machine. Modifying the compiler for commercial use may not be. Whether the company accepts this licence on `work-mac` is the owner's decision, and the `ok` row that `tests/licenses.sh` prints is not that decision. The row passes the non-commercial rule only because the name recorded in `nix/licenses.nix` has no NC mark.
+
+The licence is not free in nixpkgs' sense: nixpkgs marks `sspl` as `free = false`. `nix/licenses.nix` records MoonBit as a list of two licences. The first is this one, with `free = false` and `redistributable = true`. The second is `asl20`.
 
 Two points are **Unverified**:
 
@@ -61,6 +64,6 @@ Two points are **Unverified**:
 ## Alternatives considered
 
 - **Runtimes as nixpkgs packages**: one version per host, which every project would share. Rejected, because projects pin their own versions.
-- **mise for every language**: mise can also install Python, Rust, and Lean. Rejected, because uv, rustup, and elan read the pin files that Python, Rust, and Lean projects already commit.
+- **mise for every language**: mise can also install Python and Rust. Rejected on PAV-46 in favour of each language's own manager.
 - **Version aliases (`latest`, `lts`) or a major version (`node = "24"`) as the global defaults**: no edits to stay current, but each host resolves them when it installs, so two hosts can differ and nothing in a diff shows the change. Rejected in favour of exact versions.
 - **Swift from nixpkgs**: cannot build Apple apps. Rejected.
