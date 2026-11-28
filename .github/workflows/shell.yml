@@ -49,10 +49,11 @@ jobs:
         run: tests/ssh.sh
       - name: Check the pre-wipe inventory
         run: tests/pre-wipe-inventory.sh
-      - name: Check how the mutation scripts are selected, split by OS and sharded
+      - name: Check how the workflows and mutation scripts are selected, split by OS and sharded
         if: runner.os == 'Linux'
         run: |
           tests/selection.sh
+          tests/workflow-selection.sh
           tests/mutation-coverage.sh
           MUTATE_OS=linux tests/mutate-selection.sh
       - name: Check that each check fails on a broken copy
