@@ -151,7 +151,7 @@ expect_caught 'personal-mac-never-calls-ksm wsl-never-calls-ksm' 'every host cal
   ksm secret list'
 
 expect_caught wsl-with-nix-command-off-waits 'nix-command is not checked' $S \
-  'elif ! nix eval --expr 1 >/dev/null 2>&1; then' 'elif false; then'
+  'elif ! nix eval --expr 1 >/dev/null; then' 'elif false; then'
 expect_caught "$(each "$macs" stops-on-upstream-nix)" 'upstream Nix on a Mac goes on' $S \
   '! command -v determinate-nixd' 'false'
 expect_caught wsl-goes-on-with-upstream-nix 'upstream Nix on wsl waits for Determinate Nix' $S \

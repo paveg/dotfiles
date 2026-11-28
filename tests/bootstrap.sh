@@ -426,10 +426,11 @@ stub mise <<<'exit 2'
 run wsl
 is mise-exiting-2-fails-the-run-with-1 '1 StepSecondSwitch' "$status $(last_step)"
 
-# An empty host file records no host. A run killed at its first write to a
-# regular file, the host file's (a file size limit of 0 sends SIGXFSZ, 153;
-# the trace is off, and the stub nix the Nix check runs logs nothing, as both
-# would write first), leaves no host file at all.
+# An empty host file records no host. A run stopped at its first write to a
+# regular file, the host file's, leaves no host file at all. A file size limit
+# of 0 sends SIGXFSZ, or fails the write where that signal is ignored. The
+# trace is off, and the stub nix the Nix check runs logs nothing, as both
+# would write first.
 new_case empty-host-file personal-mac
 do_human_steps personal-mac
 mkdir -p "$home/.config/dotfiles"
@@ -443,7 +444,7 @@ printf '#!/bin/sh\n' >"$stubs/nix"
 chmod +x "$stubs/nix"
 bash_env='' file_limit=0
 run personal-mac
-is a-run-killed-recording-the-host-leaves-none '153 none' "$status $(recorded)"
+is a-run-killed-recording-the-host-leaves-none 'stopped none' "$( ((status == 0)) || echo stopped) $(recorded)"
 mv "$case_dir/nix" "$stubs/nix"
 bash_env=$case_dir/trace.bash file_limit=''
 run personal-mac
