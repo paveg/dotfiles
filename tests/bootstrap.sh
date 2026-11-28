@@ -7,22 +7,29 @@
 # runner and the runner's own Nix never runs. Each run is detached from the
 # terminal, so a human step stops instead of asking. A trace sourced through
 # BASH_ENV logs each Step* function the script enters, in order with the stubs'
-# calls. Checks: a complete run enters spec/bootstrap.tla's step actions in the
-# model's order and no other Step* function; a missing, unknown,
-# wrong-OS or unrecorded host exits 2 and changes nothing, with no Nix
-# installed; without nix a Mac runs Determinate's installer and goes on with
-# the nix it installed, and wsl without systemd waits; a command that
-# fails with 75 or 2 fails the run with 1; an empty host file records no host,
-# and a run killed while recording the host leaves none; each host runs the
-# expected commands, mise install last of them after the switches, and records
-# itself; neither that run nor a second one changes an existing checkout or the
-# hand-placed work profile, and the second changes nothing below $HOME, link
-# targets included; with one human step undone the run
-# exits 75 at that step, having run the steps before it and no more, recorded
-# the host so that a rerun naming the other Mac is refused, and added only
-# allowlisted entries, and it finishes once the step is done; personal hosts
-# never call ksm or create ~/.config/dots-work/; $HOME gains only the recorded
-# host and what the stubbed clone and switch create.
+# calls.
+# Checks:
+# - a complete run enters spec/bootstrap.tla's step actions in the model's
+#   order and no other Step* function, runs the expected commands, mise install
+#   last of them, with the switched profile on PATH behind the stubs, and
+#   records the host, below XDG_CONFIG_HOME when that is set;
+# - neither it nor a second run changes an existing checkout or the
+#   hand-placed work profile, and the second changes nothing below $HOME, link
+#   targets included; $HOME gains only the recorded host, the checkout, and
+#   what the stub nix writes; a checkout without lefthook.yml gets no hooks;
+# - a missing, unknown, wrong-OS or unrecorded host, or a dangling host link,
+#   exits 2 having run only the host check and changed nothing, with no Nix
+#   installed;
+# - without nix a Mac runs Determinate's installer and goes on with the nix it
+#   installed, and wsl without systemd waits; upstream Nix stops each Mac, and
+#   wsl only with nix-command off;
+# - a command that fails with 75 or 2 fails the run with 1; an empty host file
+#   records no host, and a run killed while recording the host leaves none;
+# - with one human step undone the run exits 75 at that step, having run the
+#   steps before it and no more, recorded the host so that a rerun naming the
+#   other Mac is refused, and added only allowed entries, and it finishes once
+#   the step is done;
+# - personal hosts never call ksm or create ~/.config/dots-work/.
 # Usage: tests/bootstrap.sh [script [spec]]   (mutant copies may be given)
 # SC2016: the stub lines and the perl launcher are source for another shell or
 #         for perl, expanded when they run. SC2088: the ~ in the expected calls
