@@ -124,8 +124,9 @@ expect_caught render-mode 'the rendered file is readable by other users' \
 expect_caught 'render-inject-failed-keeps-file render-signed-in' 'op inject writes over the file in place' \
   "$render" 'if ! "$op" inject <"$template" >"$tmp"; then' 'if ! "$op" inject <"$template" >"$target"; then'
 
-expect_caught render-inject-failed-leaves-no-temp 'a failed inject leaves its temporary file behind' \
-  "$render" $'  rm -f "$tmp"\n' ''
+expect_caught 'render-inject-failed-leaves-no-temp render-killed-by-INT render-killed-by-TERM render-killed-by-HUP' \
+  'a failed or killed render leaves its temporary file behind' \
+  "$render" $'trap \'[[ -z $tmp ]] || rm -f -- "$tmp"\' EXIT\n' ''
 
 expect_caught render-retries-after-failure 'the hash moves on before inject succeeds, so a failure is never retried' \
   "$render" $'mkdir -p "$(dirname "$target")"\n' $'mkdir -p "$(dirname "$target")"\necho "$hash" >"$stamp"\n'

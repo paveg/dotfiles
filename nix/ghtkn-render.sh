@@ -34,11 +34,14 @@ command -v "$op" >/dev/null || skip "$op is not installed"
 "$op" whoami >/dev/null 2>&1 || skip "1Password is not signed in"
 
 # The template comes on stdin: op.exe on wsl cannot open a Linux path. mktemp
-# creates the file 0600, in the target's directory, so the mv is atomic.
+# creates the file 0600, in the target's directory, so the mv is atomic. An
+# exit on the way removes it, with whatever part of a client ID it holds; bash
+# runs the EXIT trap when INT, TERM or HUP kills it too.
+tmp=
+trap '[[ -z $tmp ]] || rm -f -- "$tmp"' EXIT
 mkdir -p "$(dirname "$target")"
 tmp=$(mktemp "$target.XXXXXX")
 if ! "$op" inject <"$template" >"$tmp"; then
-  rm -f "$tmp"
   skip "op inject failed"
 fi
 mv -fT "$tmp" "$target"

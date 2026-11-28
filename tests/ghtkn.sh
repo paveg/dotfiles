@@ -14,7 +14,8 @@
 # (0600) only when it is missing or its template changed and op is signed in,
 # never calls op otherwise, and skips with a warning and exit 0 when op is
 # missing, signed out, or fails, keeping the old file, and when the target is
-# a directory or a link to one. The committed template
+# a directory or a link to one. A render killed in the middle of inject leaves
+# no partial file. The committed template
 # holds references, not client IDs, and defines the app gh-app.personal names.
 # tests/packages.sh checks that the profile installs this same wrapper and
 # that the switch runs this same render step.
@@ -221,10 +222,12 @@ done
 # The render step, with a stub op that logs each call. whoami succeeds only
 # with STUB_OP_SIGNED_IN set, and inject, which fails with STUB_OP_INJECT_FAILS
 # set, reads the template from stdin alone, as op.exe on wsl must, and puts a
-# placeholder in place of each reference.
+# placeholder in place of each reference. With STUB_OP_INJECT_HANGS set, inject
+# writes part of its output, creates op.ready, and sleeps.
 render_bin=$(build "path:$repo_dir#ghtkn-render")/bin/ghtkn-render
 [[ -x $render_bin ]] || die "ghtkn-render did not build: $(tail -n 5 "$work_dir/build.err")"
 op_log=$work_dir/op.log
+op_ready=$work_dir/op.ready
 cat >"$stub_dir/op" <<STUB
 #!/bin/sh
 echo "\$1" >>'$op_log'
@@ -232,6 +235,11 @@ case \$1 in
 whoami) [ -n "\${STUB_OP_SIGNED_IN-}" ] ;;
 inject)
   [ -z "\${STUB_OP_INJECT_FAILS-}" ] || exit 1
+  if [ -n "\${STUB_OP_INJECT_HANGS-}" ]; then
+    printf 'partial-client-id'
+    : >'$op_ready'
+    exec sleep 20
+  fi
   sed -E 's/\{\{ op:\/\/[^}]* \}\}/stub-client-id/g'
   ;;
 *) exit 2 ;;
@@ -305,6 +313,29 @@ is render-retries-after-failure "$(rendered "$template")" "$(cat "$target" 2>&1)
 rm -f "$target"
 render "$template" "$target" op STUB_OP_SIGNED_IN=1
 is render-missing-file "$(rendered "$template")" "$(cat "$target" 2>&1)"
+
+# A signal to the render's process group in the middle of inject, as Ctrl-C
+# sends, leaves no partial file and keeps the old file and hash. perl gives the
+# render a group of its own and undoes the ignored SIGINT a background job gets.
+stamp_before=$(cat "$target.template-sha256")
+for signal in INT TERM HUP; do
+  rm -f "$op_ready"
+  (cd "$work_dir" && exec perl -e 'setpgrp(0, 0); $SIG{INT} = "DEFAULT"; exec @ARGV or die "exec: $!"' \
+    env -i HOME="$work_dir" PATH="$stub_dir:/usr/bin:/bin" STUB_OP_SIGNED_IN=1 STUB_OP_INJECT_HANGS=1 \
+    "$render_bin" "$changed" "$target" op </dev/null >/dev/null 2>&1) &
+  pid=$!
+  for ((i = 0; i < 100; i++)); do
+    [[ -e $op_ready ]] && break
+    sleep 0.1
+  done
+  kill -"$signal" -- -"$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  kept=no
+  [[ $(cat "$target") == "$(rendered "$template")" && $(cat "$target.template-sha256") == "$stamp_before" ]] && kept=yes
+  is "render-killed-by-$signal" "ghtkn.yaml ghtkn.yaml.template-sha256, kept yes" \
+    "$(ls "${target%/*}" | tr '\n' ' ' | sed 's/ $//'), kept $kept"
+  rm -f -- "$target".??????
+done
 
 # A directory in the target's place, or a link to one, is refused before op
 # runs; mv would leave a new copy inside it on every switch. A dangling link
