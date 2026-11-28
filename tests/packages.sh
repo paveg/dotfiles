@@ -28,7 +28,7 @@ nix_bin=(nix --extra-experimental-features 'nix-command flakes')
 # test. `gh` is not here; it becomes a wrapper in a later change.
 commands=(
   claude git ghq fzf rg fd bat eza zoxide jq nvim just lazygit lefthook gitleaks
-  kubectl helm k9s stern ghtkn mise atuin
+  kubectl helm k9s stern ghtkn mise uv rustup elan atuin
 )
 # The same set by nixpkgs attribute name, from docs/design.md "Packages", so a
 # package that ships no command of its own is still accounted for. `gh` is
@@ -37,7 +37,7 @@ commands=(
 packages=(
   claude-code git ghq fzf ripgrep fd bat eza zoxide zsh-autosuggestions
   zsh-syntax-highlighting jq neovim just lazygit lefthook gitleaks
-  kubectl kubernetes-helm k9s stern ghtkn mise atuin
+  kubectl kubernetes-helm k9s stern ghtkn mise uv rustup elan atuin
 )
 # What hosts/<host>.nix adds for that host alone, as command and package.
 if [[ $host == work-mac ]]; then

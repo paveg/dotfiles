@@ -27,6 +27,9 @@
     stern
     ghtkn
     mise
+    uv
+    rustup
+    elan
     atuin
   ]
   ++ host.packages pkgs;
