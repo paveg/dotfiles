@@ -215,11 +215,16 @@ if runs per-host; then
     expect_caught 'activation-ghtkn-render activation-ghtkn-template' "$host never renders ghtkn.yaml" \
       nix/vaults.nix 'home.activation.ghtknConfig = lib.mkIf personal (' 'home.activation.ghtknConfig = lib.mkIf false ('
 
-    expect_caught activation-keeps-switch-path "$host empties the activation PATH, so the render step finds no op" \
-      nix/vaults.nix $'  home.emptyActivationPath = lib.mkIf personal false;\n' ''
+    if [[ $host == wsl ]]; then
+      expect_caught activation-keeps-switch-path 'wsl empties the activation PATH, so the render step finds no op.exe' \
+        nix/vaults.nix $'  home.emptyActivationPath = lib.mkIf (personal && !isDarwin) false;\n' ''
+    else
+      expect_caught activation-ghtkn-render "$host looks op up on a PATH that nix-darwin's activation does not give it" \
+        nix/vaults.nix 'then "/usr/local/bin/op" else' 'then "op" else'
+    fi
 
     expect_caught activation-ghtkn-render "$host calls the other OS's op" \
-      nix/vaults.nix 'then "op" else "op.exe"' 'then "op.exe" else "op"'
+      nix/vaults.nix 'then "/usr/local/bin/op" else "op.exe"' 'then "op.exe" else "/usr/local/bin/op"'
 
     expect_caught activation-ghtkn-render "$host renders a file ghtkn does not read" \
       nix/vaults.nix '/ghtkn/ghtkn.yaml"}' '/ghtkn/config.yaml"}'

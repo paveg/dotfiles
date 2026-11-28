@@ -30,8 +30,7 @@ in
         ln -s ${pkgs.gh}/share/zsh/site-functions/_gh $out/share/zsh/site-functions/_gh
       '';
 
-  # op stays on the caller's PATH: on macOS it must be /usr/local/bin/op for
-  # the app integration, and on wsl it is the Windows op.exe.
+  # No op in runtimeInputs: the caller names it (nix/vaults.nix).
   ghtkn-render = pkgs.writeShellApplication {
     name = "ghtkn-render";
     runtimeInputs = [ pkgs.coreutils ];

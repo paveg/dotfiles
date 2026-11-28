@@ -221,7 +221,7 @@ changed=$work_dir/changed.yaml.tpl
 target=$work_dir/render/ghtkn/ghtkn.yaml
 
 render "$template" "$target" no-such-op STUB_OP_SIGNED_IN=1
-skipped render-without-op "$target" "no-such-op is not on PATH"
+skipped render-without-op "$target" "no-such-op is not installed"
 
 render "$template" "$target" op
 skipped render-signed-out "$target" "1Password is not signed in"

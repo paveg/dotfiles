@@ -25,7 +25,7 @@ skip() { # <reason>
   echo "ghtkn-render: warning: $1, so $target is not rendered; the next switch tries again" >&2
   exit 0
 }
-command -v "$op" >/dev/null || skip "$op is not on PATH"
+command -v "$op" >/dev/null || skip "$op is not installed"
 # Unverified: that whoami asks the app without raising a prompt (design.md).
 "$op" whoami >/dev/null 2>&1 || skip "1Password is not signed in"
 

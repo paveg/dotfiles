@@ -8,7 +8,8 @@
 # tests/ghtkn.sh checks and brings gh's zsh completion, ~/.config/ghtkn is a
 # real directory whose files come from the checkout on personal hosts and from
 # the work profile on work-mac, only personal hosts run the ghtkn.yaml render
-# step that tests/ghtkn.sh checks, with the switch's PATH kept for op, the
+# step that tests/ghtkn.sh checks, with /usr/local/bin/op on macOS and op.exe
+# from the switch's PATH on wsl, the
 # ghtkn agent runs the profile's ghtkn from launchd on macOS and systemd on
 # wsl and is restarted only after a failure, the ssh config is a store copy on
 # macOS
@@ -319,7 +320,9 @@ read -r -a render_words <<<"$(tr '\n' ' ' <<<"$render_line")"
 if [[ $host == work-mac ]]; then
   is activation-no-ghtkn-render none "${render_words[*]-}"
 else
-  op_cmd=op
+  # macOS names op by path: nix-darwin activates under `env -i` with a PATH
+  # that lacks /usr/local/bin. wsl finds op.exe on the switch's PATH.
+  op_cmd=/usr/local/bin/op
   [[ $host == wsl ]] && op_cmd=op.exe
   render_bin=$(build_attr "packages.$nix_system.ghtkn-render" render)
   template_arg=${render_words[2]-}
@@ -332,17 +335,14 @@ else
     fail activation-ghtkn-template "'$template_arg' is not a store copy of home/.config/ghtkn/ghtkn.personal.yaml.tpl"
   fi
   # home-manager starts its activation with only its own tools on PATH, where
-  # the render step would never find op.
+  # the render step would never find op.exe.
   if [[ $host == wsl ]]; then
-    hm_generation=${generation-}
-  else
-    hm_generation=$(build_attr "$config_attr.home.activationPackage" hm-generation)
-  fi
-  path_line=$(grep '^export PATH=' "$hm_generation/activate" 2>&1)
-  if [[ $path_line == *'${PATH:+:}$PATH"' ]]; then
-    ok activation-keeps-switch-path
-  else
-    fail activation-keeps-switch-path "the activation sets $(cut -c1-200 <<<"$path_line")"
+    path_line=$(grep '^export PATH=' "${generation-}/activate" 2>&1)
+    if [[ $path_line == *'${PATH:+:}$PATH"' ]]; then
+      ok activation-keeps-switch-path
+    else
+      fail activation-keeps-switch-path "the activation sets $(cut -c1-200 <<<"$path_line")"
+    fi
   fi
 fi
 

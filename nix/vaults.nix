@@ -8,7 +8,10 @@ let
   builds = import ./ghtkn.nix { inherit pkgs; };
   workProfile = name: config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/dots-work/ghtkn/${name}";
   personal = host.profile == "personal";
-  op = if pkgs.stdenv.hostPlatform.isDarwin then "op" else "op.exe";
+  isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
+  # By path on macOS: nix-darwin activates under `env -i` with a PATH that
+  # lacks /usr/local/bin, the one place the app integration accepts op.
+  op = if isDarwin then "/usr/local/bin/op" else "op.exe";
 in
 {
   home.packages = [ builds.gh ];
@@ -18,9 +21,10 @@ in
       run ${lib.getExe builds.ghtkn-render} ${../home/.config/ghtkn/ghtkn.personal.yaml.tpl} ${lib.escapeShellArg "${config.xdg.configHome}/ghtkn/ghtkn.yaml"} ${op}
     ''
   );
-  # home-manager starts its activation with an empty PATH, which would leave
-  # the render step no op to find; it keeps the switch's PATH after its own.
-  home.emptyActivationPath = lib.mkIf personal false;
+  # On wsl op.exe is found on the Windows PATH of the shell that runs
+  # `home-manager switch`, which home-manager drops from its activation unless
+  # told to keep it.
+  home.emptyActivationPath = lib.mkIf (personal && !isDarwin) false;
 
   # The agent on wsl, as nix/darwin.nix runs it on macOS.
   systemd.user.services.ghtkn-agent = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
