@@ -37,6 +37,12 @@ expect_caught 'pass-gh-token pass-gh-token-skips-ghtkn' 'the wrapper ignores GH_
 expect_caught 'pass-github-token pass-github-token-skips-ghtkn' 'the wrapper ignores GITHUB_TOKEN' \
   "$wrapper" ' || -n ${GITHUB_TOKEN-}' ''
 
+expect_caught empty-gh-token-asks-ghtkn 'an empty GH_TOKEN counts as a token, so gh runs with none' \
+  "$wrapper" '-n ${GH_TOKEN-}' '-v GH_TOKEN'
+
+expect_caught app-without-newline 'a gh-app with no trailing newline names no app' \
+  "$wrapper" 'read -r app <"$app_file" || :' 'read -r app <"$app_file" || app='
+
 expect_caught ghtkn-args 'the wrapper hands ghtkn itself instead of the real gh' \
   "$wrapper" '-- "$gh" "$@" || status' '-- "$0" "$@" || status'
 
