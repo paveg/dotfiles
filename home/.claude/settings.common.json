@@ -29,6 +29,27 @@
       "Read(**/*secret*)",
       "Read(**/.netrc)",
       "Read(**/.npmrc)"
+    ],
+    "allow": [
+      "Bash(gh pr checks)",
+      "Bash(gh pr view)"
+    ]
+  },
+  "autoMode": {
+    "hard_deny": [
+      "$defaults",
+      "Force-push to main: rewriting or replacing the history of a repository's main branch, with `git push --force`, `-f`, `--force-with-lease`, a `+` refspec, or by any other route.",
+      "Destructive database commands: dropping, truncating, resetting, or wiping a database or its schema, such as `DROP DATABASE`, `TRUNCATE`, `db:reset`, or `prisma migrate reset`, whichever database or environment it targets.",
+      "Unsuppressed 1Password writes: an `op` command that creates or changes an item or a vault, such as `op item create` or `op item edit`, unless its output is discarded, because it prints every field of the item, secrets included.",
+      "Merge around the rulesets: merging a pull request with `gh pr merge --admin`, or by any other route that bypasses the repository's rulesets or required checks."
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Force-push to a pull request branch: rewriting the branch of a pull request with a force push, `--force-with-lease` included.",
+      "Posting outside GitHub and Linear: publishing or sending anything to a destination other than GitHub pull requests and issues and Linear, such as chat, email, another tracker, or a paste service.",
+      "Recursive delete outside scratch space: `rm -rf` on a path outside the session's scratchpad and the temporary directories (`$TMPDIR` and `/tmp`).",
+      "Changing gh's default repository: `gh repo set-default`, which changes the repository that later `gh` commands act on when they name none.",
+      "Editing git remotes: `git remote set-url`, `git remote add`, `git remote rename`, or `git remote remove`, which change where later pushes and fetches go."
     ]
   }
 }

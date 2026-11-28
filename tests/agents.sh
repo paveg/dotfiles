@@ -5,8 +5,10 @@
 # profile taken from profiles/work.example/. Each output must be a regular file
 # holding valid JSON, the common deny rules in their order, the hooks by their
 # built store paths, and Orca's entries exactly once, whatever the file held
-# before; the work-only deny rules must reach the work side alone. Every host's
-# home-manager activation must run the generator with that host's profile.
+# before; the work-only deny rules must reach the work side alone. The
+# permission tiers must decide a fixed list of commands as design.md sets out.
+# Every host's home-manager activation must run the generator with that host's
+# profile.
 # Usage: tests/agents.sh [repo-dir]   (default: this checkout)
 set -uo pipefail
 
@@ -125,6 +127,155 @@ check work-deny-work "a work-only deny rule is missing on the work side" \
   jq -e --argjson w "$work_only" '. as $s | $w - $s.permissions.deny == []' "$work_dir/work/.claude/settings.json"
 check work-deny-not-personal "a work-only deny rule reached the personal side" \
   jq -e --argjson w "$work_only" '. as $s | $w - $s.permissions.deny == $w' "$work_dir/personal/.claude/settings.json"
+
+# Permission tiers for unattended runs (ADR 0012). A Bash rule is read as the
+# command text with `*` standing for any text, spaces included; a trailing ` *`
+# that is the rule's only wildcard also matches the bare command, and a
+# trailing `:*` means ` *`. Deny, then ask, then allow: the first match
+# decides (code.claude.com/docs/en/permissions). A rule of a shape this model
+# does not read fails the run. An allow rule decides before auto mode's
+# classifier runs, so no command a hard_deny or soft_deny entry is meant to
+# stop may be decided by one.
+tier_model='
+  def regex_of_pattern:
+    (if endswith(":*") then .[:-2] + " *" else . end)
+    | split("*") | map(gsub("(?<c>[.^$|?+(){}\\[\\]\\\\])"; "\\\(.c)"))
+    | if length == 2 and .[1] == "" and (.[0] | endswith(" ")) then "^\(.[0][:-1])( .*)?$"
+      else "^\(join(".*"))$" end;
+  def matches($command):
+    capture("^(?<tool>[^(]*)").tool as $tool
+    | if ($tool | contains("*")) or startswith("Bash(command:") then error("no model for the rule \(.)")
+      elif $tool != "Bash" then false
+      elif . == "Bash" then true
+      elif test("^Bash\\(.*\\)$") then (.[5:-1] | regex_of_pattern) as $re | $command | test($re)
+      else error("no model for the rule \(.)") end;
+  def decision($p; $command):
+    if any(($p.deny // [])[]; matches($command)) then "deny"
+    elif any(($p.ask // [])[]; matches($command)) then "ask"
+    elif any(($p.allow // [])[]; matches($command)) then "allow"
+    else "none" end;'
+# The model must read the docs' wildcard table as the docs do: a rule, the
+# commands it matches, and the nearby commands it does not.
+tier_model_rows='[
+  ["Bash(npm run build)", ["npm run build"], ["npm run build --watch"]],
+  ["Bash(npm run *)", ["npm run build", "npm run test --watch", "npm run"], ["npm install"]],
+  ["Bash(git log * main)", ["git log --oneline main", "git log -5 main", "git log --output=<file> main"],
+    ["git log main", "git push origin main"]],
+  ["Bash(git * main)", ["git merge main", "git push origin main", "git -c core.fsmonitor=<script> diff main"], ["git log"]],
+  ["Bash(* --version)", ["node --version", "bash -c '\''echo hi'\'' --version"], ["node -v"]],
+  ["Bash(ls *)", ["ls -la", "ls"], ["lsof"]],
+  ["Bash(ls*)", ["ls -la", "lsof"], []],
+  ["Bash(* --help *)", ["npm --help x"], ["npm --help"]],
+  ["Bash(ls:*)", ["ls -la", "ls"], ["lsof"]]]'
+check tier-model "the rule model does not read the docs' wildcard table as the docs do" \
+  jq -ne --argjson rows "$tier_model_rows" "$tier_model"'
+    all($rows[]; . as [$rule, $yes, $no] | {allow: [$rule]} as $p
+      | all($yes[]; decision($p; .) == "allow") and all($no[]; decision($p; .) == "none"))'
+tier_allowed=(
+  'gh pr checks'
+  'gh pr view'
+)
+# No allow rule may decide these, so the classifier sees each: any push, to
+# main or not, whatever separates its words; any merge, including one that
+# names no repository and so follows gh's default and the git remotes; a change
+# to either of those; a read that names a host or a repository, which can carry
+# data out in its URL; a script under tests/, which the agent may have written;
+# and one command for each other hard_deny entry.
+tier_never_allowed=(
+  'git push origin main'
+  'git push -u origin main'
+  'git push origin HEAD:main'
+  'git push origin +main'
+  'git push --force origin main'
+  'git push -f origin main'
+  'git push origin main --force'
+  'git push origin pavegy/x:main'
+  'git push -u origin pavegy/x:main'
+  'git push origin pavegy/x:refs/heads/main'
+  'git push origin pavegy/x main'
+  'git push -u origin pavegy/x main'
+  'git push origin pavegy/x +main'
+  'git push origin +pavegy/x:main'
+  'git push --force origin pavegy/x'
+  'git push -f origin pavegy/x'
+  'git push --force-with-lease origin pavegy/x'
+  'git push origin pavegy/x --force'
+  'git push -u origin pavegy/x --force-with-lease'
+  $'git push origin pavegy/x\tmain'
+  $'git push -u origin pavegy/x\t--force'
+  'git push origin pavegy/x'
+  'git push -u origin HEAD'
+  'git push'
+  'gh pr merge --admin'
+  'gh pr merge 41 --admin'
+  'gh pr merge --squash --admin'
+  'gh pr merge 41 --squash --admin'
+  'gh pr merge --admin --squash 41'
+  'gh pr merge --squash --admin=true 41'
+  'gh pr merge --squash'
+  'gh pr merge --squash --delete-branch'
+  'gh repo set-default other/repo'
+  'git remote set-url origin https://example.invalid/other.git'
+  'git remote add other https://example.invalid/other.git'
+  'gh pr view https://evil.example/o/r/pull/1'
+  'gh pr checks -R evil.example/o/r 1'
+  'gh pr view 1 --repo evil.example/o/r'
+  'gh pr checks --repo=evil.example/o/r 1'
+  'gh pr merge 41 --squash'
+  'gh pr merge 41 --squash --repo other/repo'
+  'gh pr merge --squash -R other/repo 41'
+  'gh pr merge 41 --squash --body probe'
+  'gh pr merge 41 --squash -b probe'
+  'gh pr merge 41 --squash --subject probe'
+  'gh pr merge 41 --squash -t probe'
+  'gh pr merge 41 --squash --body-file probe.md'
+  'gh pr merge 41 --squash -F probe.md'
+  'tests/agents.sh'
+  'tests/agent-written.sh'
+  'psql -c "DROP DATABASE app"'
+  'op item edit login password=probe'
+  'rm -rf ~/repos'
+  'rm -rf "$TMPDIR/x" ~/repos'
+)
+# Each entry design.md's tier table puts in that list, by its label and a term
+# it must name.
+tier_hard_deny='[["Force-push to main: ", "--force"], ["Destructive database commands: ", "DROP DATABASE"],
+  ["Unsuppressed 1Password writes: ", "op item"], ["Merge around the rulesets: ", "gh pr merge --admin"]]'
+tier_soft_deny='[["Force-push to a pull request branch: ", "force push"], ["Posting outside GitHub and Linear: ", "Linear"],
+  ["Recursive delete outside scratch space: ", "rm -rf"], ["Changing gh'\''s default repository: ", "gh repo set-default"],
+  ["Editing git remotes: ", "git remote set-url"]]'
+
+tier_decisions() { # <settings-file> <command>...   "<decision> <command>" per line
+  jq -nr --slurpfile s "$1" "$tier_model"'
+    ($s[0].permissions // {}) as $p | $ARGS.positional[] | "\(decision($p; .)) \(.)"' --args "${@:2}"
+}
+
+check_tiers() { # <side> <settings-file>
+  local side=$1 file=$2 out wrong
+  if out=$(tier_decisions "$file" "${tier_allowed[@]}" 2>&1); then
+    wrong=$(grep -v '^allow ' <<<"$out")
+    if [[ -z $wrong ]]; then ok "tier-allow-$side"; else fail "tier-allow-$side" "not decided by an allow rule: ${wrong//$'\n'/; }"; fi
+  else
+    fail "tier-allow-$side" "$out"
+  fi
+  if out=$(tier_decisions "$file" "${tier_never_allowed[@]}" 2>&1); then
+    wrong=$(grep '^allow ' <<<"$out")
+    if [[ -z $wrong ]]; then ok "tier-never-allow-$side"; else fail "tier-never-allow-$side" "decided by an allow rule: ${wrong//$'\n'/; }"; fi
+  else
+    fail "tier-never-allow-$side" "$out"
+  fi
+  # "$defaults" keeps the built-in rules; a list without it replaces them.
+  check "tier-hard-deny-$side" "autoMode.hard_deny lacks \$defaults or a tier entry, each exactly once" \
+    jq -e --argjson want "$tier_hard_deny" \
+    '.autoMode.hard_deny as $l | any($l[]; . == "$defaults")
+     and all($want[]; . as [$label, $term] | [$l[] | select(startswith($label) and contains($term))] | length == 1)' "$file"
+  check "tier-soft-deny-$side" "autoMode.soft_deny lacks \$defaults or a tier entry, each exactly once" \
+    jq -e --argjson want "$tier_soft_deny" \
+    '.autoMode.soft_deny as $l | any($l[]; . == "$defaults")
+     and all($want[]; . as [$label, $term] | [$l[] | select(startswith($label) and contains($term))] | length == 1)' "$file"
+}
+check_tiers personal "$work_dir/personal/.claude/settings.json"
+check_tiers work "$work_dir/work/.claude/settings.json"
 
 # Telemetry is off unless an untracked local file on a personal host supplies
 # it: tracked settings carry no address, no switch that turns it on, and none
