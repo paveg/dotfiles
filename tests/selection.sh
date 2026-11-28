@@ -2,13 +2,15 @@
 # Check how tests/lib/mutate.sh picks the runners a pull request runs: from a
 # list of changed paths, a runner runs when one of them is an input of its own,
 # or under .github/workflows/, or flake.nix or flake.lock; and a diff it cannot
-# compute runs it. The lists are fixtures, not a git diff.
+# compute runs it. The lists are fixtures, not a git diff. And sourcing it
+# with a MUTATE_OS other than linux or macos fails.
 # Usage: tests/selection.sh [helper]   (default: tests/lib/mutate.sh)
 set -uo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
+helper=${1:-$repo_dir/tests/lib/mutate.sh}
 # shellcheck source=tests/lib/mutate.sh
-source "${1:-$repo_dir/tests/lib/mutate.sh}"
+source "$helper"
 
 checks=0
 failures=0
@@ -53,6 +55,26 @@ else
   failures=$((failures + 1))
   echo "FAIL: unknown-diff-runs-everything: mode '$mutate_mode', printed '$out'"
 fi
+
+# An OS name the helper does not know would select no mutant and pass.
+os_check() { # <name> <exit status> <MUTATE_OS>
+  local name=$1 want=$2 got
+  checks=$((checks + 1))
+  MUTATE_OS=$3 bash -c 'source "$1"' _ "$helper" >/dev/null 2>&1
+  got=$?
+  if [[ $got == "$want" ]]; then
+    echo "ok: $name"
+  else
+    failures=$((failures + 1))
+    echo "FAIL: $name: want exit $want, got $got"
+  fi
+}
+
+os_check os-empty-accepted 0 ''
+os_check os-linux-accepted 0 linux
+os_check os-macos-accepted 0 macos
+os_check os-capitalised-rejected 2 Linux
+os_check os-unknown-rejected 2 bogus
 
 echo "summary: $checks checks, $failures failed"
 ((failures == 0))

@@ -36,6 +36,10 @@ if [[ -n ${MUTATE_SHARD-} ]]; then
   fi
   mutate_shard_index=${BASH_REMATCH[1]} mutate_shard_count=${BASH_REMATCH[2]}
 fi
+if [[ -n ${MUTATE_OS-} && $MUTATE_OS != linux && $MUTATE_OS != macos ]]; then
+  echo "MUTATE_OS must be linux or macos, got '$MUTATE_OS'" >&2
+  exit 2
+fi
 mutate_slots=0
 mutate_declared=0
 mutate_unselected=0
