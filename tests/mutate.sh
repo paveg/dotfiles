@@ -152,12 +152,12 @@ expect_caught lang-c-utf8-when-en-us-absent \
 
 # The host's own answer, as tests/shell.sh asks it: where libc cannot load
 # en_US.UTF-8, the check expects C.UTF-8 and these mutants cannot be caught.
-# macOS's libc has it, so the macOS run must catch them.
+# The libc of both CI runners has it, so both runs must catch them.
 [[ $(env -i LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null) == UTF-8 ]] ||
   mutate_host_lacks="libc here cannot load en_US.UTF-8, so the en_US.UTF-8 branch cannot be mutation-tested"
-mutate_on macos expect_caught lang-en-us-where-libc-has-it 'the LANG probe expects a codeset libc never names' \
+expect_caught lang-en-us-where-libc-has-it 'the LANG probe expects a codeset libc never names' \
   .config/zsh/.zshenv '[[ $langinfo[CODESET] == UTF-8 ]]' '[[ $langinfo[CODESET] == utf8 ]]'
-mutate_on macos expect_caught lang-en-us-where-libc-has-it 'LANG is C.UTF-8 even where libc has en_US.UTF-8' \
+expect_caught lang-en-us-where-libc-has-it 'LANG is C.UTF-8 even where libc has en_US.UTF-8' \
   .config/zsh/.zshenv 'export LANG=en_US.UTF-8' 'export LANG=C.UTF-8'
 mutate_host_lacks=
 
