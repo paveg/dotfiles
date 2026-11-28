@@ -416,11 +416,19 @@ bash_env=$case_dir/trace.bash file_limit=''
 run personal-mac
 is a-run-killed-recording-the-host-then-finishes '0 personal-mac' "$status $(recorded)"
 
-new_case upstream-nix personal-mac
-do_human_steps personal-mac
+# Upstream Nix: each Mac waits for Determinate Nix; wsl goes on with it, unless
+# it has nix-command off.
+for host in personal-mac work-mac; do
+  new_case "$host-with-upstream-nix" "$host"
+  do_human_steps "$host"
+  rm "$stubs/determinate-nixd"
+  expect_waits_for_nix "$host-stops-on-upstream-nix" "$host" 'step StepCheckHost;step StepInstallNix;'
+done
+new_case wsl-with-upstream-nix wsl
+do_human_steps wsl
 rm "$stubs/determinate-nixd"
-run personal-mac
-is personal-mac-stops-on-upstream-nix '75 StepInstallNix' "$status $(last_step)"
+run wsl
+is wsl-goes-on-with-upstream-nix "0 $(expected_log wsl)" "$status $(cat "$log")"
 
 # wsl with nix-command off, as upstream Nix has it by default, waits for a
 # person instead of failing at the clone.

@@ -148,8 +148,12 @@ expect_caught 'personal-mac-never-calls-ksm wsl-never-calls-ksm' 'every host cal
 
 expect_caught wsl-with-nix-command-off-waits 'nix-command is not checked' $S \
   'elif ! nix eval --expr 1 >/dev/null 2>&1; then' 'elif false; then'
-expect_caught 'personal-mac-stops-on-upstream-nix' 'upstream Nix on a Mac goes on' $S \
+expect_caught "$(each "$macs" stops-on-upstream-nix)" 'upstream Nix on a Mac goes on' $S \
   '! command -v determinate-nixd' 'false'
+expect_caught wsl-goes-on-with-upstream-nix 'upstream Nix on wsl waits for Determinate Nix' $S \
+  'elif [[ $host != wsl ]] && ! command -v determinate-nixd' 'elif true && ! command -v determinate-nixd'
+expect_caught work-mac-stops-on-upstream-nix 'upstream Nix stops only personal-mac' $S \
+  'elif [[ $host != wsl ]] && ! command -v determinate-nixd' 'elif [[ $host == personal-mac ]] && ! command -v determinate-nixd'
 refused='no-host-refused unknown-host-refused wrong-os-refused wrong-os-refused-on-linux unrecorded-host-refused'
 expect_caught "$refused" 'Nix is installed before the host is checked' $S \
   'StepCheckHost() {
