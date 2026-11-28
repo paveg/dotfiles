@@ -17,7 +17,7 @@ Nix-based dotfiles for agent-first development on macOS and WSL2. One command tu
 | Secrets | 1Password for personal secrets, SSH, and signing; Keeper for the work profile | [ADR 0002](docs/adr/0002-vaults-and-work-profile.md), [ADR 0005](docs/adr/0005-commit-signing.md) |
 | GitHub tokens | Short-lived tokens from ghtkn; `gh` is a wrapper, never logged in | [ADR 0004](docs/adr/0004-github-auth-ghtkn.md) |
 | Coding agents | Claude Code and Codex config linked from `home/`, `settings.json` generated per profile; Claude Code itself from nixpkgs, updated with `flake.lock` | [ADR 0003](docs/adr/0003-agent-config-profiles.md), [ADR 0011](docs/adr/0011-claude-code-from-nixpkgs.md) |
-| Agent guardrails | Sandbox, `permissions.deny`, and a few hooks built with `writeShellApplication` | [ADR 0007](docs/adr/0007-agent-guardrails.md) |
+| Agent guardrails | Sandbox, `permissions.deny`, and a few hooks built with `writeShellApplication`; permission tiers and auto mode rules for unattended runs | [ADR 0007](docs/adr/0007-agent-guardrails.md), [ADR 0012](docs/adr/0012-permission-tiers-for-unattended-runs.md) |
 | Shell history | atuin, with tokens kept out of anything an AI reads | [ADR 0009](docs/adr/0009-shell-history-atuin.md) |
 | Working away from the desk | `personal-mac` stays awake, runs `orca serve`, and is reached over Tailscale from Orca's mobile app | [ADR 0010](docs/adr/0010-unattended-host-reachability.md) |
 | Repository checks | gitleaks, `git diff --check`, a check that every tracked path stays readable to the agents, actionlint, and zizmor, in CI on every pull request; treefmt-nix and lefthook are planned | [ADR 0008](docs/adr/0008-repo-checks-lefthook-treefmt.md) |
