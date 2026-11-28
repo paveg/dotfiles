@@ -83,27 +83,27 @@ mutate_inputs() { # <path>...
   mutate_input_paths+=("$@")
 }
 
-# Succeeds when a path in <changed> (one per line) is an input, or a path whose
-# change runs every runner.
-mutate_inputs_changed() { # <changed>
+# Succeeds when a path on stdin, each ended by a NUL as `git diff -z` prints
+# them, is an input, or a path whose change runs every runner.
+mutate_inputs_changed() { # <paths
   local path input
-  while IFS= read -r path; do
+  while IFS= read -r -d '' path; do
     [[ -n $path ]] || continue
     for input in .github/workflows flake.nix flake.lock "${mutate_input_paths[@]}"; do
       input=${input%/}
       [[ $path == "$input" || $path == "$input"/* ]] && return 0
     done
-  done <<<"$1"
+  done
   return 1
 }
 
 mutate_select() {
-  local changed
   if [[ -z ${MUTATE_BASE-} ]]; then
     echo "mode: full (MUTATE_BASE is unset)"
-  elif ! changed=$(git -C "$mutate_repo" diff --name-only --no-renames "$MUTATE_BASE...HEAD" 2>&1); then
-    echo "mode: full (no diff against $MUTATE_BASE: ${changed%%$'\n'*})"
-  elif mutate_inputs_changed "$changed"; then
+  elif ! git -C "$mutate_repo" -c core.quotePath=false diff --name-only -z --no-renames "$MUTATE_BASE...HEAD" \
+    >"$mutate_dir/changed" 2>"$mutate_dir/changed.err"; then
+    echo "mode: full (no diff against $MUTATE_BASE: $(head -n 1 "$mutate_dir/changed.err"))"
+  elif mutate_inputs_changed <"$mutate_dir/changed"; then
     echo "mode: full (an input changed since $MUTATE_BASE)"
   else
     mutate_mode=none

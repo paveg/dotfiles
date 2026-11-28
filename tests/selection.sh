@@ -17,7 +17,7 @@ check() { # <name> <runs|skips> <changed path>...
   local name=$1 want=$2 got=skips
   shift 2
   checks=$((checks + 1))
-  mutate_inputs_changed "$(printf '%s\n' "$@")" && got=runs
+  mutate_inputs_changed < <(printf '%s\0' "$@") && got=runs
   if [[ $got == "$want" ]]; then
     echo "ok: $name"
   else
@@ -41,7 +41,7 @@ check prefix-of-input-directory skips home2/file tests/library.sh
 check workflow runs .github/workflows/shell.yml
 check flake-lock runs flake.lock
 check flake-nix runs flake.nix
-check blank-line-only skips ''
+check empty-path-only skips ''
 
 checks=$((checks + 1))
 # Not in a subshell, which would keep the mode it sets from this one.
