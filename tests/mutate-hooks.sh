@@ -38,7 +38,7 @@ guard=home/.claude/hooks/lib/guard.sh
 db=home/.claude/hooks/block-destructive-db.sh
 sensitive=home/.claude/hooks/block-sensitive-read.sh
 
-mutate_inputs flake.nix flake.lock nix/agents.nix hosts home/.claude/hooks tests/hooks.sh \
+mutate_inputs flake.nix flake.lock nix/agents.nix nix/ghtkn.nix nix/gh.sh nix/ghtkn-render.sh hosts home/.claude/hooks tests/hooks.sh \
   tests/fixtures/hooks tests/mutate-hooks.sh tests/lib/
 mutate_baseline 'the guards as committed' "$repo_dir/tests/hooks.sh"
 

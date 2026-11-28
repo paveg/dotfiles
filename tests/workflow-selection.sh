@@ -84,7 +84,7 @@ expect() { # <name> <workflow> <true|false> <path>...
 # What every workflow takes in, then each workflow's old paths filter.
 every=(flake.nix flake.lock .github/workflows/case.yml tests/workflow-changed.sh tests/lib/mutate.sh)
 expect shell-runs shell true "${every[@]}" home/case nix/case profiles/case tests/case scripts/pre-wipe-inventory.sh
-expect hooks-runs hooks true "${every[@]}" home/.claude/hooks/case nix/agents.nix hosts/case.nix tests/hooks.sh \
+expect hooks-runs hooks true "${every[@]}" home/.claude/hooks/case nix/agents.nix nix/ghtkn.nix nix/gh.sh nix/ghtkn-render.sh hosts/case.nix tests/hooks.sh \
   tests/mutate-hooks.sh tests/fixtures/hooks/case tests/reply-language.sh tests/fixtures/reply-language/case
 expect agents-runs agents true "${every[@]}" home/case hosts/case.nix nix/case profiles/case tests/agents.sh \
   tests/mutate-agents.sh tests/auto-mode.expected.json

@@ -298,9 +298,11 @@ if [[ -n ${path_profile-} ]]; then
   # The one compinit in .zshrc reads each profile's site-functions, so the
   # wrapper has to bring gh's completion there.
   got=$(env -i HOME="$zsh_home" TERM=dumb PATH=/usr/bin:/bin "$zsh_bin" -fc \
-    "fpath=($path_profile/share/zsh/site-functions \$fpath); autoload -Uz compinit; compinit -D -u; print -r -- \${_comps[gh]-none}" \
+    "fpath=($path_profile/share/zsh/site-functions \$fpath); autoload -Uz compinit; compinit -D -u; files=(\${^fpath}/_gh(N)); print -r -- \${_comps[gh]-none} \${files[1]-none}" \
     2>"$work_dir/zsh.err")
-  is completion-gh _gh "$got"
+  # The first _gh on fpath must be the profile's: a CI runner's own gh puts
+  # one in zsh's vendor completions too.
+  is completion-gh "_gh $path_profile/share/zsh/site-functions/_gh" "$got"
 fi
 
 # The gh in the profile is the wrapper tests/ghtkn.sh checks, built once: the
