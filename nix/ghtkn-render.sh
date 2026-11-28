@@ -25,6 +25,10 @@ skip() { # <reason>
   echo "ghtkn-render: warning: $1, so $target is not rendered; the next switch tries again" >&2
   exit 0
 }
+warn() { # <message>
+  echo "ghtkn-render: warning: $1" >&2
+  exit 0
+}
 # mv would put the file inside a directory. A dangling link counts as absent.
 if [[ -e $target && ! -f $target ]]; then
   skip "the target is not a regular file"
@@ -39,10 +43,10 @@ command -v "$op" >/dev/null || skip "$op is not installed"
 # runs the EXIT trap when INT, TERM or HUP kills it too.
 tmp=
 trap '[[ -z $tmp ]] || rm -f -- "$tmp"' EXIT
-mkdir -p "$(dirname "$target")"
-tmp=$(mktemp "$target.XXXXXX")
+mkdir -p "$(dirname "$target")" || skip "the target's directory could not be created"
+tmp=$(mktemp "$target.XXXXXX") || skip "no temporary file could be created"
 if ! "$op" inject <"$template" >"$tmp"; then
   skip "op inject failed"
 fi
-mv -fT "$tmp" "$target"
-echo "$hash" >"$stamp"
+mv -fT "$tmp" "$target" || skip "the rendered file could not be moved into place"
+echo "$hash" >"$stamp" || warn "$target is rendered, but its hash could not be stored in $stamp, so the next switch renders it again"

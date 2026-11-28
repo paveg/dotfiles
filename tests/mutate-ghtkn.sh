@@ -129,7 +129,19 @@ expect_caught 'render-inject-failed-leaves-no-temp render-killed-by-INT render-k
   "$render" $'trap \'[[ -z $tmp ]] || rm -f -- "$tmp"\' EXIT\n' ''
 
 expect_caught render-retries-after-failure 'the hash moves on before inject succeeds, so a failure is never retried' \
-  "$render" $'mkdir -p "$(dirname "$target")"\n' $'mkdir -p "$(dirname "$target")"\necho "$hash" >"$stamp"\n'
+  "$render" $'if ! "$op" inject <"$template" >"$tmp"; then\n' $'echo "$hash" >"$stamp"\nif ! "$op" inject <"$template" >"$tmp"; then\n'
+
+expect_caught render-mkdir-failed 'a directory that cannot be made fails the switch' \
+  "$render" ' || skip "the target'"'"'s directory could not be created"' ''
+
+expect_caught render-mktemp-failed 'a temporary file that cannot be created fails the switch' \
+  "$render" ' || skip "no temporary file could be created"' ''
+
+expect_caught render-stamp-failed-warns 'a hash that cannot be stored fails the switch' \
+  "$render" ' || warn "$target is rendered, but its hash could not be stored in $stamp, so the next switch renders it again"' ''
+
+expect_caught render-stamp-failed-warns 'a warning fails the switch' \
+  "$render" $'  echo "ghtkn-render: warning: $1" >&2\n  exit 0' $'  echo "ghtkn-render: warning: $1" >&2\n  exit 1'
 
 expect_caught 'render-signed-in render-template-changed' 'op gets the template as a path, which op.exe on wsl cannot open' \
   "$render" '"$op" inject <"$template" >"$tmp"' '"$op" inject --in-file "$template" >"$tmp"'

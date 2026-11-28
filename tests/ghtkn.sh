@@ -13,8 +13,9 @@
 # 111, and refuses to run without an app. The render step writes the file
 # (0600) only when it is missing or its template changed and op is signed in,
 # never calls op otherwise, and skips with a warning and exit 0 when op is
-# missing, signed out, or fails, keeping the old file, and when the target is
-# a directory or a link to one. A render killed in the middle of inject leaves
+# missing, signed out, or fails, keeping the old file, when the target is a
+# directory or a link to one, and when its directory or temporary file cannot
+# be made; a hash it cannot store warns. A render killed in the middle of inject leaves
 # no partial file. The committed template
 # holds references, not client IDs, and defines the app gh-app.personal names.
 # tests/packages.sh checks that the profile installs this same wrapper and
@@ -364,6 +365,28 @@ if [[ ! -L $work_dir/render-dangling/ghtkn.yaml && ! -e $work_dir/render-danglin
 else
   fail render-replaces-dangling-link "$(ls -l "$work_dir/render-dangling" | tr '\n' ' ')"
 fi
+
+# After op whoami, a directory that cannot be made or a temporary file that
+# cannot be created skips; a hash that cannot be stored beside a rendered file
+# warns. Each exits 0.
+: >"$work_dir/render-blocked"
+render "$template" "$work_dir/render-blocked/ghtkn/ghtkn.yaml" op STUB_OP_SIGNED_IN=1
+skipped render-mkdir-failed "$work_dir/render-blocked/ghtkn/ghtkn.yaml" "directory could not be created"
+mkdir -p "$work_dir/render-read-only"
+chmod 500 "$work_dir/render-read-only"
+render "$template" "$work_dir/render-read-only/ghtkn.yaml" op STUB_OP_SIGNED_IN=1
+chmod 700 "$work_dir/render-read-only"
+skipped render-mktemp-failed "$work_dir/render-read-only/ghtkn.yaml" "no temporary file could be created"
+stamp_dir_target=$work_dir/render-stamp-dir/ghtkn.yaml
+mkdir -p "$stamp_dir_target.template-sha256"
+render "$template" "$stamp_dir_target" op STUB_OP_SIGNED_IN=1
+if [[ $(cat "$work_dir/render.rc") == 0 && $(cat "$stamp_dir_target" 2>&1) == "$(rendered "$template")" ]] &&
+  grep -qF "hash could not be stored" "$work_dir/render.err"; then
+  ok render-stamp-failed-warns
+else
+  fail render-stamp-failed-warns "rc $(cat "$work_dir/render.rc"), stderr: $(render_err)"
+fi
+is render-stamp-failed-leaves-no-temp "ghtkn.yaml ghtkn.yaml.template-sha256" "$(ls "${stamp_dir_target%/*}" | tr '\n' ' ' | sed 's/ $//')"
 
 # The committed template: its client IDs are references, it selects the agent
 # backend (ghtkn's default is the OS keyring), and it defines the app that
