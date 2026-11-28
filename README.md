@@ -14,6 +14,7 @@ Nix-based dotfiles for agent-first development on macOS and WSL2. One command tu
 | Where tools come from | Nix first: a module, then a nixpkgs package, then a Homebrew cask, then a manual install | [design: Principles](docs/design.md#principles) |
 | Shell | zsh with `ZDOTDIR` under `~/.config`, PATH built in `.zshenv` so non-interactive shells and agents see the same tools | [design: Shell](docs/design.md#shell) |
 | Project tools | mise in shims mode; TLA+ and Lean as flake templates | [ADR 0006](docs/adr/0006-project-layer-mise-shims.md) |
+| Language runtimes | Nix installs only the version managers (mise, uv, rustup, elan); mise holds the global defaults | [ADR 0012](docs/adr/0012-language-runtimes-from-version-managers.md) |
 | Secrets | 1Password for personal secrets, SSH, and signing; Keeper for the work profile | [ADR 0002](docs/adr/0002-vaults-and-work-profile.md), [ADR 0005](docs/adr/0005-commit-signing.md) |
 | GitHub tokens | Short-lived tokens from ghtkn; `gh` is a wrapper, never logged in | [ADR 0004](docs/adr/0004-github-auth-ghtkn.md) |
 | Coding agents | Claude Code and Codex config linked from `home/`, `settings.json` generated per profile; Claude Code itself from nixpkgs, updated with `flake.lock` | [ADR 0003](docs/adr/0003-agent-config-profiles.md), [ADR 0011](docs/adr/0011-claude-code-from-nixpkgs.md) |
