@@ -327,10 +327,27 @@ Pure evaluation cannot read `~/.config/dots-work/` (absolute paths outside the f
 
 - `Read(...)` rules for secrets outside a repository start with `~/` (for example `Read(~/.ssh/**)`, `Read(~/.aws/**)`, `Read(~/.kube/**)`). A pattern with no leading `/`, `~/` or `//`, such as `Read(id_rsa)` or `Read(**/*credential*)`, covers only the current directory and below, so it never reaches the home directory while the agent works in a repository.
 - A Bash prefix rule ends in a space before the wildcard (`Bash(gh *)`). Without it, `Bash(gh*)` also matches `ghq`, and `Bash(go*)` matches `gopass`.
-- `allow` holds no database client and no command whose subcommands include a destructive one without an `ask` rule for those (`gh pr merge`, `gh repo delete`, `gh release delete`). A client is left to the database guard and auto mode's classifier.
+- `allow` holds no database client and no command whose subcommands include a destructive one (`gh pr merge`, `gh repo delete`, `gh release delete`). Auto mode's classifier decides those (below), and the database guard and the classifier decide a client.
 - `git reset` and `git rebase` are `ask`, not `deny`. They are routine on a feature branch, but `git reset --hard` discards uncommitted work that no reflog holds, so a person confirms each. An `ask` rule with a command pattern still prompts in auto mode.
 - A `deny` or `ask` prefix rule matches the order Claude usually writes, not every spelling (`Bash(git push --force *)` misses `git push origin main --force`). What must hold whatever the spelling is enforced elsewhere: branch protection on GitHub, the sandbox, or a guard hook.
 - `Edit(~/.claude/settings.json)` and `Edit(~/.claude/hooks/**)` are denied, and `permissions.disableBypassPermissionsMode` is `"disable"`.
+
+**Permission tiers for unattended runs** ([ADR 0013](adr/0013-permission-tiers-for-unattended-runs.md)). An agent started from Orca's mobile app must not wait on a prompt (goal 9), while irreversible actions stay blocked. `settings.common.json` holds the tiers, so they reach `settings.json` on every host and profile:
+
+| Tier | Holds | Where |
+|---|---|---|
+| `permissions.deny` | The credential reads above | `settings.json`, and the macOS drop-in |
+| `autoMode.hard_deny` | `$defaults`, a force-push to main, destructive database commands, `op` writes whose output is not discarded, a merge with `--admin` or by any route around the rulesets | `settings.json` |
+| `autoMode.soft_deny` | `$defaults`, a force-push to a pull request branch, posting anywhere but GitHub pull requests and issues and Linear, `rm -rf` outside the scratchpad and the temporary directories, changing `gh`'s default repository, editing git remotes | `settings.json` |
+| `autoMode.allow` | Its defaults only | `settings.json` |
+| `permissions.allow` | `gh pr checks` and `gh pr view`, exactly, with no argument | `settings.json` |
+| `permissions.ask` | Nothing: a prompt would stall the run | — |
+
+- An allow rule decides before auto mode's classifier runs, so neither `hard_deny` nor `soft_deny` sees a command one matches, and a `*` in it matches any text, spaces included. So the allow list holds only reads with no argument: with a URL or `--repo` a read can name another host, which a review flagged as a way for data to leave in the URL (**Unverified**).
+- A merge has no allow rule. A form with a pull request number needs a `*`, which also takes `--admin`, `--repo`, `--body`, `--subject` or `--body-file`. A form without one (`gh pr merge --squash`) merges in whatever repository `gh`'s default and the git remotes point to, which `gh repo set-default` and `git remote set-url` can change, and `gh` refuses `--repo` without a number. The classifier decides each merge. By default it blocks one no human approved, and in an interactive session 3 blocks in a row or 20 in total make auto mode pause and prompt, so a request that names the merge clears it, and `hard_deny` still blocks `--admin`. An exception for the session's own pull requests was dropped (ADR 0013): the classifier cannot see whether checks passed, and the exception would apply in repositories with no ruleset. Changing the default repository or a remote is `soft_deny`.
+- A push has no allow rule. A rule that names a non-main branch needs a `*`, which also takes a second refspec or a force flag after a tab or an expansion as well as after a space, and a rule without one (`git push -u origin HEAD`) pushes `main` from a `main` checkout. The classifier allows a push to any branch of the working repository by default and still applies `hard_deny` and `soft_deny` to it. A repository's ruleset on its default branch holds whatever the spelling; this repository's blocks force-pushes and deletion and requires signed commits and status checks there (`verification.md`).
+- `tests/*.sh` and `rm` under the scratchpad and `$TMPDIR` have no allow rule either. The first would run a script the agent wrote itself, and the second takes any further target after its prefix (`rm -rf <scratch>/x ~/repos`). The classifier decides both, and lets a named scratch path be deleted by default.
+- `tests/agents.sh` decides a fixed list of commands under the generated rules with a model of the documented matcher, and checks the model against the docs' own table of wildcard examples. Whether it agrees with Claude Code's matcher on every command is **Unverified**.
 
 **Environment facts for agents.** `~/.claude/CLAUDE.md` (the same file as `~/.codex/AGENTS.md`) states:
 
