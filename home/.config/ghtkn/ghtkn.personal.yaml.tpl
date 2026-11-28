@@ -3,4 +3,4 @@ backend:
   type: agent
 apps:
   - name: paveg/write
-    client_id: "{{ op://Personal/ghtkn/client_id }}"
+    client_id: "{{ op://Dotfiles/ghtkn/client_id }}"

@@ -167,7 +167,7 @@ expect_caught 'render-signed-in render-template-changed' 'op gets the template a
   "$render" '"$op" inject <"$template" >"$tmp"' '"$op" inject --in-file "$template" >"$tmp"'
 
 expect_caught template-client-ids-are-references 'the template holds a client ID itself' \
-  home/.config/ghtkn/ghtkn.personal.yaml.tpl '"{{ op://Personal/ghtkn/client_id }}"' 'Iv23liPLACEHOLDER'
+  home/.config/ghtkn/ghtkn.personal.yaml.tpl '"{{ op://Dotfiles/ghtkn/client_id }}"' 'Iv23liPLACEHOLDER'
 
 expect_caught template-agent-backend 'the template leaves ghtkn on its default keyring backend' \
   home/.config/ghtkn/ghtkn.personal.yaml.tpl $'backend:\n  type: agent\n' ''
