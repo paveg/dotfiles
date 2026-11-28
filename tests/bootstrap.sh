@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Run scripts/bootstrap.sh the way `curl ... | bash -s -- <host>` does, in
 # throwaway homes under `env -i`, with a PATH that starts with a stub for every
-# command it calls. A human step's stub makes its check pass, and uname's stub
-# picks the OS, so every host runs on any runner. Each run is detached from the
+# command it calls. A human step's stub makes its check pass, uname's stub picks
+# the OS, and DOTFILES_TEST_ROOT, a directory of the case's, stands for / in the
+# Nix profile and systemd paths the script probes, so every host runs on any
+# runner and the runner's own Nix never runs. Each run is detached from the
 # terminal, so a human step stops instead of asking. A trace sourced through
 # BASH_ENV logs each Step* function the script enters, in order with the stubs'
 # calls. Checks: a complete run enters spec/bootstrap.tla's step actions in the
 # model's order and no other Step* function; a missing, unknown,
-# wrong-OS or unrecorded host exits 2 and changes nothing; a command that
+# wrong-OS or unrecorded host exits 2 and changes nothing, with no Nix
+# installed; without nix a Mac runs Determinate's installer and goes on with
+# the nix it installed, and wsl without systemd waits; a command that
 # fails with 75 or 2 fails the run with 1; an empty host file records no host,
 # and a run killed while recording the host leaves none; each host runs the
 # expected commands, mise install last of them after the switches, and records
@@ -29,7 +33,8 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 script=${1:-$repo_dir/scripts/bootstrap.sh}
 spec=${2:-$repo_dir/spec/bootstrap.tla}
-base_path=/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin
+bare_path=/usr/bin:/bin:/usr/sbin:/sbin
+base_path=/nix/var/nix/profiles/default/bin:$bare_path
 work_dir=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$work_dir"' EXIT
 
@@ -52,12 +57,12 @@ is() { # <name> <want> <got>
 }
 
 # A stub that appends "<cwd, with HOME as ~> <name> <args>" to the case's log,
-# then runs the body on stdin. It finds the case directory from its own path,
-# so it needs nothing from the environment `env -i` clears.
+# then runs the body on stdin. The case directory is written into it, so it
+# needs nothing from the environment `env -i` clears and logs from anywhere.
 stub() { # <name> <body
   {
     echo '#!/bin/sh'
-    echo 'case_dir=${0%/*}/..'
+    echo "case_dir='$case_dir'"
     echo "echo \"~\${PWD#\"\$HOME\"} $1 \$*\" >>\"\$case_dir/log\""
     cat
   } >"$stubs/$1"
@@ -89,7 +94,7 @@ new_case() { # <name> <host>
   [[ $2 != wsl ]] || os=Linux
   case_dir=$work_dir/$1
   home=$case_dir/home stubs=$case_dir/stubs log=$case_dir/log
-  bash_env=$case_dir/trace.bash file_limit=
+  bash_env=$case_dir/trace.bash file_limit='' path=$stubs:$base_path run_env=''
   mkdir -p "$home" "$stubs" "$case_dir/decoys/bin"
   trace >"$bash_env"
   printf '#!/bin/sh\necho %s\n' "$os" >"$stubs/uname"
@@ -112,11 +117,7 @@ run)
   ;;
 esac
 SH
-  stub sudo <<'SH'
-command=$1
-shift
-exec "${0%/*}/$command" "$@"
-SH
+  stub sudo <<<'exec "$@"'
   stub ghq <<'SH'
 checkout=${GHQ_ROOT:?}/github.com/paveg/dotfiles
 if [ -d "$checkout" ]; then echo exists; exit 0; fi
@@ -132,6 +133,25 @@ SH
     printf '#!/bin/sh\necho "decoy %s $*" >>"%s"\nexit 1\n' "$name" "$log" >"$case_dir/decoys/bin/$name"
     chmod +x "$case_dir/decoys/bin/$name"
   done
+}
+
+# No nix, as on a fresh machine: the case's PATH loses the default Nix
+# profile, the stub nix moves out, and curl serves an installer that logs its
+# arguments, puts the stub at the default profile below the case's root, and
+# writes the profile script that adds it to PATH, where Determinate's
+# installer puts its own. Should a copy of the script load the machine's own
+# Nix profile instead, its once-per-shell guard makes it add nothing.
+without_nix() {
+  local profile=$case_dir/root/nix/var/nix/profiles/default
+  path=$stubs:$bare_path run_env=__ETC_PROFILE_NIX_SOURCED=1
+  mv "$stubs/nix" "$case_dir/nix"
+  {
+    echo "echo \"~\${PWD#\"\$HOME\"} installer \$*\" >>'$log'"
+    echo "mkdir -p '$profile/bin' '$profile/etc/profile.d'"
+    echo "mv '$case_dir/nix' '$profile/bin/nix'"
+    echo "echo 'PATH=$profile/bin:\$PATH' >'$profile/etc/profile.d/nix-daemon.sh'"
+  } >"$case_dir/installer"
+  stub curl <<<"cat '$case_dir/installer'"
 }
 
 # The human steps each host waits for, by the step that checks them.
@@ -174,17 +194,18 @@ do_human_steps() { # <host> [<step to leave undone>]
 }
 
 # Run the script from HOME, piped in as from curl, under env -i, in a new
-# session with no controlling terminal, with the case's BASH_ENV and, when set,
-# its limit on the size of a file written. Sets status and out, and empties the
-# log first.
+# session with no controlling terminal, with the case's PATH, BASH_ENV and
+# extra variables and, when set, its limit on the size of a file written. Sets
+# status and out, and empties the log first.
 run() { # <arg>...
   local launcher='if (my $pid = fork) { waitpid $pid, 0; exit($? & 127 ? 128 + ($? & 127) : $? >> 8) }
     POSIX::setsid(); exec @ARGV or die "exec: $!\n"'
   : >"$log"
   status=0
+  # shellcheck disable=SC2086 # run_env holds one assignment per word
   out=$(cd "$home" && { [[ -z $file_limit ]] || ulimit -f "$file_limit"; } && cat "$script" |
-    env -i HOME="$home" PATH="$stubs:$base_path" DOTFILES_TEST_STUB_DIR="$stubs" BASH_ENV="$bash_env" \
-      /usr/bin/perl -MPOSIX -e "$launcher" /bin/bash -s -- "$@" 2>&1) || status=$?
+    env -i HOME="$home" PATH="$path" DOTFILES_TEST_STUB_DIR="$stubs" DOTFILES_TEST_ROOT="$case_dir/root" BASH_ENV="$bash_env" \
+      $run_env /usr/bin/perl -MPOSIX -e "$launcher" /bin/bash -s -- "$@" 2>&1) || status=$?
 }
 
 steps_run() { sed -n 's/^step //p' "$log"; }
@@ -303,21 +324,55 @@ expect_refused() { # <name> <arg>...
   is "$name" 'exit 2, log: step StepCheckHost;, home unchanged' "exit $status, log: $(log_lines), home $changed"
 }
 
+# Exit 75 at the Nix step, with nothing below HOME changed.
+expect_waits_for_nix() { # <name> <host> <log>
+  local before changed=unchanged
+  before=$(snapshot)
+  run "$2"
+  [[ $(snapshot) == "$before" ]] || changed=changed
+  is "$1" "exit 75 at StepInstallNix, log: $3, home unchanged" "exit $status at $(last_step), log: $(log_lines), home $changed"
+}
+
 model=$(model_steps)
 
+if nix=$(env -i PATH="$bare_path" /bin/sh -c 'command -v nix'); then
+  echo "ERROR: $nix is on $bare_path, so the cases without nix would run it" >&2
+  exit 2
+fi
+
 # A fresh case for each, so that what one run wrote cannot refuse the next.
+# None has nix, so a Nix install before the host check would show in its log.
 new_case no-host personal-mac
+without_nix
 expect_refused no-host-refused
 new_case unknown-host personal-mac
+without_nix
 expect_refused unknown-host-refused laptop
 new_case wrong-os personal-mac
+without_nix
 expect_refused wrong-os-refused wsl
 new_case wrong-os-on-linux wsl
+without_nix
 expect_refused wrong-os-refused-on-linux personal-mac
 new_case unrecorded-host personal-mac
+without_nix
 mkdir -p "$home/.config/dotfiles"
 echo personal-mac >"$home/.config/dotfiles/host"
 expect_refused unrecorded-host-refused work-mac
+
+# Without nix, a Mac installs Determinate Nix and goes on with the nix the
+# installer put on PATH; wsl without systemd waits for a person first.
+new_case personal-mac-without-nix personal-mac
+do_human_steps personal-mac
+without_nix
+run personal-mac
+is personal-mac-installs-determinate-nix "0 $(expected_log personal-mac | awk '{ print } $0 == "step StepInstallNix" {
+  print "~ curl -fsSL https://install.determinate.systems/nix"; print "~ installer install --no-confirm" }')" \
+  "$status $(cat "$log")"
+new_case wsl-without-nix-or-systemd wsl
+do_human_steps wsl
+without_nix
+expect_waits_for_nix wsl-without-systemd-waits wsl 'step StepCheckHost;step StepInstallNix;'
 
 # A command that fails with 75 or 2 must not read as a person's step or a
 # refused host. The failed switch also comes after the host is recorded.

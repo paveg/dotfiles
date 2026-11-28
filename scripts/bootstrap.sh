@@ -11,6 +11,9 @@
 #        command that failed returned, so 2 and 75 mean only the above.
 # Env:   DOTFILES_TEST_STUB_DIR, set only by tests, goes first on PATH after
 #        every PATH change, so a stub always wins over the real command.
+#        DOTFILES_TEST_ROOT, set only by tests, stands for / in the two paths
+#        the script probes the machine with, the Nix profile and systemd's
+#        directory, so the test machine's own Nix and systemd decide nothing.
 # Runs on macOS's bash 3.2. Everything is in functions and main runs on the
 # last line, so a download cut short runs nothing.
 set -Eeuo pipefail
@@ -22,7 +25,8 @@ waiting=75
 host_file=${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/host
 checkout=$HOME/repos/github.com/paveg/dotfiles
 work_profile=$HOME/.config/dots-work
-nix_profile=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+test_root=${DOTFILES_TEST_ROOT-}
+nix_profile=$test_root/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 agent_socket="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 
 say() { printf 'bootstrap: %s\n' "$*" >&2; }
@@ -85,7 +89,7 @@ load_nix() {
 StepInstallNix() {
   load_nix
   if ! command -v nix >/dev/null; then
-    if [[ $host == wsl && ! -d /run/systemd/system ]]; then
+    if [[ $host == wsl && ! -d $test_root/run/systemd/system ]]; then
       wait_for_person "turn on systemd: put '[boot] systemd=true' in /etc/wsl.conf and run 'wsl --shutdown' from Windows"
     fi
     curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Break one condition of scripts/bootstrap.sh, or of the step list in
 # spec/bootstrap.tla, at a time; tests/bootstrap.sh must fail the checks named
-# for it. uname is a stub there, so every mutant is caught on any OS.
-# No mutant drops the stubs from the front of PATH after the Nix profile loads:
-# on a machine with Nix, that copy would run the real nix.
+# for it. uname is a stub there, and DOTFILES_TEST_ROOT stands in for the Nix
+# profile and systemd, so every mutant is caught on any OS.
+# No mutant drops the stubs from the front of PATH after the Nix profile loads,
+# or DOTFILES_TEST_ROOT from the paths it stands in for: on a machine with Nix,
+# that copy would run the real nix.
 # SC2016: each mutation target is literal source text, not an expansion.
 # shellcheck disable=SC2016
 set -euo pipefail
@@ -146,6 +148,21 @@ expect_caught 'personal-mac-never-calls-ksm wsl-never-calls-ksm' 'every host cal
 
 expect_caught 'personal-mac-stops-on-upstream-nix' 'upstream Nix on a Mac goes on' $S \
   '! command -v determinate-nixd' 'false'
+refused='no-host-refused unknown-host-refused wrong-os-refused wrong-os-refused-on-linux unrecorded-host-refused'
+expect_caught "$refused" 'Nix is installed before the host is checked' $S \
+  'StepCheckHost() {
+  local want recorded' 'StepCheckHost() {
+  local want recorded
+  command -v nix >/dev/null || curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm'
+expect_caught wsl-without-systemd-waits 'Nix is installed on wsl without systemd' $S \
+  'if [[ $host == wsl && ! -d $test_root/run/systemd/system ]]; then' 'if false; then'
+expect_caught personal-mac-installs-determinate-nix 'every host needs systemd for the install' $S \
+  '[[ $host == wsl && ! -d $test_root/run/systemd/system ]]' '[[ ! -d $test_root/run/systemd/system ]]'
+expect_caught personal-mac-installs-determinate-nix 'the installer is not run' $S \
+  '    curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm' '    :'
+expect_caught personal-mac-installs-determinate-nix 'the Nix profile is not loaded after the install' $S \
+  '--no-confirm
+    load_nix' '--no-confirm'
 expect_caught "$(each "$all" finishes)" 'Nix is installed when it is already there' $S \
   '  if ! command -v nix >/dev/null; then' '  if true; then'
 expect_caught "$(each "$all" finishes)" 'the clone ignores GHQ_ROOT' $S '  GHQ_ROOT=$HOME/repos nix shell' '  nix shell'
