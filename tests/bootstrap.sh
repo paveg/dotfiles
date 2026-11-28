@@ -364,6 +364,20 @@ without_nix
 mkdir -p "$home/.config/dotfiles"
 echo personal-mac >"$home/.config/dotfiles/host"
 expect_refused unrecorded-host-refused work-mac
+new_case dangling-host-link personal-mac
+without_nix
+mkdir -p "$home/.config/dotfiles"
+ln -s "$home/nowhere" "$home/.config/dotfiles/host"
+expect_refused dangling-host-link-refused personal-mac
+
+# With XDG_CONFIG_HOME set, the host is recorded below it, and read from there.
+new_case xdg-config-home personal-mac
+do_human_steps personal-mac
+run_env="XDG_CONFIG_HOME=$home/xdg"
+run personal-mac
+is xdg-config-home-holds-the-host '0 personal-mac none' \
+  "$status $(cat "$home/xdg/dotfiles/host" 2>/dev/null || echo none) $(recorded)"
+expect_refused xdg-config-home-refuses-work-mac work-mac
 
 # Without nix, a Mac installs Determinate Nix and goes on with the nix the
 # installer put on PATH; wsl without systemd waits for a person first.

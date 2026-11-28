@@ -66,6 +66,10 @@ expect_caught 'wrong-os-refused wrong-os-refused-on-linux' 'the OS is not checke
   'if [[ $(uname -s) != "$want" ]]; then' 'if false; then'
 expect_caught unrecorded-host-refused 'the recorded host is not compared' $S \
   '    if [[ $recorded != "$host" ]]; then' '    if false; then'
+expect_caught dangling-host-link-refused 'a dangling host link counts as no host' $S \
+  'if [[ -s $host_file || -L $host_file ]]; then' 'if [[ -s $host_file ]]; then'
+expect_caught xdg-config-home-holds-the-host 'the host file ignores XDG_CONFIG_HOME' $S \
+  'host_file=${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/host' 'host_file=$HOME/.config/dotfiles/host'
 expect_caught "$(each "$all" records-the-host)" 'the host is not recorded' $S \
   '    mv -f "$host_file.new" "$host_file"' '    rm -f "$host_file.new"'
 expect_caught "$(each "$all" rerun-changes-nothing)" 'every run appends the host again' $S \
