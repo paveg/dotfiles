@@ -42,3 +42,18 @@ jobs:
       - name: Model-check the specs and their mutants
         if: needs.changes.outputs.changed != 'false'
         run: nix shell nixpkgs#tlaplus18 nixpkgs#python3 --command spec/check.sh
+
+  spec-passed:
+    if: always()
+    needs: [tlc]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
