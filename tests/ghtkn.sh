@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
-# Check the gh wrapper that nix/ghtkn.nix builds (docs/adr/0004-github-auth-ghtkn.md),
-# with no Nix switch and no real ghtkn: each run is `env -i` with a throwaway
-# HOME and a stub ghtkn first on PATH, which records its arguments and runs the
-# command it is handed with a fake token, and the real gh answers `gh auth
-# token` with whatever token reached it. With GH_TOKEN or GITHUB_TOKEN set the
-# wrapper runs the real gh directly; otherwise it asks ghtkn for the app that
+# Check the gh wrapper and the ghtkn.yaml render step that nix/ghtkn.nix
+# builds (docs/adr/0004-github-auth-ghtkn.md), with no Nix switch, no real
+# ghtkn and no real op: each run is `env -i` with a throwaway HOME and stubs
+# first on PATH. The stub ghtkn records its arguments and runs the command it
+# is handed with a fake token, and the real gh answers `gh auth token` with
+# whatever token reached it. With GH_TOKEN or GITHUB_TOKEN set the wrapper
+# runs the real gh directly; otherwise it asks ghtkn for the app that
 # ~/.config/ghtkn/gh-app names, hands it the real gh rather than itself with
 # every argument intact, keeps the exit status, says how to unlock the agent on
-# 111, and refuses to run without an app. tests/packages.sh checks that the
-# profile installs this same build.
+# 111, and refuses to run without an app. The render step writes the file
+# (0600) only when it is missing or its template changed and op is signed in,
+# never calls op otherwise, and skips with a warning and exit 0 when op is
+# missing, signed out, or fails, keeping the old file. The committed template
+# holds references, not client IDs, and defines the app gh-app.personal names.
+# tests/packages.sh checks that the profile installs this same wrapper and
+# that the switch runs this same render step.
 # Usage: tests/ghtkn.sh [repo-dir]   (default: this checkout)
 set -uo pipefail
 
@@ -165,6 +171,110 @@ for case in missing:no-app-file empty:empty-app-file; do
   fi
   ghtkn_not_called "${case#*:}-skips-ghtkn"
 done
+
+# The render step, with a stub op that logs each call. whoami succeeds only
+# with STUB_OP_SIGNED_IN set, and inject, which fails with STUB_OP_INJECT_FAILS
+# set, reads the template from stdin alone, as op.exe on wsl must, and puts a
+# placeholder in place of each reference.
+render_bin=$(build "path:$repo_dir#ghtkn-render")/bin/ghtkn-render
+[[ -x $render_bin ]] || die "ghtkn-render did not build: $(tail -n 5 "$work_dir/build.err")"
+op_log=$work_dir/op.log
+cat >"$stub_dir/op" <<STUB
+#!/bin/sh
+echo "\$1" >>'$op_log'
+case \$1 in
+whoami) [ -n "\${STUB_OP_SIGNED_IN-}" ] ;;
+inject)
+  [ -z "\${STUB_OP_INJECT_FAILS-}" ] || exit 1
+  sed -E 's/\{\{ op:\/\/[^}]* \}\}/stub-client-id/g'
+  ;;
+*) exit 2 ;;
+esac
+STUB
+chmod +x "$stub_dir/op"
+
+render() { # <template> <target> <op-command> [<VAR=value>...]
+  local template=$1 target=$2 op=$3
+  shift 3
+  rm -f "$op_log"
+  (cd "$work_dir" && env -i HOME="$work_dir" PATH="$stub_dir:/usr/bin:/bin" "$@" \
+    "$render_bin" "$template" "$target" "$op" </dev/null >"$work_dir/render.out" 2>"$work_dir/render.err")
+  echo $? >"$work_dir/render.rc"
+}
+render_err() { tr '\n' ' ' <"$work_dir/render.err" | cut -c1-300; }
+op_calls() { if [[ -e $op_log ]]; then tr '\n' ' ' <"$op_log"; fi; }
+rendered() { # <template>   what the stub's inject makes of it
+  sed -E 's/\{\{ op:\/\/[^}]* \}\}/stub-client-id/g' "$1"
+}
+# Exits 0 and warns, with no file written.
+skipped() { # <name> <target> <reason>
+  if [[ $(cat "$work_dir/render.rc") == 0 && ! -e $2 ]] && grep -qF "$3" "$work_dir/render.err"; then
+    ok "$1"
+  else
+    fail "$1" "rc $(cat "$work_dir/render.rc"), $(ls -l "$2" 2>&1), stderr: $(render_err)"
+  fi
+}
+
+template=$repo_dir/home/.config/ghtkn/ghtkn.personal.yaml.tpl
+changed=$work_dir/changed.yaml.tpl
+{ cat "$template"; echo "min_expiration: 1h"; } >"$changed"
+target=$work_dir/render/ghtkn/ghtkn.yaml
+
+render "$template" "$target" no-such-op STUB_OP_SIGNED_IN=1
+skipped render-without-op "$target" "no-such-op is not on PATH"
+
+render "$template" "$target" op
+skipped render-signed-out "$target" "1Password is not signed in"
+is render-signed-out-asks-only-whoami "whoami " "$(op_calls)"
+
+render "$template" "$target" op STUB_OP_SIGNED_IN=1
+is render-signed-in "0 $(rendered "$template")" "$(cat "$work_dir/render.rc") $(cat "$target" 2>&1)"
+is render-mode -rw------- "$(ls -l "$target" 2>/dev/null | cut -c1-10)"
+is render-leaves-only-the-file "ghtkn.yaml ghtkn.yaml.template-sha256" "$(ls "${target%/*}" | tr '\n' ' ' | sed 's/ $//')"
+
+# Unchanged: op is never called, signed in or not, so no prompt can appear.
+for state in signed-in signed-out; do
+  vars=()
+  [[ $state == signed-in ]] && vars=(STUB_OP_SIGNED_IN=1)
+  render "$template" "$target" op ${vars[@]+"${vars[@]}"}
+  is "render-unchanged-$state-calls-no-op" "0 '' ''" "$(cat "$work_dir/render.rc") '$(op_calls)' '$(render_err)'"
+done
+is render-unchanged-keeps-file "$(rendered "$template")" "$(cat "$target" 2>&1)"
+
+render "$changed" "$target" op STUB_OP_SIGNED_IN=1
+is render-template-changed "$(rendered "$changed")" "$(cat "$target" 2>&1)"
+
+# Changed while signed out, or with inject failing: the old file stays, and
+# the hash does not move on, so the next switch renders it.
+render "$template" "$target" op
+is render-changed-signed-out-keeps-file "0 $(rendered "$changed")" "$(cat "$work_dir/render.rc") $(cat "$target" 2>&1)"
+render "$template" "$target" op STUB_OP_SIGNED_IN=1 STUB_OP_INJECT_FAILS=1
+is render-inject-failed-keeps-file "0 $(rendered "$changed")" "$(cat "$work_dir/render.rc") $(cat "$target" 2>&1)"
+if grep -qF "op inject failed" "$work_dir/render.err"; then ok render-inject-failed-warns; else fail render-inject-failed-warns "stderr: $(render_err)"; fi
+is render-inject-failed-leaves-no-temp "ghtkn.yaml ghtkn.yaml.template-sha256" "$(ls "${target%/*}" | tr '\n' ' ' | sed 's/ $//')"
+render "$template" "$target" op STUB_OP_SIGNED_IN=1
+is render-retries-after-failure "$(rendered "$template")" "$(cat "$target" 2>&1)"
+
+# A missing file is rendered even when the stored hash matches.
+rm -f "$target"
+render "$template" "$target" op STUB_OP_SIGNED_IN=1
+is render-missing-file "$(rendered "$template")" "$(cat "$target" 2>&1)"
+
+# The committed template: its client IDs are references, it selects the agent
+# backend (ghtkn's default is the OS keyring), and it defines the app that
+# gh-app.personal names for gh.
+personal_app=$(cat "$repo_dir/home/.config/ghtkn/gh-app.personal")
+if grep -qE '^ +client_id: "\{\{ op://[^}]+ \}\}"$' "$template" && ! grep -qE 'client_id: [^"]' "$template"; then
+  ok template-client-ids-are-references
+else
+  fail template-client-ids-are-references "$(grep -n client_id "$template" | tr '\n' ' ')"
+fi
+is template-agent-backend "  type: agent" "$(grep -A1 -x 'backend:' "$template" | sed -n 2p)"
+if grep -qxF "  - name: $personal_app" "$template"; then
+  ok template-has-gh-app
+else
+  fail template-has-gh-app "no app named '$personal_app' in $template"
+fi
 
 echo "summary: $checks checks, $failures failed (repo $repo_dir)"
 ((failures == 0))

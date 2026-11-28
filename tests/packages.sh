@@ -7,7 +7,9 @@
 # whose files link into the checkout, the gh there is the wrapper that
 # tests/ghtkn.sh checks and brings gh's zsh completion, ~/.config/ghtkn is a
 # real directory whose files come from the checkout on personal hosts and from
-# the work profile on work-mac, the ssh config is a store copy on macOS
+# the work profile on work-mac, only personal hosts run the ghtkn.yaml render
+# step that tests/ghtkn.sh checks, with the switch's PATH kept for op, the ssh
+# config is a store copy on macOS
 # alone, the global mise config refuses the asdf backend, the built atuin
 # accepts the atuin config, and on macOS the switch sets the launchd variables
 # for GUI apps and the generated /etc/zshrc leaves completion and the prompt to
@@ -296,6 +298,44 @@ fi
 nix_system=$("${nix_bin[@]}" eval --raw --file "$repo_dir/hosts/$host.nix" system 2>"$work_dir/system-name.err")
 wrapper=$(build_attr "packages.$nix_system.gh" wrapper)
 is gh-is-wrapper "${wrapper:-no wrapper built}/bin/gh" "$(readlink "$profile/bin/gh" 2>>"$work_dir/readlink.err")"
+
+# On personal hosts the switch runs the render step tests/ghtkn.sh checks, on
+# the committed template, into the file ghtkn reads, with the op the host
+# calls; work-mac links its ghtkn.yaml instead. A cached eval of the darwin
+# activation fails on Nix 2.33 (tests/agents.sh).
+render_line=$("${nix_bin[@]}" --option eval-cache false eval --raw "path:$repo_dir#$root_attr" \
+  --apply "c: let a = ($hm_expr).home.activation; in if a ? ghtknConfig then a.ghtknConfig.data else \"none\"" \
+  2>"$work_dir/render-line.err")
+read -r -a render_words <<<"$(tr '\n' ' ' <<<"$render_line")"
+if [[ $host == work-mac ]]; then
+  is activation-no-ghtkn-render none "${render_words[*]-}"
+else
+  op_cmd=op
+  [[ $host == wsl ]] && op_cmd=op.exe
+  render_bin=$(build_attr "packages.$nix_system.ghtkn-render" render)
+  template_arg=${render_words[2]-}
+  is activation-ghtkn-render \
+    "run ${render_bin:-no render step built}/bin/ghtkn-render <template> $home_dir/.config/ghtkn/ghtkn.yaml $op_cmd" \
+    "${render_words[0]-} ${render_words[1]-} <template> ${render_words[3]-} ${render_words[4]-}${render_words[5]+ ${render_words[*]:5}}"
+  if [[ $template_arg == /nix/store/* ]] && cmp -s "$template_arg" "$repo_dir/home/.config/ghtkn/ghtkn.personal.yaml.tpl"; then
+    ok activation-ghtkn-template
+  else
+    fail activation-ghtkn-template "'$template_arg' is not a store copy of home/.config/ghtkn/ghtkn.personal.yaml.tpl"
+  fi
+  # home-manager starts its activation with only its own tools on PATH, where
+  # the render step would never find op.
+  if [[ $host == wsl ]]; then
+    hm_generation=${generation-}
+  else
+    hm_generation=$(build_attr "$config_attr.home.activationPackage" hm-generation)
+  fi
+  path_line=$(grep '^export PATH=' "$hm_generation/activate" 2>&1)
+  if [[ $path_line == *'${PATH:+:}$PATH"' ]]; then
+    ok activation-keeps-switch-path
+  else
+    fail activation-keeps-switch-path "the activation sets $(cut -c1-200 <<<"$path_line")"
+  fi
+fi
 
 if [[ -n $home_files ]]; then
   for dir in "${real_dirs[@]}"; do

@@ -1,5 +1,6 @@
-# The gh wrapper (docs/adr/0004-github-auth-ghtkn.md), built here so that CI
-# tests the same derivation the profile installs.
+# The gh wrapper and the step that renders the personal ghtkn.yaml
+# (docs/adr/0004-github-auth-ghtkn.md), built here so that CI tests the same
+# derivations the profile installs and the switch runs.
 { pkgs }:
 let
   # No runtimeInputs: ghtkn, and whatever gh itself runs, come from the
@@ -28,4 +29,12 @@ in
         ln -s ${pkgs.lib.getExe wrapper} $out/bin/gh
         ln -s ${pkgs.gh}/share/zsh/site-functions/_gh $out/share/zsh/site-functions/_gh
       '';
+
+  # op stays on the caller's PATH: on macOS it must be /usr/local/bin/op for
+  # the app integration, and on wsl it is the Windows op.exe.
+  ghtkn-render = pkgs.writeShellApplication {
+    name = "ghtkn-render";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = builtins.readFile ./ghtkn-render.sh;
+  };
 }

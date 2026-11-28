@@ -195,7 +195,22 @@ if runs per-host; then
     expect_caught 'link-.config/ghtkn/ghtkn.yaml link-.config/ghtkn/gh-app' \
       'work-mac links the ghtkn files from outside the work profile'"'"'s ghtkn directory' \
       nix/vaults.nix '/.config/dots-work/ghtkn/${name}' '/.config/dots-work/${name}'
+
+    expect_caught activation-no-ghtkn-render 'work-mac renders the personal ghtkn.yaml over its link' \
+      nix/vaults.nix 'home.activation.ghtknConfig = lib.mkIf personal (' 'home.activation.ghtknConfig = lib.mkIf true ('
   else
+    expect_caught 'activation-ghtkn-render activation-ghtkn-template' "$host never renders ghtkn.yaml" \
+      nix/vaults.nix 'home.activation.ghtknConfig = lib.mkIf personal (' 'home.activation.ghtknConfig = lib.mkIf false ('
+
+    expect_caught activation-keeps-switch-path "$host empties the activation PATH, so the render step finds no op" \
+      nix/vaults.nix $'  home.emptyActivationPath = lib.mkIf personal false;\n' ''
+
+    expect_caught activation-ghtkn-render "$host calls the other OS's op" \
+      nix/vaults.nix 'then "op" else "op.exe"' 'then "op.exe" else "op"'
+
+    expect_caught activation-ghtkn-render "$host renders a file ghtkn does not read" \
+      nix/vaults.nix '/ghtkn/ghtkn.yaml"}' '/ghtkn/config.yaml"}'
+
     expect_caught link-.config/ghtkn/gh-app "$host gives gh no app" \
       nix/vaults.nix "$personal_app_link" '{ }'
 

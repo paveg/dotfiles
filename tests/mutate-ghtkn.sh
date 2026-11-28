@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Break one condition of the gh wrapper at a time and require the checks in
-# tests/ghtkn.sh that cover it to fail. A surviving mutant means those checks
-# prove nothing. Every check has a mutant here. The builds use Nix's own bash
-# and coreutils, so the mutants run on Linux alone.
+# Break one condition of the gh wrapper, the render step or the personal
+# template at a time and require the checks in tests/ghtkn.sh that cover it to
+# fail. A surviving mutant means those checks prove nothing. The builds use
+# Nix's own bash and coreutils, so the mutants run on Linux alone.
 set -uo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
@@ -69,5 +69,47 @@ expect_caught 'no-app-file no-app-file-skips-ghtkn empty-app-file empty-app-file
 
 expect_caught app-from-xdg-config-home 'the wrapper reads gh-app from ~/.config whatever XDG_CONFIG_HOME says' \
   "$wrapper" 'app_file=${XDG_CONFIG_HOME:-$HOME/.config}/ghtkn/gh-app' 'app_file=$HOME/.config/ghtkn/gh-app'
+
+render=nix/ghtkn-render.sh
+expect_caught 'render-signed-out render-changed-signed-out-keeps-file' 'the render writes while op is signed out' \
+  "$render" $'"$op" whoami >/dev/null 2>&1 || skip "1Password is not signed in"\n' ''
+
+expect_caught 'render-without-op render-signed-out' 'the render fails the switch where it should skip' \
+  "$render" $'  echo "ghtkn-render: warning: $1, so $target is not rendered; the next switch tries again" >&2\n  exit 0' \
+  $'  echo "ghtkn-render: warning: $1, so $target is not rendered; the next switch tries again" >&2\n  exit 1'
+
+expect_caught 'render-unchanged-signed-in-calls-no-op render-unchanged-signed-out-calls-no-op' \
+  'the render asks op even when nothing changed' \
+  "$render" $'if [[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]; then\n  exit 0\nfi\n' ''
+
+expect_caught render-template-changed 'the render keeps any file it finds, whatever the template says' \
+  "$render" '[[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]' '[[ -f $target ]]'
+
+expect_caught render-missing-file 'the render trusts the stored hash when the file is gone' \
+  "$render" '[[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]' '[[ $(cat "$stamp" 2>/dev/null) == "$hash" ]]'
+
+expect_caught render-mode 'the rendered file is readable by other users' \
+  "$render" 'tmp=$(mktemp "$target.XXXXXX")' 'tmp=$target.new'
+
+expect_caught 'render-inject-failed-keeps-file render-signed-in' 'op inject writes over the file in place' \
+  "$render" 'if ! "$op" inject <"$template" >"$tmp"; then' 'if ! "$op" inject <"$template" >"$target"; then'
+
+expect_caught render-inject-failed-leaves-no-temp 'a failed inject leaves its temporary file behind' \
+  "$render" $'  rm -f "$tmp"\n' ''
+
+expect_caught render-retries-after-failure 'the hash moves on before inject succeeds, so a failure is never retried' \
+  "$render" $'mkdir -p "$(dirname "$target")"\n' $'mkdir -p "$(dirname "$target")"\necho "$hash" >"$stamp"\n'
+
+expect_caught 'render-signed-in render-template-changed' 'op gets the template as a path, which op.exe on wsl cannot open' \
+  "$render" '"$op" inject <"$template" >"$tmp"' '"$op" inject --in-file "$template" >"$tmp"'
+
+expect_caught template-client-ids-are-references 'the template holds a client ID itself' \
+  home/.config/ghtkn/ghtkn.personal.yaml.tpl '"{{ op://Personal/ghtkn/client_id }}"' 'Iv23liPLACEHOLDER'
+
+expect_caught template-agent-backend 'the template leaves ghtkn on its default keyring backend' \
+  home/.config/ghtkn/ghtkn.personal.yaml.tpl $'backend:\n  type: agent\n' ''
+
+expect_caught template-has-gh-app 'gh-app.personal names an app the template does not define' \
+  home/.config/ghtkn/gh-app.personal 'paveg/write' 'paveg/read'
 
 mutate_finish
