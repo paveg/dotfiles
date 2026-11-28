@@ -75,6 +75,30 @@ expect_caught "$(each "$all" home-gains-only-allowlisted-entries)" 'the script k
   '  cd "$checkout"' '  cd "$checkout"
   : >"$HOME/repos/.bootstrap-state"'
 
+expect_caught "$(each "$all" waits-at-StepSignIn-with-the-host-recorded) personal-mac-waits-at-StepSignIn-then-refuses-work-mac" \
+  'the host is recorded in the last step' $S \
+  'StepRecordHost() {' 'StepRecordHost() { :; }
+
+record_host() {' \
+  'StepInstallHooks() {' 'StepInstallHooks() {
+  record_host'
+waiting_runs='personal-mac-waits-at-StepSignIn work-mac-waits-at-StepWorkProfile wsl-waits-at-StepGhtknAuth'
+expect_caught "$(each "$waiting_runs" gaining-only-allowlisted-entries)" 'a waiting run writes a file below HOME' $S \
+  '  say "waiting for a person: $1' '  : >"$HOME/.bootstrap-waiting"
+  say "waiting for a person: $1'
+expect_caught "$(each "$waiting_runs" after-the-steps-before-it)" 'a waiting run calls ksm' $S \
+  '  say "waiting for a person: $1' '  ksm secret list
+  say "waiting for a person: $1'
+expect_caught 'personal-mac-waits-at-StepSignIn-without-a-work-profile wsl-waits-at-StepGhtknAuth-without-a-work-profile' \
+  'a waiting run creates ~/.config/dots-work/' $S \
+  '  say "waiting for a person: $1' '  mkdir -p "$work_profile"
+  say "waiting for a person: $1'
+expect_caught 'work-mac-waits-at-StepWorkProfile-after-the-steps-before-it' 'work-mac switches before its profile is placed' $S \
+  'StepWorkProfile() {' 'StepWorkProfile() {
+  switch' \
+  'StepSecondSwitch() {
+  switch' 'StepSecondSwitch() {
+  :'
 expect_caught 'personal-mac-waits-at-StepSignIn work-mac-waits-at-StepWorkProfile wsl-waits-at-StepGhtknAuth personal-mac-stops-on-upstream-nix' \
   'the waiting status is 1' $S 'waiting=75' 'waiting=1'
 expect_caught 'personal-mac-waits-at-StepSignIn work-mac-waits-at-StepWorkProfile wsl-waits-at-StepGhtknAuth' \

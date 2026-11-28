@@ -12,7 +12,9 @@
 # itself; neither that run nor a second one changes an existing checkout or the
 # hand-placed work profile, and the second changes nothing below $HOME, link
 # targets included; with one human step undone the run
-# exits 75 at that step and finishes once the step is done; personal hosts
+# exits 75 at that step, having run the steps before it and no more, recorded
+# the host so that a rerun naming the other Mac is refused, and added only
+# allowlisted entries, and it finishes once the step is done; personal hosts
 # never call ksm or create ~/.config/dots-work/; $HOME gains only the recorded
 # host and what the stubbed clone and switch create.
 # Usage: tests/bootstrap.sh [script [spec]]   (mutant copies may be given)
@@ -183,6 +185,13 @@ run() { # <arg>...
 steps_run() { sed -n 's/^step //p' "$log"; }
 last_step() { steps_run | tail -n 1; }
 log_lines() { tr '\n' ';' <"$log"; }
+recorded() { cat "$home/.config/dotfiles/host" 2>/dev/null || echo none; }
+work_profile_state() { if [[ -e $home/.config/dots-work ]]; then echo present; else echo absent; fi; }
+
+# A log up to the end of <step>'s part.
+log_through() { # <step> <log
+  awk -v step="step $1" 'seen && /^step / { exit } $0 == step { seen = 1 } { print }'
+}
 
 # Each path below HOME, or below <dir> in it, with its type and mode, a link's
 # target and a regular file's checksum.
@@ -328,12 +337,12 @@ for host in personal-mac work-mac wsl; do
   is "$host-runs-the-expected-commands" "$(expected_log "$host")" "$(cat "$log")"
   is "$host-installs-runtimes-after-the-last-switch" 'switch switch mise install ' \
     "$(awk '$2 == "nix" && $3 == "run" { print "switch" } $2 == "mise" { print "mise", $3 }' "$log" | tr '\n' ' ')"
-  is "$host-records-the-host" "$host" "$(cat "$home/.config/dotfiles/host" 2>/dev/null || true)"
+  is "$host-records-the-host" "$host" "$(recorded)"
   is "$host-home-gains-only-allowlisted-entries" '' "$(gained "$before")"
   is "$host-keeps-what-was-there" "$kept_before" "$(kept_state)"
   if [[ $host != work-mac ]]; then
     is "$host-never-calls-ksm" '' "$(awk '$2 == "ksm"' "$log")"
-    is "$host-has-no-work-profile" absent "$([[ -e $home/.config/dots-work ]] && echo present || echo absent)"
+    is "$host-has-no-work-profile" absent "$(work_profile_state)"
   fi
 
   after=$(snapshot)
@@ -342,11 +351,24 @@ for host in personal-mac work-mac wsl; do
   is "$host-rerun-changes-nothing" "$after" "$(snapshot)"
   is "$host-rerun-keeps-what-was-there" "$kept_before" "$(kept_state)"
 
+  # A run that waits has done every step before the human one and no more, and
+  # its recorded host refuses a rerun that names the other Mac.
   for step in $(human_steps "$host"); do
     new_case "$host-without-$step" "$host"
     do_human_steps "$host" "$step"
+    before=$(paths)
     run "$host"
     is "$host-waits-at-$step" "75 $step" "$status $(last_step)"
+    is "$host-waits-at-$step-after-the-steps-before-it" "$(expected_log "$host" | log_through "$step")" "$(cat "$log")"
+    is "$host-waits-at-$step-with-the-host-recorded" "$host" "$(recorded)"
+    is "$host-waits-at-$step-gaining-only-allowlisted-entries" '' "$(gained "$before")"
+    if [[ $host != work-mac ]]; then
+      is "$host-waits-at-$step-without-a-work-profile" absent "$(work_profile_state)"
+    fi
+    case $host in
+    personal-mac) expect_refused "$host-waits-at-$step-then-refuses-work-mac" work-mac ;;
+    work-mac) expect_refused "$host-waits-at-$step-then-refuses-personal-mac" personal-mac ;;
+    esac
     do_human_step "$host" "$step"
     run "$host"
     is "$host-resumes-after-$step" "0 $(expected_log "$host")" "$status $(cat "$log")"
