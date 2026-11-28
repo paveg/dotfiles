@@ -54,7 +54,7 @@ if [[ $host == wsl ]]; then
   hm_packages+=(dummy-xdg-mime-dirs1 dummy-xdg-mime-dirs2 man-db shared-mime-info)
 fi
 # Unfree packages are admitted by name. claude-code is the only one the set
-# needs today; the 1Password CLI change moves _1password-cli here.
+# needs today; the 1Password CLI change moves 1password-cli (the lib.getName of _1password-cli) here.
 unfree_admitted=(claude-code)
 # A prefix of an admitted name and that name with a suffix are in here, so a
 # predicate that matches on anything less than the whole name is refused.
