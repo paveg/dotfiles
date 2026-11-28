@@ -28,9 +28,10 @@ runs() { # <group>
   [[ $group == all || $group == "$1" ]]
 }
 
+copied=(flake.nix flake.lock hosts nix home)
 run_mutant() { # <dir> <check>... <file> <old> <new>
   local dir=$1 checks=$2 file=$3 old=$4 new=$5 entry out
-  for entry in flake.nix flake.lock hosts nix home; do
+  for entry in "${copied[@]}"; do
     cp -R "$repo_dir/$entry" "$dir/$entry"
   done
   mutate_apply "$dir/$file" "$old" "$new" || return
@@ -43,6 +44,7 @@ expect_caught() { # <check>... <description> <file> <old> <new>
   mutant "$2" run_mutant "$1" "$3" "$4" "$5"
 }
 
+mutate_inputs "${copied[@]}" tests/packages.sh tests/mutate-packages.sh tests/lib/
 mutate_baseline 'the files as committed' "$repo_dir/tests/packages.sh"
 
 if runs common; then

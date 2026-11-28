@@ -7,34 +7,80 @@ on:
     paths:
       - "flake.nix"
       - "flake.lock"
-      - "home/.claude/**"
+      - "home/**"
       - "hosts/**"
       - "nix/**"
       - "profiles/**"
       - "tests/agents.sh"
       - "tests/mutate-agents.sh"
       - "tests/lib/mutate.sh"
-      - ".github/workflows/agents.yml"
+      - ".github/workflows/**"
 
 permissions:
   contents: read
 
+env:
+  # A pull request runs a mutation script only when one of its inputs changed.
+  MUTATE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+
 jobs:
+  # The Linux checks run in the first shard below, which keeps the jobs a pull
+  # request starts at once under GitHub's limit.
   settings:
-    timeout-minutes: 50
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
       - name: Generate settings.json for the personal and work profiles and check it
         run: tests/agents.sh
+      - name: Check that the settings checks that depend on macOS fail on a broken generator
+        run: MUTATE_OS=macos tests/mutate-agents.sh
+
+  mutants:
+    name: mutants (${{ matrix.os }}, ${{ matrix.runner }}, ${{ matrix.shard }})
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, runner: mutate-agents.sh, shard: 0/2 }
+          - { os: ubuntu-latest, runner: mutate-agents.sh, shard: 1/2 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Generate settings.json for the personal and work profiles and check it
+        if: startsWith(matrix.shard, '0/')
+        run: tests/agents.sh
       - name: Check that each settings check fails on a deliberately broken generator
-        # macOS only: the generator runs on the same pinned Nix tools on both OSes.
-        if: matrix.os == 'macos-latest'
-        run: tests/mutate-agents.sh
+        env:
+          MUTATE_OS: linux
+          MUTATE_SHARD: ${{ matrix.shard }}
+          RUNNER: ${{ matrix.runner }}
+        run: tests/"$RUNNER"
+
+  agents-passed:
+    if: always()
+    needs: [settings, mutants]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done

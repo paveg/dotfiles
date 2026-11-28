@@ -18,11 +18,12 @@ export DOTFILES_HOST=$host
 # shellcheck source=tests/lib/mutate.sh
 source "$repo_dir/tests/lib/mutate.sh"
 
+copied=(flake.nix flake.lock hosts nix home docs)
 # Fill <dir> with a copy of the files under test and apply each edit to it.
 apply_edits() { # <dir> <file> <old> <new> [<file> <old> <new>]...
   local dir=$1 entry
   shift
-  for entry in flake.nix flake.lock hosts nix home docs; do
+  for entry in "${copied[@]}"; do
     cp -R "$repo_dir/$entry" "$dir/$entry" || return
   done
   while (($# >= 3)); do
@@ -79,6 +80,7 @@ with_package() { # <expression>
   printf '    atuin\n    %s\n  ]' "$1"
 }
 
+mutate_inputs "${copied[@]}" tests/licenses.sh tests/licenses.nix tests/mutate-licenses.sh tests/lib/
 mutate_baseline 'the files as committed' "$repo_dir/tests/licenses.sh"
 
 expect_caught "non-commercial-$h-zsh-abbr unfree-$h-zsh-abbr" \

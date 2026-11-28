@@ -11,9 +11,10 @@ repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 # shellcheck source=tests/lib/mutate.sh
 source "$repo_dir/tests/lib/mutate.sh"
 
+copied=(flake.nix flake.lock hosts nix home profiles)
 copy_repo() { # <dir>
   local entry
-  for entry in flake.nix flake.lock hosts nix home profiles; do
+  for entry in "${copied[@]}"; do
     cp -R "$repo_dir/$entry" "$1/$entry"
   done
 }
@@ -38,12 +39,18 @@ run_mutant_jq() { # <dir> <check>... <file> <jq-filter>
   grade "$1" "$2"
 }
 
+# The drop-in and its ordering exist for macOS alone, and the mode checks read
+# the host's ls, so the mutants those checks grade run on macOS too.
+os_of() { # <checks>
+  if [[ " $1" =~ \ (dropin|mode|order)- ]]; then echo 'linux macos'; else echo linux; fi
+}
+
 expect_caught() { # <checks> <description> <file> <old> <new>
-  mutant "$2" run_mutant "$1" "$3" "$4" "$5"
+  mutate_on "$(os_of "$1")" mutant "$2" run_mutant "$1" "$3" "$4" "$5"
 }
 
 expect_caught_jq() { # <checks> <description> <file> <jq-filter>
-  mutant "$2" run_mutant_jq "$1" "$3" "$4"
+  mutate_on "$(os_of "$1")" mutant "$2" run_mutant_jq "$1" "$3" "$4"
 }
 
 overrides() { # <kind>...   the override checks of each kind, on both layers and in both modes
@@ -59,6 +66,7 @@ overrides() { # <kind>...   the override checks of each kind, on both layers and
 
 generator=nix/claude-settings.sh
 
+mutate_inputs "${copied[@]}" tests/agents.sh tests/mutate-agents.sh tests/lib/
 mutate_baseline 'the files as committed' "$repo_dir/tests/agents.sh"
 
 expect_caught "common-deny-work $(overrides empty)" 'a profile array replaces the common one' "$generator" \

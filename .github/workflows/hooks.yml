@@ -16,18 +16,24 @@ on:
       - "tests/fixtures/hooks/**"
       - "tests/reply-language.sh"
       - "tests/fixtures/reply-language/**"
-      - ".github/workflows/hooks.yml"
+      - ".github/workflows/**"
 
 permissions:
   contents: read
 
+env:
+  # A pull request runs a mutation script only when one of its inputs changed.
+  MUTATE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+
 jobs:
+  # The Linux checks run in the first shard below, which keeps the jobs a pull
+  # request starts at once under GitHub's limit.
   guards:
-    timeout-minutes: 70
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,7 +46,55 @@ jobs:
         run: tests/hooks.sh
       - name: Check the built reply-language hook against its fixtures
         run: tests/reply-language.sh "$(nix build --no-link --print-out-paths .#check-reply-language)/bin/check-reply-language"
+
+  # Linux only: the guards run on the same pinned Nix tools on both OSes, so a
+  # second run adds time, not coverage.
+  mutants:
+    name: mutants (${{ matrix.os }}, ${{ matrix.runner }}, ${{ matrix.shard }})
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, runner: mutate-hooks.sh, shard: 0/5 }
+          - { os: ubuntu-latest, runner: mutate-hooks.sh, shard: 1/5 }
+          - { os: ubuntu-latest, runner: mutate-hooks.sh, shard: 2/5 }
+          - { os: ubuntu-latest, runner: mutate-hooks.sh, shard: 3/5 }
+          - { os: ubuntu-latest, runner: mutate-hooks.sh, shard: 4/5 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Build the guard hooks
+        if: startsWith(matrix.shard, '0/')
+        run: nix build --no-link ".#block-destructive-db" ".#block-sensitive-read" ".#check-reply-language"
+      - name: Check each guard against its fixtures under an empty PATH
+        if: startsWith(matrix.shard, '0/')
+        run: tests/hooks.sh
+      - name: Check the built reply-language hook against its fixtures
+        if: startsWith(matrix.shard, '0/')
+        run: tests/reply-language.sh "$(nix build --no-link --print-out-paths .#check-reply-language)/bin/check-reply-language"
       - name: Check that each guard check fails on a deliberately broken guard
-        # Linux only: the guards run on the same pinned Nix tools on both OSes, so a second run adds time, not coverage.
-        if: matrix.os == 'ubuntu-latest'
-        run: tests/mutate-hooks.sh
+        env:
+          MUTATE_OS: linux
+          MUTATE_SHARD: ${{ matrix.shard }}
+          RUNNER: ${{ matrix.runner }}
+        run: tests/"$RUNNER"
+
+  hooks-passed:
+    if: always()
+    needs: [guards, mutants]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done

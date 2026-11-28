@@ -18,6 +18,8 @@ expect_caught() { # <description> <old> <new>
   mutant "$1" run_mutant "$2" "$3"
 }
 
+mutate_inputs home/.claude/hooks/check-reply-language.sh tests/reply-language.sh \
+  tests/fixtures/reply-language tests/mutate-reply-language.sh tests/lib/
 mutate_baseline 'the hook as committed' "$repo_dir/tests/reply-language.sh"
 expect_caught 'an English reply is never judged' '($j * 3) < $l' 'false'
 expect_caught 'code and URLs count as English' 'def prose: gsub("(?s)```.*?```"; "") | gsub("`[^`]*`"; "") | gsub("https?://\\S+"; "");' 'def prose: .;'
