@@ -339,7 +339,7 @@ Pure evaluation cannot read `~/.config/dots-work/` (absolute paths outside the f
 | `permissions.deny` | The credential reads above | `settings.json`, and the macOS drop-in |
 | `autoMode.hard_deny` | `$defaults`, a force-push to main, destructive database commands, `op` writes whose output is not discarded, a merge with `--admin` or by any route around the rulesets | `settings.json` |
 | `autoMode.soft_deny` | `$defaults`, a force-push to a pull request branch, posting anywhere but GitHub pull requests and issues and Linear, `rm -rf` outside the scratchpad and the temporary directories, changing `gh`'s default repository, editing git remotes | `settings.json` |
-| `autoMode.allow` | `$defaults`, squash-merging a pull request of the working repository by number once its required checks pass | `settings.json` |
+| `autoMode.allow` | `$defaults`, squash-merging, by number, the session's own or the owner's pull request of the working repository (not from a fork) once `gh pr checks` has shown the required checks passing | `settings.json` |
 | `permissions.allow` | `gh pr checks` and `gh pr view`, exactly, with no argument | `settings.json` |
 | `permissions.ask` | Nothing: a prompt would stall the run | — |
 

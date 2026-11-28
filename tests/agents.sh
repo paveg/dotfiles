@@ -275,7 +275,11 @@ check_tiers() { # <side> <settings-file>
      and all($want[]; . as [$label, $term] | [$l[] | select(startswith($label) and contains($term))] | length == 1)' "$file"
   check "tier-auto-allow-$side" "autoMode.allow lacks \$defaults or the squash-merge entry, or that entry names no --squash" \
     jq -e '.autoMode.allow as $l | any($l[]; . == "$defaults")
-     and ([$l[] | select(startswith("Squash-merging a reviewed pull request: ") and contains("--squash"))] | length == 1)' "$file"
+     and ([$l[] | select(startswith("Squash-merging the session'"'"'s own pull request: ") and contains("--squash"))] | length == 1)' "$file"
+  # The classifier reads these entries as prose, so a reworded entry changes
+  # behaviour; any change to their text must also change the reviewed copy.
+  check "tier-auto-mode-text-$side" "autoMode differs from tests/auto-mode.expected.json" \
+    jq -e --slurpfile want "$repo_dir/tests/auto-mode.expected.json" '.autoMode == $want[0]' "$file"
 }
 check_tiers personal "$work_dir/personal/.claude/settings.json"
 check_tiers work "$work_dir/work/.claude/settings.json"
