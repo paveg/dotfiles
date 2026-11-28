@@ -2,8 +2,10 @@
 # gh, the real binary's store path, so ghtkn never runs this wrapper again;
 # ghtkn itself comes from PATH.
 
-# A caller that already holds a short-lived token, such as CI.
-if [[ -n ${GH_TOKEN-} || -n ${GITHUB_TOKEN-} ]]; then
+# A caller that already holds a short-lived token, such as CI. Blanks are
+# no token.
+caller_token=${GH_TOKEN-}${GITHUB_TOKEN-}
+if [[ -n ${caller_token//[[:space:]]/} ]]; then
   exec "$gh" "$@"
 fi
 

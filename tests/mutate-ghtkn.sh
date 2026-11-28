@@ -32,13 +32,16 @@ mutate_baseline 'the files as committed' "$repo_dir/tests/ghtkn.sh"
 
 wrapper=nix/gh.sh
 expect_caught 'pass-gh-token pass-gh-token-skips-ghtkn' 'the wrapper ignores GH_TOKEN' \
-  "$wrapper" '-n ${GH_TOKEN-} || ' ''
+  "$wrapper" 'caller_token=${GH_TOKEN-}${GITHUB_TOKEN-}' 'caller_token=${GITHUB_TOKEN-}'
 
 expect_caught 'pass-github-token pass-github-token-skips-ghtkn' 'the wrapper ignores GITHUB_TOKEN' \
-  "$wrapper" ' || -n ${GITHUB_TOKEN-}' ''
+  "$wrapper" 'caller_token=${GH_TOKEN-}${GITHUB_TOKEN-}' 'caller_token=${GH_TOKEN-}'
 
-expect_caught empty-gh-token-asks-ghtkn 'an empty GH_TOKEN counts as a token, so gh runs with none' \
-  "$wrapper" '-n ${GH_TOKEN-}' '-v GH_TOKEN'
+expect_caught 'empty-gh-token-asks-ghtkn blank-token-asks-ghtkn' 'an empty GH_TOKEN counts as a token, so gh runs with none' \
+  "$wrapper" 'caller_token=${GH_TOKEN-}' 'caller_token=${GH_TOKEN+set}'
+
+expect_caught blank-token-asks-ghtkn 'a whitespace-only token counts as a token' \
+  "$wrapper" '-n ${caller_token//[[:space:]]/}' '-n $caller_token'
 
 expect_caught app-without-newline 'a gh-app with no trailing newline names no app' \
   "$wrapper" 'read -r app <"$app_file" || :' 'read -r app <"$app_file" || app='

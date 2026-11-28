@@ -129,11 +129,13 @@ is pass-github-token fake-github-token "$(out)"
 ghtkn_not_called pass-github-token-skips-ghtkn
 
 # Otherwise the token comes from ghtkn, for the app gh-app names. An empty
-# GH_TOKEN is no token.
+# or whitespace-only token is no token.
 run_gh "$home" -- auth token
 is ghtkn-token-reaches-gh "stub-ghtkn-token rc=0" "$(out) rc=$(rc)"
 run_gh "$home" GH_TOKEN= -- auth token
 is empty-gh-token-asks-ghtkn "stub-ghtkn-token rc=0" "$(out) rc=$(rc)"
+run_gh "$home" GH_TOKEN=' ' GITHUB_TOKEN=$'\t' -- auth token
+is blank-token-asks-ghtkn "stub-ghtkn-token rc=0" "$(out) rc=$(rc)"
 
 # ghtkn gets the real gh by store path, never the wrapper, and every argument
 # as given: one with a space, and a `--` of gh's own.
