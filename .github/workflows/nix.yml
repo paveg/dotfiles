@@ -1,25 +1,38 @@
 name: nix
 
+# No path filter: every pull request reports nix-passed, so it can be
+# required. The changes job decides whether the steps run; a step runs unless
+# that decision is 'false', so a push, which skips it, runs every step.
 on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - "flake.nix"
-      - "flake.lock"
-      - "docs/design.md"
-      - "home/**"
-      - "hosts/**"
-      - "nix/**"
-      - "tests/**"
-      - ".github/workflows/nix.yml"
 
 permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.inputs.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether the pull request changed an input of this workflow
+        id: inputs
+        if: github.event_name == 'pull_request'
+        env:
+          MUTATE_BASE: origin/${{ github.base_ref }}
+        run: tests/workflow-changed.sh nix >>"$GITHUB_OUTPUT"
+
   darwin:
-    runs-on: macos-latest
+    needs: changes
+    # With every step skipped, the job needs no macOS runner.
+    runs-on: ${{ needs.changes.outputs.changed == 'false' && 'ubuntu-latest' || 'macos-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -27,55 +40,88 @@ jobs:
         host: [personal-mac, work-mac]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.changed != 'false'
         with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        if: needs.changes.outputs.changed != 'false'
       - name: Check the licence of everything ${{ matrix.host }} installs
+        if: needs.changes.outputs.changed != 'false'
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/licenses.sh
       - name: Check that the licence checks fail on a broken copy
+        if: needs.changes.outputs.changed != 'false'
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/mutate-licenses.sh
       - name: Build the ${{ matrix.host }} system
+        if: needs.changes.outputs.changed != 'false'
         env:
           HOST: ${{ matrix.host }}
         run: nix build --no-link ".#darwinConfigurations.${HOST}.system"
       - name: Check what the ${{ matrix.host }} profile gives the host
+        if: needs.changes.outputs.changed != 'false'
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/packages.sh
       - name: Check that the per-user profile checks fail on a broken copy
+        if: needs.changes.outputs.changed != 'false'
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/mutate-packages.sh per-user
       - name: Check that the ${{ matrix.host }} package set fails with another host's packages
+        if: needs.changes.outputs.changed != 'false'
         env:
           DOTFILES_HOST: ${{ matrix.host }}
         run: tests/mutate-packages.sh per-host
 
   wsl:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.changed != 'false'
         with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        if: needs.changes.outputs.changed != 'false'
       - name: Install zsh
+        if: needs.changes.outputs.changed != 'false'
         run: |
           sudo apt-get update
           sudo apt-get install --yes zsh
       - name: Check the licence of everything wsl installs
+        if: needs.changes.outputs.changed != 'false'
         run: tests/licenses.sh
       - name: Check that the licence checks fail on a broken copy
+        if: needs.changes.outputs.changed != 'false'
         run: tests/mutate-licenses.sh
       - name: Build the wsl home configuration
+        if: needs.changes.outputs.changed != 'false'
         run: nix build --no-link ".#homeConfigurations.\"$(nix eval --raw --file hosts/wsl.nix user)@wsl\".activationPackage"
       - name: Check what the wsl profile gives the host
+        if: needs.changes.outputs.changed != 'false'
         run: tests/packages.sh
       - name: Check that the host-independent package checks fail on a broken copy
+        if: needs.changes.outputs.changed != 'false'
         run: tests/mutate-packages.sh common
       - name: Check that the wsl package set fails with another host's packages
+        if: needs.changes.outputs.changed != 'false'
         run: tests/mutate-packages.sh per-host
+
+  nix-passed:
+    if: always()
+    needs: [darwin, wsl]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done

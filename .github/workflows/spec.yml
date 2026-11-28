@@ -1,23 +1,44 @@
 name: spec
 
+# No path filter: every pull request reports tlc. The changes job decides
+# whether its steps run; a step runs unless that decision is 'false', so a
+# push, which skips it, runs every step.
 on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - "spec/**"
-      - ".github/workflows/spec.yml"
 
 permissions:
   contents: read
 
 jobs:
-  tlc:
+  changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.inputs.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether the pull request changed an input of this workflow
+        id: inputs
+        if: github.event_name == 'pull_request'
+        env:
+          MUTATE_BASE: origin/${{ github.base_ref }}
+        run: tests/workflow-changed.sh spec >>"$GITHUB_OUTPUT"
+
+  tlc:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.changed != 'false'
+        with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        if: needs.changes.outputs.changed != 'false'
       - name: Model-check the specs and their mutants
+        if: needs.changes.outputs.changed != 'false'
         run: nix shell nixpkgs#tlaplus18 nixpkgs#python3 --command spec/check.sh
