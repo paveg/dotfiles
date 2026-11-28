@@ -187,7 +187,18 @@ expect_caught "$(each "$all" runs-the-expected-commands)" 'the steps after the c
   '  cd "$checkout"' '  :'
 expect_caught "$(each "$macs" runs-the-expected-commands)" 'the Mac switch runs without sudo' $S \
   '    sudo nix run nix-darwin' '    nix run nix-darwin'
-expect_caught wsl-finishes 'the stubs are left behind the profile after the wsl switch' $S \
+expect_caught "$(each "$macs" puts-the-profile-on-path-behind-the-stubs)" 'the Mac switch leaves the per-user profile off PATH' $S \
+  '    path_prepend "/etc/profiles/per-user/$(id -un)/bin"' '    :'
+# On a Mac switched to this repository, that directory holds the real ghtkn,
+# mise and lefthook, which the copy would run ahead of the stubs.
+[[ ! -d /etc/profiles/per-user/$(id -un)/bin ]] ||
+  mutate_host_lacks="this host has /etc/profiles/per-user/$(id -un)/bin, whose real tools that copy would run"
+expect_caught "$(each "$macs" puts-the-profile-on-path-behind-the-stubs)" 'the per-user profile goes ahead of the stubs' $S \
+  '    path_prepend "/etc/profiles/per-user/$(id -un)/bin"' '    PATH=/etc/profiles/per-user/$(id -un)/bin:$PATH'
+mutate_host_lacks=
+expect_caught wsl-puts-the-profile-on-path-behind-the-stubs 'the wsl switch leaves ~/.nix-profile/bin off PATH' $S \
+  '    path_prepend "$HOME/.nix-profile/bin"' '    :'
+expect_caught 'wsl-finishes wsl-puts-the-profile-on-path-behind-the-stubs' 'the stubs are left behind the profile after the wsl switch' $S \
   '    path_prepend "$HOME/.nix-profile/bin"' '    PATH=$HOME/.nix-profile/bin:$PATH'
 expect_caught "$(each "$all" runs-the-expected-commands)" 'the second switch is skipped' $S \
   'StepSecondSwitch() {

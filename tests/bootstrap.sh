@@ -132,7 +132,8 @@ SH
   # ADR 0004: 111 is ghtkn's exit for a locked or unauthenticated agent.
   stub ghtkn <<<'exit 111'
   stub ssh-add.exe <<<'echo "The agent has no identities." >&2; exit 1'
-  for name in determinate-nixd mise ksm; do stub "$name" </dev/null; done
+  for name in determinate-nixd ksm; do stub "$name" </dev/null; done
+  stub mise <<<'echo "$PATH" >"$case_dir/mise-path"'
   # lefthook install writes an example lefthook.yml where there is none, as
   # 2.2.2 does (docs/design.md, Bootstrap step 10).
   stub lefthook <<<'[ "$1" != install ] || [ -f lefthook.yml ] || echo "# example" >lefthook.yml'
@@ -273,6 +274,14 @@ allowed='\./\.config
 \./repos/github\.com
 \./repos/github\.com/paveg
 \./repos/github\.com/paveg/dotfiles(/.*)?'
+
+# The first entry of the PATH mise ran with, and its first that is not the
+# stubs: this reads the PATH the script hands its commands, not what the
+# profile directory holds, which takes a real switch.
+path_heads() {
+  tr ':' '\n' <"$case_dir/mise-path" | awk -v stubs="$stubs" 'NR == 1 { first = $0 } $0 != stubs && other == "" { other = $0 }
+    END { print first, other }'
+}
 
 # The paths below HOME that are new since <before> and not allowed.
 gained() { # <before>
@@ -485,6 +494,9 @@ for host in personal-mac work-mac wsl; do
   is "$host-installs-runtimes-after-the-last-switch" 'switch switch mise install ' \
     "$(awk '$2 == "nix" && $3 == "run" { print "switch" } $2 == "mise" { print "mise", $3 }' "$log" | tr '\n' ' ')"
   is "$host-records-the-host" "$host" "$(recorded)"
+  profile_bin=/etc/profiles/per-user/$(id -un)/bin
+  [[ $host != wsl ]] || profile_bin=$home/.nix-profile/bin
+  is "$host-puts-the-profile-on-path-behind-the-stubs" "$stubs $profile_bin" "$(path_heads)"
   is "$host-home-gains-only-allowlisted-entries" '' "$(gained "$before")"
   is "$host-keeps-what-was-there" "$kept_before" "$(kept_state)"
   if [[ $host != work-mac ]]; then
