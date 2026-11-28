@@ -332,7 +332,7 @@ Pure evaluation cannot read `~/.config/dots-work/` (absolute paths outside the f
 - A `deny` or `ask` prefix rule matches the order Claude usually writes, not every spelling (`Bash(git push --force *)` misses `git push origin main --force`). What must hold whatever the spelling is enforced elsewhere: branch protection on GitHub, the sandbox, or a guard hook.
 - `Edit(~/.claude/settings.json)` and `Edit(~/.claude/hooks/**)` are denied, and `permissions.disableBypassPermissionsMode` is `"disable"`.
 
-**Permission tiers for unattended runs** ([ADR 0012](adr/0012-permission-tiers-for-unattended-runs.md)). An agent started from Orca's mobile app must not wait on a prompt (goal 9), while irreversible actions stay blocked. `settings.common.json` holds the tiers, so they reach `settings.json` on every host and profile:
+**Permission tiers for unattended runs** ([ADR 0013](adr/0013-permission-tiers-for-unattended-runs.md)). An agent started from Orca's mobile app must not wait on a prompt (goal 9), while irreversible actions stay blocked. `settings.common.json` holds the tiers, so they reach `settings.json` on every host and profile:
 
 | Tier | Holds | Where |
 |---|---|---|

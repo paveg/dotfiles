@@ -1,4 +1,4 @@
-# ADR 0012: Permission tiers for unattended runs
+# ADR 0013: Permission tiers for unattended runs
 
 - Status: Accepted
 - Date: 2026-11-28

@@ -128,7 +128,7 @@ check work-deny-work "a work-only deny rule is missing on the work side" \
 check work-deny-not-personal "a work-only deny rule reached the personal side" \
   jq -e --argjson w "$work_only" '. as $s | $w - $s.permissions.deny == $w' "$work_dir/personal/.claude/settings.json"
 
-# Permission tiers for unattended runs (ADR 0012). A Bash rule is read as the
+# Permission tiers for unattended runs (ADR 0013). A Bash rule is read as the
 # command text with `*` standing for any text, spaces included; a trailing ` *`
 # that is the rule's only wildcard also matches the bare command, and a
 # trailing `:*` means ` *`. Deny, then ask, then allow: the first match
