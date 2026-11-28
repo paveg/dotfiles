@@ -4,8 +4,8 @@
 # command it calls. A human step's stub makes its check pass, uname's stub picks
 # the OS, and DOTFILES_TEST_ROOT, a directory of the case's, stands for / in the
 # Nix profile and systemd paths the script probes, so every host runs on any
-# runner and the runner's own Nix never runs. Each run is detached from the
-# terminal, so a human step stops instead of asking. A trace sourced through
+# runner and the runner's own Nix never runs. Each run but one is detached from
+# the terminal, so a human step stops instead of asking. A trace sourced through
 # BASH_ENV logs each Step* function the script enters, in order with the stubs'
 # calls.
 # Checks:
@@ -28,7 +28,8 @@
 # - with one human step undone the run exits 75 at that step, having run the
 #   steps before it and no more, recorded the host so that a rerun naming the
 #   other Mac is refused, and added only allowed entries, and it finishes once
-#   the step is done;
+#   the step is done; on a terminal a human step asks again until its check
+#   passes;
 # - personal hosts never call ksm or create ~/.config/dots-work/.
 # Usage: tests/bootstrap.sh [script [spec]]   (mutant copies may be given)
 # SC2016: the stub lines and the perl launcher are source for another shell or
@@ -237,15 +238,15 @@ log_through() { # <step> <log
 # Each path below HOME, or below <dir> in it, with its type and mode, a link's
 # target and a regular file's checksum.
 snapshot() { # [<dir>]
-  (cd "$home" && find "./${1-}" | LC_ALL=C sort | while IFS= read -r path; do
+  (cd "$home" && find "./${1-}" | LC_ALL=C sort | while IFS= read -r entry; do
     sum=
-    if [[ -L $path ]]; then
-      sum="-> $(readlink "$path")"
-    elif [[ -f $path ]]; then
-      sum=$(cksum <"$path")
+    if [[ -L $entry ]]; then
+      sum="-> $(readlink "$entry")"
+    elif [[ -f $entry ]]; then
+      sum=$(cksum <"$entry")
     fi
     # shellcheck disable=SC2012 # the mode string, which BSD and GNU stat print differently
-    echo "$(ls -ld "$path" | cut -c1-10) $path $sum"
+    echo "$(ls -ld "$entry" | cut -c1-10) $entry $sum"
   done)
 }
 
@@ -541,6 +542,56 @@ for host in personal-mac work-mac wsl; do
     is "$host-resumes-after-$step" "0 $(expected_log "$host")" "$status $(cat "$log")"
   done
 done
+
+# On a terminal, a human step asks until its check passes: Enter with the step
+# undone asks again, and Enter once it is done goes on. The driver gives the
+# run a new terminal, answers each "press Enter" prompt, on every second
+# answer first moving the stub that does the next step into place, and kills
+# the run after 60 seconds.
+new_case wsl-on-a-terminal wsl
+stubs=$case_dir/done
+mkdir -p "$stubs"
+stub ssh-add.exe <<<"echo '256 SHA256:stub stub-key (ED25519)'"
+stub ghtkn </dev/null
+stubs=$case_dir/stubs
+cat >"$case_dir/terminal.py" <<'PY'
+import os, pty, select, sys, time
+home, script, done, stubs, names = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5].split()
+command = sys.argv[sys.argv.index("--") + 1:]
+pid, fd = pty.fork()
+if pid == 0:
+    os.chdir(home)
+    os.dup2(os.open(script, os.O_RDONLY), 0)
+    os.execv(command[0], command)
+deadline, seen, prompts = time.monotonic() + 60, b"", 0
+while True:
+    if not select.select([fd], [], [], max(0, deadline - time.monotonic()))[0]:
+        os.kill(pid, 9)
+        print("timed out,", end=" ")
+        break
+    try:
+        chunk = os.read(fd, 1024)
+    except OSError:  # EIO on Linux once the run has closed the terminal
+        chunk = b""
+    if not chunk:
+        break
+    seen += chunk
+    while b"press Enter" in seen:
+        seen = seen.split(b"press Enter", 1)[1]
+        if prompts % 2 and prompts // 2 < len(names):
+            name = names[prompts // 2]
+            os.rename(os.path.join(done, name), os.path.join(stubs, name))
+        prompts += 1
+        os.write(fd, b"\n")
+print(f"exit {os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1])}, {prompts} prompts")
+PY
+: >"$log"
+terminal=$(python3 "$case_dir/terminal.py" "$home" "$script" "$case_dir/done" "$stubs" 'ssh-add.exe ghtkn' -- \
+  /usr/bin/env -i HOME="$home" PATH="$path" DOTFILES_TEST_STUB_DIR="$stubs" DOTFILES_TEST_ROOT="$case_dir/root" \
+  BASH_ENV="$bash_env" /bin/bash -s -- wsl)
+is wsl-on-a-terminal-asks-until-each-check-passes \
+  "exit 0, 4 prompts $(expected_log wsl | awk '{ print } / ssh-add.exe -l$| ghtkn exec -- true$/ { print; print }')" \
+  "$terminal $(cat "$log")"
 
 echo "summary: $checks checks, $failures failed"
 ((failures == 0))

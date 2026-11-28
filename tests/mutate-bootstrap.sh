@@ -133,6 +133,13 @@ expect_caught 'personal-mac-waits-at-StepSignIn work-mac-waits-at-StepWorkProfil
   'a human step does not check its result' $S 'until "$@" >/dev/null 2>&1; do' 'until true; do'
 expect_caught 'personal-mac-waits-at-StepSignIn work-mac-waits-at-StepWorkProfile wsl-waits-at-StepGhtknAuth' \
   'a human step with no terminal goes on' $S '      wait_for_person "$what"' '      break'
+expect_caught wsl-on-a-terminal-asks-until-each-check-passes 'a human step on a terminal asks once' $S \
+  'until "$@" >/dev/null 2>&1; do' 'if ! "$@" >/dev/null 2>&1; then' \
+  '      wait_for_person "$what"
+  done' '      wait_for_person "$what"
+  fi'
+expect_caught wsl-on-a-terminal-asks-until-each-check-passes 'a prompt reads stdin, not the terminal' $S \
+  'read -r _ </dev/tty' 'read -r _'
 expect_caught "$(each "$macs" waits-at-StepSignIn)" 'the 1Password agent socket is not checked' $S \
   'else [[ -S $agent_socket ]]; fi' 'else true; fi'
 expect_caught 'wsl-waits-at-StepSignIn wsl-runs-the-expected-commands' 'ssh-add.exe is not asked for a key' $S \
