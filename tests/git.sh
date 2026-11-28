@@ -4,7 +4,10 @@
 # one under the work org's directory, spelled in either case or reached through
 # a symlinked ~/repos, or a linked worktree of one wherever it lives, resolves
 # the work profile's, and commits are signed through 1Password's signer for
-# the OS. The work side comes from <work-profile-dir> (default
+# the OS. Work repositories, and only they, ask ghtkn for HTTPS credentials on
+# GitHub, with the repository owner, ahead of any system helper, and the work
+# ghtkn.yaml defines the app gh-app names and gives it the work org's pushes.
+# The work side comes from <work-profile-dir> (default
 # profiles/work.example/), placed where the work profile lives on work-mac.
 # tests/packages.sh checks that the built configuration links these files.
 # Repositories are set up with no global config, so only the queries read the
@@ -243,6 +246,65 @@ is signing-program-wsl op-ssh-sign-wsl.exe \
   "$(config_at "$bare" "$bare/repos/github.com/$work_org/app" gpg.ssh.program)"
 is ssh-command-darwin "" "$(config_at "$home" "$personal_repo" core.sshCommand)"
 is ssh-command-wsl ssh.exe "$(config_at "$bare" "$bare/repos/github.com/$work_org/app" core.sshCommand)"
+
+# Work repositories fetch and push over HTTPS with a ghtkn token, through the
+# helper the work profile sets, and nothing else asks ghtkn. A stub ghtkn
+# first on PATH records what git sends it and answers with a fake password.
+stub_dir=$work_dir/stub
+helper_log=$work_dir/ghtkn-helper.log
+mkdir -p "$stub_dir"
+cat >"$stub_dir/ghtkn" <<STUB
+#!/bin/sh
+echo "args: \$*" >'$helper_log'
+cat >>'$helper_log'
+echo username=x-access-token
+echo password=stub-ghtkn-password
+STUB
+chmod +x "$stub_dir/ghtkn"
+# What git asks the helpers before a fetch or push, with no terminal to fall
+# back on; the password line is what it would send. <system-config> stands in
+# for a system gitconfig, such as Apple's, which sets a helper of its own.
+password_for() { # <home> <dir> <host> <path> [<system-config>]
+  local system_config=(GIT_CONFIG_NOSYSTEM=1)
+  [[ -n ${5-} ]] && system_config=(GIT_CONFIG_SYSTEM="$5")
+  rm -f "$helper_log"
+  printf 'protocol=https\nhost=%s\npath=%s\n\n' "$3" "$4" |
+    (cd "$2" && env -i HOME="$1" PATH="$stub_dir:/usr/bin:/bin" GIT_TERMINAL_PROMPT=0 "${system_config[@]}" \
+      "$git_bin" credential fill 2>/dev/null) | sed -n 's/^password=//p'
+}
+helper_calls() {
+  if [[ -e $helper_log ]]; then tr '\n' ' ' <"$helper_log" | sed 's/ $//'; fi
+}
+
+is work-credential-from-ghtkn stub-ghtkn-password "$(password_for "$home" "$work_repo" github.com "$work_org/app.git")"
+# With useHttpPath, ghtkn gets the owner that ghtkn.yaml's git_owners maps to
+# the write app; without it, the read app GHTKN_APP names.
+is work-credential-sends-owner \
+  "args: git-credential get protocol=https host=github.com path=$work_org/app.git" "$(helper_calls)"
+printf '[credential]\n  helper = "!f() { echo username=decoy; echo password=decoy-password; }; f"\n' \
+  >"$work_dir/system-helper.gitconfig"
+is work-credential-drops-system-helper stub-ghtkn-password \
+  "$(password_for "$home" "$work_repo" github.com "$work_org/app.git" "$work_dir/system-helper.gitconfig")"
+is work-credential-other-host-skips-ghtkn "" \
+  "$(password_for "$home" "$work_repo" gitlab.example.com "$work_org/app.git")$(helper_calls)"
+is personal-credential-skips-ghtkn "" \
+  "$(password_for "$home" "$personal_repo" github.com paveg/dotfiles.git)$(helper_calls)"
+
+# The app gh uses is defined, and pushes to the work org get that same write
+# app through git_owners.
+work_ghtkn=$profile_src/ghtkn/ghtkn.yaml
+gh_app=$(cat "$profile_src/ghtkn/gh-app" 2>/dev/null)
+if [[ -n $gh_app ]] && grep -qxF "  - name: $gh_app" "$work_ghtkn"; then
+  ok work-ghtkn-gh-app-defined
+else
+  fail work-ghtkn-gh-app-defined "gh-app names '$gh_app', which $work_ghtkn does not define"
+fi
+owner_app=$(awk -v org="$work_org" '
+  /^  - name: / { name = $3; owners = 0; next }
+  /^    git_owners:/ { owners = 1; next }
+  owners && /^      - / { if ($2 == org) print name; next }
+  { owners = 0 }' "$work_ghtkn" 2>&1)
+is work-ghtkn-push-app "$gh_app" "$owner_app"
 
 echo "summary: $checks checks, $failures failed (git $("$git_bin" --version), home $home_src)"
 if ((failures > 0)); then exit 1; fi

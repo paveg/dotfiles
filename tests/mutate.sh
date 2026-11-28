@@ -26,6 +26,23 @@ run_mutant() { # <dir> <check>... <file> <old> <new>
   mutate_checks_failed "$out" $checks
 }
 
+# <file> is relative to a copy of profiles/work.example/, the work profile.
+run_profile_mutant() { # <dir> <check>... <file> <old> <new>
+  local dir=$1 checks=$2 file=$3 old=$4 new=$5 out
+  mkdir -p "$dir/home" "$dir/profile"
+  cp -R "$repo_dir/home/." "$dir/home/"
+  cp -R "$repo_dir/profiles/work.example/." "$dir/profile/"
+  mutate_apply "$dir/profile/$file" "$old" "$new" || return
+  out=$("$repo_dir/tests/shell.sh" "$dir/home" "$dir/profile" 2>&1) || true
+  mutate_has_summary "$out" || return
+  # shellcheck disable=SC2086 # one check name per word
+  mutate_checks_failed "$out" $checks
+}
+
+expect_profile_caught() { # <check>... <description> <file> <old> <new>
+  mutant "$2" run_profile_mutant "$1" "$3" "$4" "$5"
+}
+
 # Login and interactive shells read /etc files that differ between macOS and
 # Ubuntu, and tests/shell.sh branches on uname for the locale checks, so the
 # mutants those checks grade run on macOS too.
@@ -50,7 +67,7 @@ etc_reorders_login_path() {
   [[ $reordered == 1 ]]
 }
 
-mutate_inputs home tests/shell.sh tests/packages.sh tests/mutate.sh tests/lib/
+mutate_inputs home profiles/work.example tests/shell.sh tests/packages.sh tests/mutate.sh tests/lib/
 mutate_baseline 'the files as committed' "$repo_dir/tests/shell.sh"
 
 expect_caught zdotdir 'ZDOTDIR is never set' \
@@ -263,6 +280,26 @@ expect_caught caller-static-env-from-home-config \
   .config/zsh/.zshenv \
   $'if [[ -r $HOME/.config/dots-work/env/static.env ]]; then\n  source $HOME/.config/dots-work/env/static.env' \
   $'if [[ -r $XDG_CONFIG_HOME/dots-work/env/static.env ]]; then\n  source $XDG_CONFIG_HOME/dots-work/env/static.env'
+
+expect_caught never-set-GITHUB_TOKEN 'every shell exports a GITHUB_TOKEN, so aqua ignores ghtkn' \
+  .config/zsh/.zshenv 'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin' \
+  $'export ATUIN_CONFIG_DIR=$XDG_CONFIG_HOME/atuin\nexport GITHUB_TOKEN=placeholder'
+
+static_env=env/static.env
+expect_profile_caught work-aqua-ghtkn-enabled 'work-mac shells never let aqua use ghtkn' \
+  "$static_env" $'export AQUA_GHTKN_ENABLED=true\n' ''
+
+expect_profile_caught work-aqua-ghtkn-enabled 'AQUA_GHTKN_ENABLED is set but not exported, so aqua never sees it' \
+  "$static_env" 'export AQUA_GHTKN_ENABLED=true' 'AQUA_GHTKN_ENABLED=true'
+
+expect_profile_caught work-ghtkn-app-defined 'GHTKN_APP names an app the work ghtkn.yaml does not define' \
+  "$static_env" 'export GHTKN_APP=example-org/read' 'export GHTKN_APP=example-org/reader'
+
+expect_profile_caught never-set-AQUA_GITHUB_TOKEN 'the work profile exports AQUA_GITHUB_TOKEN, so aqua ignores ghtkn' \
+  "$static_env" 'export AQUA_GHTKN_ENABLED=true' $'export AQUA_GHTKN_ENABLED=true\nexport AQUA_GITHUB_TOKEN=placeholder'
+
+expect_profile_caught never-set-AQUA_KEYRING_ENABLED 'the work profile turns on aqua'"'"'s keyring, so aqua ignores ghtkn' \
+  "$static_env" 'export AQUA_GHTKN_ENABLED=true' $'export AQUA_GHTKN_ENABLED=true\nexport AQUA_KEYRING_ENABLED=true'
 
 expect_caught 'nonlogin-quiet-stderr login-quiet-stderr' \
   'the work profile is sourced even when it does not exist' \
