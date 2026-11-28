@@ -60,8 +60,17 @@ if runs common; then
     'the syntax-highlighting plugin is dropped from the list' \
     nix/packages.nix $'    zsh-syntax-highlighting\n' ''
 
-  expect_caught 'package-names' 'the real gh is added, which the wrapper needs the name of' \
+  expect_caught 'package-names' 'the real gh is added next to the wrapper, which needs its name' \
     nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    gh\n  ]\n'
+
+  expect_caught gh-is-wrapper 'the real gh is installed in place of the wrapper' \
+    nix/vaults.nix 'home.packages = [ builds.gh ];' 'home.packages = [ pkgs.gh ];'
+
+  expect_caught 'bin-gh zsh-gh package-names gh-is-wrapper' 'the gh wrapper is not installed' \
+    nix/vaults.nix $'  home.packages = [ builds.gh ];\n' ''
+
+  expect_caught completion-gh 'the wrapper brings no zsh completion' \
+    nix/ghtkn.nix $'        ln -s ${pkgs.gh}/share/zsh/site-functions/_gh $out/share/zsh/site-functions/_gh\n' ''
 
   expect_caught 'package-names' 'a language runtime is installed globally' \
     nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    nodejs\n  ]\n'
@@ -175,6 +184,27 @@ if runs per-host; then
 
     expect_caught package-names 'peco moves into the list every host gets' \
       nix/packages.nix $'    atuin\n  ]\n' $'    atuin\n    peco\n  ]\n'
+  fi
+
+  personal_app_link='{ "ghtkn/gh-app".source = linkHome ".config/ghtkn/gh-app.personal"; }'
+  if [[ $host == work-mac ]]; then
+    expect_caught 'link-.config/ghtkn/ghtkn.yaml link-.config/ghtkn/gh-app' \
+      'work-mac links the personal app instead of the work profile'"'"'s files' \
+      nix/vaults.nix 'if host.profile == "work" then' 'if false then'
+
+    expect_caught 'link-.config/ghtkn/ghtkn.yaml link-.config/ghtkn/gh-app' \
+      'work-mac links the ghtkn files from outside the work profile'"'"'s ghtkn directory' \
+      nix/vaults.nix '/.config/dots-work/ghtkn/${name}' '/.config/dots-work/${name}'
+  else
+    expect_caught link-.config/ghtkn/gh-app "$host gives gh no app" \
+      nix/vaults.nix "$personal_app_link" '{ }'
+
+    expect_caught 'link-.config/ghtkn/gh-app not-linked-.config/ghtkn/ghtkn.yaml' \
+      "$host links the work profile's ghtkn files" \
+      nix/vaults.nix 'if host.profile == "work" then' 'if true then'
+
+    expect_caught real-dir-.config/ghtkn "$host links the ghtkn directory as a whole, so ghtkn.yaml lands in the checkout" \
+      nix/vaults.nix "$personal_app_link" '{ "ghtkn".source = linkHome ".config/ghtkn"; }'
   fi
 
   ssh_line='home.file.".ssh/config" = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin { source = ./ssh_config; };'

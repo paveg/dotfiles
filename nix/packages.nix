@@ -1,8 +1,8 @@
 { pkgs, host, ... }:
 {
   # The global CLI set and the zsh plugins, from docs/design.md "Packages",
-  # then the host's own. `gh` is absent on purpose: it becomes an executable
-  # wrapper around ghtkn, not a package.
+  # then the host's own. `gh` is absent on purpose: nix/vaults.nix installs the
+  # executable wrapper around ghtkn under that name.
   home.packages = with pkgs; [
     claude-code
     git

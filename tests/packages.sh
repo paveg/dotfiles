@@ -4,7 +4,10 @@
 # by name only, every global CLI tool is in the home-manager profile and wins
 # over /usr/bin, the profile that PATH names serves that same profile and the
 # zsh plugins, the zsh, mise, atuin and git directories are real directories
-# whose files link into the checkout, the ssh config is a store copy on macOS
+# whose files link into the checkout, the gh there is the wrapper that
+# tests/ghtkn.sh checks and brings gh's zsh completion, ~/.config/ghtkn is a
+# real directory whose files come from the checkout on personal hosts and from
+# the work profile on work-mac, the ssh config is a store copy on macOS
 # alone, the global mise config refuses the asdf backend, the built atuin
 # accepts the atuin config, and on macOS the switch sets the launchd variables
 # for GUI apps and the generated /etc/zshrc leaves completion and the prompt to
@@ -25,17 +28,17 @@ zsh_bin=${ZSH_BIN:-$(command -v zsh)}
 nix_bin=(nix --extra-experimental-features 'nix-command flakes')
 
 # Command names, not package names: what a caller types is the behaviour under
-# test. `gh` is not here; it becomes a wrapper in a later change.
+# test. `gh` is the wrapper around ghtkn.
 commands=(
-  claude git ghq fzf rg fd bat eza zoxide jq nvim just lazygit lefthook gitleaks
+  claude git gh ghq fzf rg fd bat eza zoxide jq nvim just lazygit lefthook gitleaks
   kubectl helm k9s stern ghtkn mise uv rustup elan atuin
 )
-# The same set by nixpkgs attribute name, from docs/design.md "Packages", so a
-# package that ships no command of its own is still accounted for. `gh` is
-# absent on purpose: the wrapper takes that name, and the package would collide
-# with it.
+# The same set by name, from docs/design.md "Packages", so a package that ships
+# no command of its own is still accounted for. `gh` is the wrapper that
+# nix/ghtkn.nix builds under nixpkgs' name; the real package would collide with
+# it, and gh-is-wrapper tells the two apart.
 packages=(
-  claude-code git ghq fzf ripgrep fd bat eza zoxide zsh-autosuggestions
+  claude-code git gh ghq fzf ripgrep fd bat eza zoxide zsh-autosuggestions
   zsh-syntax-highlighting jq neovim just lazygit lefthook gitleaks
   kubectl kubernetes-helm k9s stern ghtkn mise uv rustup elan atuin
 )
@@ -66,7 +69,18 @@ linked_files=(
   .config/mise/config.toml .config/atuin/config.toml
   .config/git/config .config/git/ignore .config/git/personal.gitconfig
 )
-real_dirs=(.config/zsh .config/mise .config/atuin .config/git)
+real_dirs=(.config/zsh .config/mise .config/atuin .config/git .config/ghtkn)
+# What gh and ghtkn read from ~/.config/ghtkn: the personal hosts link the app
+# for gh from the checkout and render ghtkn.yaml themselves, and work-mac links
+# both from the work profile, whose canonical copy lives in ~/.config/dots-work.
+if [[ $host == work-mac ]]; then
+  work_profile_links=(.config/ghtkn/ghtkn.yaml:ghtkn/ghtkn.yaml .config/ghtkn/gh-app:ghtkn/gh-app)
+  not_linked=()
+else
+  linked_files+=(.config/ghtkn/gh-app:.config/ghtkn/gh-app.personal)
+  work_profile_links=()
+  not_linked=(.config/ghtkn/ghtkn.yaml)
+fi
 # launchd.user.envVariables on macOS, as <name>=<value>.
 launchd_vars=(ORCA_TELEMETRY_DISABLED=1 HOMEBREW_NO_ANALYTICS=1)
 # <link>:<file under home/>, where the file that is linked depends on the OS.
@@ -269,7 +283,19 @@ if [[ -n ${path_profile-} ]]; then
       fail "plugin-$plugin" "$path_profile/share/$plugin/$plugin.zsh is not readable"
     fi
   done
+  # The one compinit in .zshrc reads each profile's site-functions, so the
+  # wrapper has to bring gh's completion there.
+  got=$(env -i HOME="$zsh_home" TERM=dumb PATH=/usr/bin:/bin "$zsh_bin" -fc \
+    "fpath=($path_profile/share/zsh/site-functions \$fpath); autoload -Uz compinit; compinit -D -u; print -r -- \${_comps[gh]-none}" \
+    2>"$work_dir/zsh.err")
+  is completion-gh _gh "$got"
 fi
+
+# The gh in the profile is the wrapper tests/ghtkn.sh checks, built once: the
+# real gh has the same name, so package-names cannot tell the two apart.
+nix_system=$("${nix_bin[@]}" eval --raw --file "$repo_dir/hosts/$host.nix" system 2>"$work_dir/system-name.err")
+wrapper=$(build_attr "packages.$nix_system.gh" wrapper)
+is gh-is-wrapper "${wrapper:-no wrapper built}/bin/gh" "$(readlink "$profile/bin/gh" 2>>"$work_dir/readlink.err")"
 
 if [[ -n $home_files ]]; then
   for dir in "${real_dirs[@]}"; do
@@ -288,6 +314,20 @@ if [[ -n $home_files ]]; then
     store_link=$(readlink "$home_files/$path" 2>>"$work_dir/readlink.err")
     target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
     is "link-$path" "$checkout/home/$source" "$target"
+  done
+  for entry in ${work_profile_links[@]+"${work_profile_links[@]}"}; do
+    path=${entry%%:*} source=${entry#*:}
+    store_link=$(readlink "$home_files/$path" 2>>"$work_dir/readlink.err")
+    target=$(readlink "$store_link" 2>>"$work_dir/readlink.err") || target=$store_link
+    is "link-$path" "$home_dir/.config/dots-work/$source" "$target"
+  done
+  # A file the host writes itself must not be a link that home-manager owns.
+  for path in ${not_linked[@]+"${not_linked[@]}"}; do
+    if [[ -e $home_files/$path || -L $home_files/$path ]]; then
+      fail "not-linked-$path" "home-manager links it: $(ls -ld "$home_files/$path" 2>&1)"
+    else
+      ok "not-linked-$path"
+    fi
   done
   # The ssh config is a store copy, not a link into the checkout, and only on
   # macOS: wsl hands ssh to Windows.
