@@ -43,6 +43,20 @@ expect_caught 'empty-gh-token-asks-ghtkn blank-token-asks-ghtkn' 'an empty GH_TO
 expect_caught blank-token-asks-ghtkn 'a whitespace-only token counts as a token' \
   "$wrapper" '-n ${caller_token//[[:space:]]/}' '-n $caller_token'
 
+expect_caught 'token-free-no-argument token-free--h token-free---help token-free-help token-free---version
+  token-free-version token-free-completion token-free-__complete token-free-__completeNoDesc token-free-config
+  token-free-alias zsh-completes-without-token' 'what needs no token still waits for ghtkn' \
+  "$wrapper" $'  exec "$gh" "$@"\n  ;;' $'  :\n  ;;'
+
+expect_caught 'token-free-__complete zsh-completes-without-token' 'shell completion asks ghtkn, so zsh offers nothing while the agent is locked' \
+  "$wrapper" ' __complete |' ''
+
+expect_caught token-free---version 'gh --version asks ghtkn' \
+  "$wrapper" ' --version |' ''
+
+expect_caught extension-asks-ghtkn 'extensions run with no token' \
+  "$wrapper" '| alias)' '| alias | extension)'
+
 expect_caught app-without-newline 'a gh-app with no trailing newline names no app' \
   "$wrapper" 'read -r app <"$app_file" || :' 'read -r app <"$app_file" || app='
 

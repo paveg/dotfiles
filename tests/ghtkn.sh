@@ -4,8 +4,10 @@
 # ghtkn and no real op: each run is `env -i` with a throwaway HOME and stubs
 # first on PATH. The stub ghtkn records its arguments and runs the command it
 # is handed with a fake token, and the real gh answers `gh auth token` with
-# whatever token reached it. With GH_TOKEN or GITHUB_TOKEN set the wrapper
-# runs the real gh directly; otherwise it asks ghtkn for the app that
+# whatever token reached it. With a non-blank GH_TOKEN or GITHUB_TOKEN, and for
+# what gh runs without a token (help, the version, completion, config, alias),
+# the wrapper runs the real gh directly, which zsh's _gh then completes with;
+# otherwise it asks ghtkn for the app that
 # ~/.config/ghtkn/gh-app names, hands it the real gh rather than itself with
 # every argument intact, keeps the exit status, says how to unlock the agent on
 # 111, and refuses to run without an app. The render step writes the file
@@ -153,6 +155,40 @@ else
 fi
 run_gh "$home" STUB_GHTKN_EXIT=3 -- pr list
 is other-status-kept "3 ''" "$(rc) '$(err)'"
+
+# What gh runs without a token skips ghtkn, so a locked agent cannot stop it:
+# help, the version, shell completion, config and aliases. Extensions may call
+# the API, so they still ask ghtkn.
+for word in '' -h --help help --version version completion __complete __completeNoDesc config alias; do
+  args=(${word:+"$word"})
+  [[ $word == __complete* ]] && args+=(pr '')
+  run_gh "$home" STUB_GHTKN_EXIT=111 -- ${args[@]+"${args[@]}"}
+  if [[ $(rc) == 0 && ! -e $stub_log ]]; then
+    ok "token-free-${word:-no-argument}"
+  else
+    fail "token-free-${word:-no-argument}" "rc $(rc), stderr: $(err)"
+  fi
+done
+run_gh "$home" STUB_GHTKN_EXIT=111 -- extension list
+is extension-asks-ghtkn 111 "$(rc)"
+
+# zsh's _gh runs `gh __complete` on each Tab with its stderr dropped, so with
+# the agent locked it must still offer gh's commands.
+zsh_bin=$(command -v zsh) || die "no zsh on PATH"
+cat >"$work_dir/complete.zsh" <<'ZSH'
+fpath=("$1" $fpath)
+autoload -Uz compinit && compinit -u -D
+_describe() { print -rl -- "${completions[@]}"; }
+words=(gh pr '') CURRENT=3
+_gh
+ZSH
+(cd "$work_dir" && env -i HOME="$home" PATH="$stub_dir:${wrapper%/*}:/usr/bin:/bin" STUB_GHTKN_EXIT=111 \
+  "$zsh_bin" -f "$work_dir/complete.zsh" "${wrapper%/bin/gh}/share/zsh/site-functions" >"$work_dir/complete.out" 2>&1)
+if grep -q '^list:' "$work_dir/complete.out"; then
+  ok zsh-completes-without-token
+else
+  fail zsh-completes-without-token "output: $(tr '\n' ' ' <"$work_dir/complete.out" | cut -c1-300)"
+fi
 
 # ghtkn reads its files under XDG_CONFIG_HOME, and so does the wrapper.
 xdg_home=$(new_home xdg-home)

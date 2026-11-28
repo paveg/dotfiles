@@ -9,6 +9,14 @@ if [[ -n ${caller_token//[[:space:]]/} ]]; then
   exec "$gh" "$@"
 fi
 
+# gh needs no token for these, and zsh's _gh runs `gh __complete` on each Tab.
+# The cost: completions that call the API, such as `pr create --reviewer`, get none.
+case ${1-} in
+'' | -h | --help | help | --version | version | completion | __complete | __completeNoDesc | config | alias)
+  exec "$gh" "$@"
+  ;;
+esac
+
 # Without a name, ghtkn would pick an app itself: on work-mac the read app.
 app_file=${XDG_CONFIG_HOME:-$HOME/.config}/ghtkn/gh-app
 app=
