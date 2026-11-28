@@ -3,8 +3,10 @@
 # throwaway homes under `env -i`, with a PATH that starts with a stub for every
 # command it calls. A human step's stub makes its check pass, and uname's stub
 # picks the OS, so every host runs on any runner. Each run is detached from the
-# terminal, so a human step stops instead of asking. Checks: a complete run takes
-# spec/bootstrap.tla's step actions in the model's order; a missing, unknown,
+# terminal, so a human step stops instead of asking. A trace sourced through
+# BASH_ENV logs each Step* function the script enters, in order with the stubs'
+# calls. Checks: a complete run enters spec/bootstrap.tla's step actions in the
+# model's order and no other Step* function; a missing, unknown,
 # wrong-OS or unrecorded host exits 2 and changes nothing; each host runs the
 # expected commands, mise install last of them after the switches, and records
 # itself; a second run changes nothing; with one human step undone the run
@@ -43,17 +45,28 @@ is() { # <name> <want> <got>
   if [[ $3 == "$2" ]]; then ok "$1"; else fail "$1" "want '$2', got '$3'"; fi
 }
 
-# A stub that appends "<cwd, with HOME as ~> <name> <args>" to the case's calls
-# log, then runs the body on stdin. It finds the case directory from its own
-# path, so it needs nothing from the environment `env -i` clears.
+# A stub that appends "<cwd, with HOME as ~> <name> <args>" to the case's log,
+# then runs the body on stdin. It finds the case directory from its own path,
+# so it needs nothing from the environment `env -i` clears.
 stub() { # <name> <body
   {
     echo '#!/bin/sh'
     echo 'case_dir=${0%/*}/..'
-    echo "echo \"~\${PWD#\"\$HOME\"} $1 \$*\" >>\"\$case_dir/calls\""
+    echo "echo \"~\${PWD#\"\$HOME\"} $1 \$*\" >>\"\$case_dir/log\""
     cat
   } >"$stubs/$1"
   chmod +x "$stubs/$1"
+}
+
+# Sourced through BASH_ENV before the script: appends "step <name>" to the log
+# on entry to any function named Step*, so a step run outside the step list
+# shows too. The depth of FUNCNAME tells an entry from the function's later
+# commands.
+trace() { # >file
+  echo 'set -T'
+  echo "trap 'if [[ -z \${FUNCNAME[0]-} ]]; then trace_depth=0; else
+  if ((\${#FUNCNAME[@]} > trace_depth)) && [[ \${FUNCNAME[0]} == Step* ]]; then echo \"step \${FUNCNAME[0]}\" >>\"$log\"; fi
+  trace_depth=\${#FUNCNAME[@]}; fi' DEBUG"
 }
 
 # A fresh case: a throwaway HOME, a stub for every command the script calls,
@@ -66,8 +79,9 @@ new_case() { # <name> <host>
   local os=Darwin name
   [[ $2 != wsl ]] || os=Linux
   case_dir=$work_dir/$1
-  home=$case_dir/home stubs=$case_dir/stubs calls=$case_dir/calls
+  home=$case_dir/home stubs=$case_dir/stubs log=$case_dir/log
   mkdir -p "$home" "$stubs" "$case_dir/decoys/bin"
+  trace >"$case_dir/trace.bash"
   printf '#!/bin/sh\necho %s\n' "$os" >"$stubs/uname"
   chmod +x "$stubs/uname"
   stub nix <<'SH'
@@ -98,7 +112,7 @@ SH
   stub ssh-add.exe <<<'echo "The agent has no identities." >&2; exit 1'
   for name in determinate-nixd mise lefthook ksm; do stub "$name" </dev/null; done
   for name in mise ghtkn lefthook; do
-    printf '#!/bin/sh\necho "decoy %s $*" >>"%s"\nexit 1\n' "$name" "$calls" >"$case_dir/decoys/bin/$name"
+    printf '#!/bin/sh\necho "decoy %s $*" >>"%s"\nexit 1\n' "$name" "$log" >"$case_dir/decoys/bin/$name"
     chmod +x "$case_dir/decoys/bin/$name"
   done
 }
@@ -144,17 +158,19 @@ do_human_steps() { # <host> [<step to leave undone>]
 
 # Run the script from HOME, piped in as from curl, under env -i, in a new
 # session with no controlling terminal. Sets status and out, and empties the
-# calls log first.
+# log first.
 run() { # <arg>...
   local launcher='if (my $pid = fork) { waitpid $pid, 0; exit($? & 127 ? 128 + ($? & 127) : $? >> 8) }
     POSIX::setsid(); exec @ARGV or die "exec: $!\n"'
-  : >"$calls"
+  : >"$log"
   status=0
   out=$(cd "$home" && cat "$script" | env -i HOME="$home" PATH="$stubs:$base_path" DOTFILES_TEST_STUB_DIR="$stubs" \
-    /usr/bin/perl -MPOSIX -e "$launcher" /bin/bash -s -- "$@" 2>&1) || status=$?
+    BASH_ENV="$case_dir/trace.bash" /usr/bin/perl -MPOSIX -e "$launcher" /bin/bash -s -- "$@" 2>&1) || status=$?
 }
 
-steps_run() { sed -n 's/^bootstrap: step [0-9]*: //p' <<<"$out"; }
+steps_run() { sed -n 's/^step //p' "$log"; }
+last_step() { steps_run | tail -n 1; }
+log_lines() { tr '\n' ';' <"$log"; }
 
 # Each path below HOME with its type and mode, and a regular file's checksum.
 snapshot() {
@@ -179,7 +195,9 @@ model_steps() {
   done | sort -n | cut -d' ' -f2
 }
 
-expected_calls() { # <host>
+# The log of a complete run: each step as it is entered, then the commands it
+# runs.
+expected_log() { # <host>
   local co='~/repos/github.com/paveg/dotfiles' switch
   if [[ $1 == wsl ]]; then
     switch="$co nix eval --raw --file hosts/wsl.nix user
@@ -188,24 +206,34 @@ $co nix run home-manager -- switch --flake .#ryota@wsl"
     switch="$co sudo nix run nix-darwin -- switch --flake .#$1
 $co nix run nix-darwin -- switch --flake .#$1"
   fi
+  echo 'step StepCheckHost'
+  echo 'step StepInstallNix'
+  echo 'step StepRecordHost'
+  echo 'step StepClone'
   echo '~ nix shell nixpkgs#git nixpkgs#ghq -c ghq get https://github.com/paveg/dotfiles'
   echo '~ ghq get https://github.com/paveg/dotfiles'
+  echo 'step StepFirstSwitch'
   echo "$switch"
+  echo 'step StepSignIn'
   [[ $1 != wsl ]] || echo "$co ssh-add.exe -l"
+  echo 'step StepWorkProfile'
+  echo 'step StepSecondSwitch'
   echo "$switch"
   echo "$co mise install"
+  echo 'step StepGhtknAuth'
   echo "$co ghtkn exec -- true"
+  echo 'step StepInstallHooks'
   echo "$co lefthook install"
 }
 
-# Exit 2 with no command run and nothing below HOME changed.
+# Exit 2 with only the host check run and nothing below HOME changed.
 expect_refused() { # <name> <arg>...
   local name=$1 before changed=unchanged
   shift
   before=$(snapshot)
   run "$@"
   [[ $(snapshot) == "$before" ]] || changed=changed
-  is "$name" 'exit 2, calls: , home unchanged' "exit $status, calls: $(tr '\n' ';' <"$calls"), home $changed"
+  is "$name" 'exit 2, log: step StepCheckHost;, home unchanged' "exit $status, log: $(log_lines), home $changed"
 }
 
 model=$(model_steps)
@@ -228,7 +256,7 @@ new_case upstream-nix personal-mac
 do_human_steps personal-mac
 rm "$stubs/determinate-nixd"
 run personal-mac
-is personal-mac-stops-on-upstream-nix '75 StepInstallNix' "$status $(steps_run | tail -n 1)"
+is personal-mac-stops-on-upstream-nix '75 StepInstallNix' "$status $(last_step)"
 
 for host in personal-mac work-mac wsl; do
   new_case "$host" "$host"
@@ -238,14 +266,14 @@ for host in personal-mac work-mac wsl; do
   is "$host-finishes" 0 "$status"
   [[ $status == 0 ]] || tail -n 5 <<<"$out" | sed 's/^/  /'
   is "$host-takes-the-model-steps" "$model" "$(steps_run)"
-  is "$host-runs-the-expected-commands" "$(expected_calls "$host")" "$(cat "$calls")"
+  is "$host-runs-the-expected-commands" "$(expected_log "$host")" "$(cat "$log")"
   is "$host-installs-runtimes-after-the-last-switch" 'switch switch mise install ' \
-    "$(awk '$2 == "nix" && $3 == "run" { print "switch" } $2 == "mise" { print "mise", $3 }' "$calls" | tr '\n' ' ')"
+    "$(awk '$2 == "nix" && $3 == "run" { print "switch" } $2 == "mise" { print "mise", $3 }' "$log" | tr '\n' ' ')"
   is "$host-records-the-host" "$host" "$(cat "$home/.config/dotfiles/host" 2>/dev/null || true)"
   is "$host-home-gains-only-allowlisted-entries" '' "$(LC_ALL=C comm -13 <(echo "$before") <(paths) |
     grep -vxE '\./\.config|\./\.config/dotfiles(/host)?|\./repos(/.*)?|\./\.nix-profile(/.*)?' | tr '\n' ' ' || true)"
   if [[ $host != work-mac ]]; then
-    is "$host-never-calls-ksm" '' "$(awk '$2 == "ksm"' "$calls")"
+    is "$host-never-calls-ksm" '' "$(awk '$2 == "ksm"' "$log")"
     is "$host-has-no-work-profile" absent "$([[ -e $home/.config/dots-work ]] && echo present || echo absent)"
   fi
 
@@ -258,10 +286,10 @@ for host in personal-mac work-mac wsl; do
     new_case "$host-without-$step" "$host"
     do_human_steps "$host" "$step"
     run "$host"
-    is "$host-waits-at-$step" "75 $step" "$status $(steps_run | tail -n 1)"
+    is "$host-waits-at-$step" "75 $step" "$status $(last_step)"
     do_human_step "$host" "$step"
     run "$host"
-    is "$host-resumes-after-$step" "0 $(expected_calls "$host")" "$status $(cat "$calls")"
+    is "$host-resumes-after-$step" "0 $(expected_log "$host")" "$status $(cat "$log")"
   done
 done
 

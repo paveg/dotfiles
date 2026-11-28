@@ -27,8 +27,11 @@ run_mutant() { # <dir> <check>... <file> <old> <new> [<old> <new>]...
   mutate_checks_failed "$out" $checks
 }
 
-run_unmutated() { # <dir>
+# Copies of the script and the model, <file> changed when one is given; succeeds
+# when every check passes.
+run_passing() { # <dir> [<file> <old> <new>]
   cp "$repo_dir/scripts/bootstrap.sh" "$repo_dir/spec/bootstrap.tla" "$1/"
+  if (($# == 4)); then mutate_apply "$1/$2" "$3" "$4" || return; fi
   "$repo_dir/tests/bootstrap.sh" "$1/bootstrap.sh" "$1/bootstrap.tla" >/dev/null 2>&1
 }
 
@@ -47,7 +50,7 @@ mutate_inputs scripts/bootstrap.sh spec/bootstrap.tla hosts/wsl.nix profiles/wor
   tests/bootstrap.sh tests/mutate-bootstrap.sh tests/lib/
 mutate_baseline 'the script and the model as committed' "$repo_dir/tests/bootstrap.sh"
 # A copy layout the test cannot run in would count every mutant as caught.
-clean_mutant 'an unmutated copy passes its tests' run_unmutated
+clean_mutant 'an unmutated copy passes its tests' run_passing
 
 S=bootstrap.sh
 expect_caught 'no-host-refused unknown-host-refused' 'a missing or unknown host is accepted' $S \
@@ -121,8 +124,16 @@ expect_caught "$(each "$all" takes-the-model-steps)" 'a step only in the script'
   'main() {' 'StepExtra() { :; }
 
 main() {'
+expect_caught "$(each "$all" takes-the-model-steps) $(each "$all" runs-the-expected-commands)" \
+  'a step function runs outside the step list' $S \
+  '  for step in $steps; do' '  StepExtra
+  for step in $steps; do' \
+  'main() {' 'StepExtra() { :; }
+
+main() {'
 expect_caught "$(each "$all" takes-the-model-steps)" 'a step only in the model' bootstrap.tla \
   '\/ StepGhtknAuth \/ StepInstallHooks' '\/ StepGhtknAuth \/ StepInstallHooks \/ StepExtra'
 expect_caught "$(each "$all" takes-the-model-steps)" 'two steps swap places in the script' $S \
   'StepSignIn StepWorkProfile' 'StepWorkProfile StepSignIn'
+clean_mutant 'the step banner is reworded' run_passing $S 'say "step $n: $step"' 'say "[$n/10] $step"'
 mutate_finish
