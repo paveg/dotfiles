@@ -21,8 +21,12 @@ hooks)
 agents) mutate_inputs home hosts nix profiles tests/agents.sh tests/mutate-agents.sh tests/auto-mode.expected.json ;;
 nix) mutate_inputs docs/design.md home hosts nix tests ;;
 spec) mutate_inputs spec ;;
+bootstrap)
+  mutate_inputs scripts/bootstrap.sh spec/bootstrap.tla hosts/wsl.nix profiles/work.example tests/bootstrap.sh \
+    tests/mutate-bootstrap.sh
+  ;;
 *)
-  echo "unknown workflow '${1-}': want shell, hooks, agents, nix or spec" >&2
+  echo "unknown workflow '${1-}': want shell, hooks, agents, nix, spec or bootstrap" >&2
   exit 2
   ;;
 esac
