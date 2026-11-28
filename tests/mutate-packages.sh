@@ -167,6 +167,19 @@ if runs per-user; then
 
     expect_caught etc-zshrc-no-promptinit "nix-darwin's /etc/zshrc loads a prompt theme" \
       nix/darwin.nix $'    promptInit = "";\n' ''
+
+    expect_caught 'agent-launchd-command agent-launchd-restart' 'the ghtkn agent never runs on macOS' \
+      nix/darwin.nix \
+      $'  launchd.user.agents.ghtkn-agent.serviceConfig = {\n    ProgramArguments = [\n      (pkgs.lib.getExe pkgs.ghtkn)\n      "agent"\n      "start"\n    ];\n    RunAtLoad = true;\n    KeepAlive.SuccessfulExit = false;\n  };\n' ''
+
+    expect_caught agent-launchd-command 'the LaunchAgent runs ghtkn agent without start' \
+      nix/darwin.nix $'      "agent"\n      "start"\n' $'      "agent"\n'
+
+    expect_caught agent-launchd-restart 'the LaunchAgent restarts the agent after ghtkn agent stop too' \
+      nix/darwin.nix 'KeepAlive.SuccessfulExit = false;' 'KeepAlive = true;'
+
+    expect_caught agent-launchd-restart 'the agent does not start at login' \
+      nix/darwin.nix $'    RunAtLoad = true;\n' ''
   fi
 fi
 
@@ -226,6 +239,16 @@ if runs per-host; then
   if [[ $host == wsl ]]; then
     expect_caught ssh-config 'wsl gets the macOS ssh config' \
       nix/home.nix 'lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {' 'lib.mkIf true {'
+
+    expect_caught 'agent-systemd-command agent-systemd-enabled' 'wsl gets no ghtkn agent' \
+      nix/vaults.nix 'systemd.user.services.ghtkn-agent = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {' \
+      'systemd.user.services.ghtkn-agent = lib.mkIf false {'
+
+    expect_caught agent-systemd-command 'the unit restarts the agent after ghtkn agent stop too' \
+      nix/vaults.nix 'Restart = "on-failure";' 'Restart = "always";'
+
+    expect_caught agent-systemd-enabled 'the unit is installed but never started' \
+      nix/vaults.nix $'    Install.WantedBy = [ "default.target" ];\n' ''
   else
     expect_caught ssh-config "$host gets no ssh config" \
       nix/home.nix "  $ssh_line"$'\n' ''

@@ -1,7 +1,7 @@
 # ghtkn wiring (docs/design.md "GitHub authentication (ghtkn)"): the gh
 # wrapper and the files it and ghtkn read from ~/.config/ghtkn, which come from
 # the checkout on personal hosts and from the work profile on work-mac, where
-# personal hosts render ghtkn.yaml themselves.
+# personal hosts render ghtkn.yaml themselves, and the ghtkn agent on wsl.
 # linkHome links a path under home/ from the checkout (nix/home.nix).
 { config, lib, pkgs, host, linkHome, ... }:
 let
@@ -21,6 +21,16 @@ in
   # home-manager starts its activation with an empty PATH, which would leave
   # the render step no op to find; it keeps the switch's PATH after its own.
   home.emptyActivationPath = lib.mkIf personal false;
+
+  # The agent on wsl, as nix/darwin.nix runs it on macOS.
+  systemd.user.services.ghtkn-agent = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+    Unit.Description = "ghtkn agent";
+    Service = {
+      ExecStart = "${lib.getExe pkgs.ghtkn} agent start";
+      Restart = "on-failure";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
 
   xdg.configFile =
     if host.profile == "work" then

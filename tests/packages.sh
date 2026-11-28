@@ -8,8 +8,10 @@
 # tests/ghtkn.sh checks and brings gh's zsh completion, ~/.config/ghtkn is a
 # real directory whose files come from the checkout on personal hosts and from
 # the work profile on work-mac, only personal hosts run the ghtkn.yaml render
-# step that tests/ghtkn.sh checks, with the switch's PATH kept for op, the ssh
-# config is a store copy on macOS
+# step that tests/ghtkn.sh checks, with the switch's PATH kept for op, the
+# ghtkn agent runs the profile's ghtkn from launchd on macOS and systemd on
+# wsl and is restarted only after a failure, the ssh config is a store copy on
+# macOS
 # alone, the global mise config refuses the asdf backend, the built atuin
 # accepts the atuin config, and on macOS the switch sets the launchd variables
 # for GUI apps and the generated /etc/zshrc leaves completion and the prompt to
@@ -260,6 +262,13 @@ else
         fail "launchd-$name" "$system/activate has no user launchctl setenv $name '$value': $(grep -n 'launchctl setenv' "$system/activate" 2>&1 | tr '\n' ' ' | cut -c1-200)"
       fi
     done
+    # The ghtkn agent runs the profile's own ghtkn, starts at login, and is
+    # restarted only after a failure, since `ghtkn agent stop` exits 0.
+    plist=$system/user/Library/LaunchAgents/org.nixos.ghtkn-agent.plist
+    agent_args=$(for index in 0 1 2 3; do plutil -extract "ProgramArguments.$index" raw -o - "$plist" 2>/dev/null; done)
+    is agent-launchd-command "$(readlink "$profile/bin/ghtkn") agent start" "$(tr '\n' ' ' <<<"$agent_args" | sed 's/ $//')"
+    is agent-launchd-restart "RunAtLoad=true SuccessfulExit=false" \
+      "RunAtLoad=$(plutil -extract RunAtLoad raw -o - "$plist" 2>&1) SuccessfulExit=$(plutil -extract KeepAlive.SuccessfulExit raw -o - "$plist" 2>&1)"
     path_profile=$system/etc/profiles/per-user/$user
     # $ZDOTDIR/.zshrc runs the one compinit and sets the prompt, so the
     # generated /etc/zshrc, read before it, does neither. The header proves the
@@ -385,6 +394,17 @@ if [[ -n $home_files ]]; then
       ok ssh-config
     else
       fail ssh-config "want a store copy of nix/ssh_config, got '$ssh_copy' ($(ls -ld "$ssh_copy" 2>&1))"
+    fi
+  fi
+  # On wsl the ghtkn agent is a systemd user service, as on macOS a LaunchAgent.
+  if [[ $host == wsl ]]; then
+    unit_dir=$home_files/.config/systemd/user
+    is agent-systemd-command "ExecStart=$(readlink "$profile/bin/ghtkn") agent start Restart=on-failure" \
+      "$(grep -E '^(ExecStart|Restart)=' "$unit_dir/ghtkn-agent.service" 2>&1 | tr '\n' ' ' | sed 's/ $//')"
+    if [[ -e $unit_dir/default.target.wants/ghtkn-agent.service ]]; then
+      ok agent-systemd-enabled
+    else
+      fail agent-systemd-enabled "default.target does not want ghtkn-agent.service: $(ls "$unit_dir" 2>&1 | tr '\n' ' ')"
     fi
   fi
   if [[ -s $work_dir/readlink.err && $failures -gt 0 ]]; then
