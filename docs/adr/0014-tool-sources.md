@@ -10,7 +10,7 @@ P8 put every tool on one ladder: a nix-darwin or home-manager module, then a nix
 An app from nixpkgs has three costs:
 
 - It cannot update itself. nix-darwin copies it out of the store with `rsync --chmod=-w` (`modules/system/applications.nix:84-101`; `modules/programs/_1password-gui.nix:24-46` for 1Password), so updates arrive only with a `flake.lock` update.
-- nixpkgs lags the vendors. Measured on 2026-11-28: nixpkgs `raycast` 2.10.1.0 against cask 2.13.1.0, and `karabiner-elements` 15.7.0 against 16.3.0. `ghostty-bin` and `_1password-gui` matched their casks (1.4.0 and 8.12.46).
+- nixpkgs lags the vendors. Measured on 2026-11-28: nixpkgs `raycast` 2.10.1.0 against cask 2.14.1.0, and `karabiner-elements` 15.7.0 against 17.0.0. `ghostty-bin` and `_1password-gui` matched their casks (1.4.0 and 8.12.46).
 - An app in `/Applications/Nix Apps` can make a switch over SSH fail. Every activation runs `ensureAppManagement`, which touches each bundle in that folder. When a touch fails over SSH, activation exits 1 unless programs run over SSH have Full Disk Access (`applications.nix:23-41`). That breaks an unattended switch from Orca (ADR 0010).
 
 P8 also said nothing about language package managers. ADR 0012 puts `uv`, `rustup`, and mise with its runtimes on every host, so `uv tool install`, `cargo install`, `go install`, `pnpm add -g`, `npm -g`, and `gem install` are each one command away. A tool installed that way is outside `flake.lock` and outside `tests/licenses.sh`.
