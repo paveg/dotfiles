@@ -10,14 +10,23 @@ source "$repo_dir/tests/lib/mutate.sh"
 
 # The script reads nix/ and home/ beside its own directory, so each copy sits
 # in a scripts/ directory beside links to them.
-run_mutant() { # <dir> <old> <new>
-  local copy=$1/scripts/pre-wipe-inventory.sh
+copy_script() { # <dir>
   mkdir "$1/scripts"
   ln -s "$repo_dir/nix" "$1/nix"
   ln -s "$repo_dir/home" "$1/home"
-  cp "$repo_dir/scripts/pre-wipe-inventory.sh" "$copy"
+  cp "$repo_dir/scripts/pre-wipe-inventory.sh" "$1/scripts/pre-wipe-inventory.sh"
+}
+
+run_mutant() { # <dir> <old> <new>
+  local copy=$1/scripts/pre-wipe-inventory.sh
+  copy_script "$1"
   mutate_apply "$copy" "$2" "$3" || return
   ! "$repo_dir/tests/pre-wipe-inventory.sh" "$copy" >/dev/null 2>&1
+}
+
+run_unmutated() { # <dir>
+  copy_script "$1"
+  "$repo_dir/tests/pre-wipe-inventory.sh" "$1/scripts/pre-wipe-inventory.sh" >/dev/null 2>&1
 }
 
 expect_caught() { # <description> <old> <new>
@@ -34,6 +43,8 @@ host_tool() { # <description> <old> <new>
 mutate_inputs scripts/pre-wipe-inventory.sh nix home tests/pre-wipe-inventory.sh \
   tests/mutate-pre-wipe-inventory.sh tests/lib/
 mutate_baseline 'the script as committed' "$repo_dir/tests/pre-wipe-inventory.sh"
+# A copy layout the script cannot run in would count every mutant as caught.
+mutate_on 'linux macos' clean_mutant 'an unmutated copy passes its tests' run_unmutated
 expect_caught 'tracked changes are not reported' '((tracked > 0)) && { dirty=1; finding "tracked uncommitted changes: $tracked"; }' ':'
 expect_caught 'stashes are not reported' '    finding "stashes: $stashes"' '    :'
 expect_caught 'a branch ahead of its upstream is not reported' '[[ $count == 0 ]] || finding "branch \`${ref#refs/heads/}\`: $count commit(s) ahead' 'true || finding "branch \`${ref#refs/heads/}\`: $count commit(s) ahead'
