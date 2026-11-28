@@ -7,7 +7,9 @@
 # BASH_ENV logs each Step* function the script enters, in order with the stubs'
 # calls. Checks: a complete run enters spec/bootstrap.tla's step actions in the
 # model's order and no other Step* function; a missing, unknown,
-# wrong-OS or unrecorded host exits 2 and changes nothing; each host runs the
+# wrong-OS or unrecorded host exits 2 and changes nothing; a command that
+# fails with 75 or 2 fails the run with 1; an empty host file records no host,
+# and a run killed while recording the host leaves none; each host runs the
 # expected commands, mise install last of them after the switches, and records
 # itself; neither that run nor a second one changes an existing checkout or the
 # hand-placed work profile, and the second changes nothing below $HOME, link
@@ -87,8 +89,9 @@ new_case() { # <name> <host>
   [[ $2 != wsl ]] || os=Linux
   case_dir=$work_dir/$1
   home=$case_dir/home stubs=$case_dir/stubs log=$case_dir/log
+  bash_env=$case_dir/trace.bash file_limit=
   mkdir -p "$home" "$stubs" "$case_dir/decoys/bin"
-  trace >"$case_dir/trace.bash"
+  trace >"$bash_env"
   printf '#!/bin/sh\necho %s\n' "$os" >"$stubs/uname"
   chmod +x "$stubs/uname"
   stub nix <<'SH'
@@ -171,15 +174,17 @@ do_human_steps() { # <host> [<step to leave undone>]
 }
 
 # Run the script from HOME, piped in as from curl, under env -i, in a new
-# session with no controlling terminal. Sets status and out, and empties the
+# session with no controlling terminal, with the case's BASH_ENV and, when set,
+# its limit on the size of a file written. Sets status and out, and empties the
 # log first.
 run() { # <arg>...
   local launcher='if (my $pid = fork) { waitpid $pid, 0; exit($? & 127 ? 128 + ($? & 127) : $? >> 8) }
     POSIX::setsid(); exec @ARGV or die "exec: $!\n"'
   : >"$log"
   status=0
-  out=$(cd "$home" && cat "$script" | env -i HOME="$home" PATH="$stubs:$base_path" DOTFILES_TEST_STUB_DIR="$stubs" \
-    BASH_ENV="$case_dir/trace.bash" /usr/bin/perl -MPOSIX -e "$launcher" /bin/bash -s -- "$@" 2>&1) || status=$?
+  out=$(cd "$home" && { [[ -z $file_limit ]] || ulimit -f "$file_limit"; } && cat "$script" |
+    env -i HOME="$home" PATH="$stubs:$base_path" DOTFILES_TEST_STUB_DIR="$stubs" BASH_ENV="$bash_env" \
+      /usr/bin/perl -MPOSIX -e "$launcher" /bin/bash -s -- "$@" 2>&1) || status=$?
 }
 
 steps_run() { sed -n 's/^step //p' "$log"; }
@@ -327,6 +332,24 @@ do_human_steps wsl
 stub mise <<<'exit 2'
 run wsl
 is mise-exiting-2-fails-the-run-with-1 '1 StepSecondSwitch' "$status $(last_step)"
+
+# An empty host file records no host. A run killed at its first write to a
+# regular file, the host file's (a file size limit of 0 sends SIGXFSZ, 153;
+# the trace is off, as it writes the log), leaves no host file at all.
+new_case empty-host-file personal-mac
+do_human_steps personal-mac
+mkdir -p "$home/.config/dotfiles"
+: >"$home/.config/dotfiles/host"
+run personal-mac
+is an-empty-host-file-counts-as-none '0 personal-mac' "$status $(recorded)"
+new_case killed-recording-the-host personal-mac
+do_human_steps personal-mac
+bash_env='' file_limit=0
+run personal-mac
+is a-run-killed-recording-the-host-leaves-none '153 none' "$status $(recorded)"
+bash_env=$case_dir/trace.bash file_limit=
+run personal-mac
+is a-run-killed-recording-the-host-then-finishes '0 personal-mac' "$status $(recorded)"
 
 new_case upstream-nix personal-mac
 do_human_steps personal-mac

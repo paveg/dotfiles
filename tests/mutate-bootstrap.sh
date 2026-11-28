@@ -65,9 +65,18 @@ expect_caught 'wrong-os-refused wrong-os-refused-on-linux' 'the OS is not checke
 expect_caught unrecorded-host-refused 'the recorded host is not compared' $S \
   '    if [[ $recorded != "$host" ]]; then' '    if false; then'
 expect_caught "$(each "$all" records-the-host)" 'the host is not recorded' $S \
-  "    printf '%s\n' \"\$host\" >\"\$host_file\"" '    :'
+  '    mv -f "$host_file.new" "$host_file"' '    rm -f "$host_file.new"'
 expect_caught "$(each "$all" rerun-changes-nothing)" 'every run appends the host again' $S \
-  'if [[ ! -e $host_file ]]; then' 'if true; then' '"$host" >"$host_file"' '"$host" >>"$host_file"'
+  'if [[ ! -s $host_file ]]; then' 'if true; then' \
+  '    mv -f "$host_file.new" "$host_file"' '    cat "$host_file.new" >>"$host_file"
+    rm "$host_file.new"'
+expect_caught a-run-killed-recording-the-host-leaves-none 'the host file is written in place' $S \
+  '"$host" >"$host_file.new"
+    mv -f "$host_file.new" "$host_file"' '"$host" >"$host_file"'
+expect_caught an-empty-host-file-counts-as-none 'an empty host file refuses the run' $S \
+  'if [[ -s $host_file || -L $host_file ]]; then' 'if [[ -e $host_file || -L $host_file ]]; then'
+expect_caught an-empty-host-file-counts-as-none 'an empty host file is kept' $S \
+  'if [[ ! -s $host_file ]]; then' 'if [[ ! -e $host_file ]]; then'
 expect_caught "$(each "$all" home-gains-only-allowlisted-entries)" 'the script writes a file of its own below HOME' $S \
   'StepRecordHost() {' 'StepRecordHost() {
   : >"$HOME/.bootstrap-state"'

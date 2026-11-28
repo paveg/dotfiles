@@ -66,7 +66,8 @@ StepCheckHost() {
     say "$host runs on $want, and this machine runs $(uname -s)"
     exit 2
   fi
-  if [[ -e $host_file || -L $host_file ]]; then
+  # An empty file records no host. A link is left alone even when dangling.
+  if [[ -s $host_file || -L $host_file ]]; then
     recorded=$(cat "$host_file" 2>/dev/null) || recorded='(unreadable)'
     if [[ $recorded != "$host" ]]; then
       say "$host_file records $recorded; changing a machine's host is done by hand (docs/design.md, Bootstrap)"
@@ -94,10 +95,14 @@ StepInstallNix() {
   fi
 }
 
+# Written beside the file and renamed into place, so a run stopped at any point
+# leaves the host recorded in full or not at all for just switch, which reads
+# it; the next run overwrites a leftover copy.
 StepRecordHost() {
-  if [[ ! -e $host_file ]]; then
+  if [[ ! -s $host_file ]]; then
     mkdir -p "${host_file%/*}"
-    printf '%s\n' "$host" >"$host_file"
+    printf '%s\n' "$host" >"$host_file.new"
+    mv -f "$host_file.new" "$host_file"
   fi
 }
 
