@@ -16,12 +16,6 @@ op=$3
 stamp=$target.template-sha256
 umask 077
 
-hash=$(sha256sum <"$template")
-hash=${hash%% *}
-if [[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]; then
-  exit 0
-fi
-
 skip() { # <reason>
   echo "ghtkn-render: warning: $1, so $target is not rendered; the next switch tries again" >&2
   exit 0
@@ -30,6 +24,15 @@ warn() { # <message>
   echo "ghtkn-render: warning: $1" >&2
   exit 0
 }
+
+hash=$(sha256sum <"$template")
+hash=${hash%% *}
+# Not through a link: chmod would reach whatever it points at.
+if [[ -f $target && ! -L $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]; then
+  chmod 600 "$target" || warn "$target could not be made private (mode 0600)"
+  exit 0
+fi
+
 # mv would put the file inside a directory. A dangling link counts as absent.
 if [[ -e $target && ! -f $target ]]; then
   skip "the target is not a regular file"

@@ -103,13 +103,19 @@ expect_caught 'render-without-op render-signed-out' 'the render fails the switch
 
 expect_caught 'render-unchanged-signed-in-calls-no-op render-unchanged-signed-out-calls-no-op' \
   'the render asks op even when nothing changed' \
-  "$render" $'if [[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]; then\n  exit 0\nfi\n' ''
+  "$render" $'if [[ -f $target && ! -L $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]; then\n  chmod 600 "$target" || warn "$target could not be made private (mode 0600)"\n  exit 0\nfi\n' ''
 
 expect_caught render-template-changed 'the render keeps any file it finds, whatever the template says' \
-  "$render" '[[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]' '[[ -f $target ]]'
+  "$render" '[[ -f $target && ! -L $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]' '[[ -f $target && ! -L $target ]]'
 
 expect_caught render-missing-file 'the render trusts the stored hash when the file is gone' \
-  "$render" '[[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]' '[[ $(cat "$stamp" 2>/dev/null) == "$hash" ]]'
+  "$render" '[[ -f $target && ! -L $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]' '[[ $(cat "$stamp" 2>/dev/null) == "$hash" ]]'
+
+expect_caught render-unchanged-fixes-mode 'an unchanged file keeps a loosened mode' \
+  "$render" $'  chmod 600 "$target" || warn "$target could not be made private (mode 0600)"\n' ''
+
+expect_caught render-replaces-file-link 'the unchanged path follows a link, so chmod reaches the file it points at' \
+  "$render" ' && ! -L $target && $(cat' ' && $(cat'
 
 expect_caught 'render-refuses-directory render-refuses-link-to-directory' \
   'the render moves its file into a directory in the target'"'"'s place' \

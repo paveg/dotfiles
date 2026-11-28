@@ -11,8 +11,9 @@
 # ~/.config/ghtkn/gh-app names, hands it the real gh rather than itself with
 # every argument intact, keeps the exit status, says how to unlock the agent on
 # 111, and refuses to run without an app. The render step writes the file
-# (0600) only when it is missing or its template changed and op is signed in,
-# never calls op otherwise, and skips with a warning and exit 0 when op is
+# (0600) only when it is missing, a link, or its template changed and op is
+# signed in, never calls op otherwise but makes an unchanged file 0600 again,
+# and skips with a warning and exit 0 when op is
 # missing, signed out, or fails, keeping the old file, when the target is a
 # directory or a link to one, and when its directory or temporary file cannot
 # be made; a hash it cannot store warns. Under any umask what it makes is its
@@ -297,6 +298,11 @@ for state in signed-in signed-out; do
 done
 is render-unchanged-keeps-file "$(rendered "$template")" "$(cat "$target" 2>&1)"
 
+# Unchanged but loosened, the file is made 0600 again, still with no op call.
+chmod 644 "$target"
+render "$template" "$target" op
+is render-unchanged-fixes-mode "0 '' -rw-------" "$(cat "$work_dir/render.rc") '$(op_calls)' $(ls -l "$target" | cut -c1-10)"
+
 render "$changed" "$target" op STUB_OP_SIGNED_IN=1
 is render-template-changed "$(rendered "$changed")" "$(cat "$target" 2>&1)"
 
@@ -366,6 +372,18 @@ if [[ ! -L $work_dir/render-dangling/ghtkn.yaml && ! -e $work_dir/render-danglin
 else
   fail render-replaces-dangling-link "$(ls -l "$work_dir/render-dangling" | tr '\n' ' ')"
 fi
+# A link to a file, even with the hash unchanged, is rendered over, and the
+# file it points at keeps its content and mode.
+mkdir -p "$work_dir/render-file-link"
+echo decoy >"$work_dir/render-file-link/decoy"
+chmod 644 "$work_dir/render-file-link/decoy"
+ln -s decoy "$work_dir/render-file-link/ghtkn.yaml"
+cp "$target.template-sha256" "$work_dir/render-file-link/ghtkn.yaml.template-sha256"
+render "$template" "$work_dir/render-file-link/ghtkn.yaml" op STUB_OP_SIGNED_IN=1
+target_kind=regular
+[[ -L $work_dir/render-file-link/ghtkn.yaml ]] && target_kind=link
+is render-replaces-file-link "decoy -rw-r--r-- regular" \
+  "$(cat "$work_dir/render-file-link/decoy") $(ls -l "$work_dir/render-file-link/decoy" | cut -c1-10) $target_kind"
 
 # After op whoami, a directory that cannot be made or a temporary file that
 # cannot be created skips; a hash that cannot be stored beside a rendered file
