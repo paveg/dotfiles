@@ -16,6 +16,6 @@
   ],
   "allow": [
     "$defaults",
-    "Squash-merging the session's own pull request: `gh pr merge <number> --squash`, with or without `--delete-branch`, of a pull request in the repository being worked in whose head branch is in that same repository (not a fork) and was pushed by this session or opened by the owner, once `gh pr checks` in this session has shown every required status check passing. It never covers a pull request from a fork or opened by anyone else, and never `--admin` or any other way around the rulesets, which hard_deny blocks."
+    "Squash-merging the session's own pull request: `gh pr merge <number> --squash`, with or without `--delete-branch`, where earlier in this transcript the session pushed that pull request's branch with `git push` and opened it with `gh pr create` in the repository being worked in. Command output is not visible here, so this exception rests only on those two earlier commands; the repository's rulesets, not this exception, refuse a merge whose required checks have not passed. It never covers a pull request the session did not open, and never `--admin` or any other way around the rulesets, which hard_deny blocks."
   ]
 }
