@@ -25,6 +25,10 @@ skip() { # <reason>
   echo "ghtkn-render: warning: $1, so $target is not rendered; the next switch tries again" >&2
   exit 0
 }
+# mv would put the file inside a directory. A dangling link counts as absent.
+if [[ -e $target && ! -f $target ]]; then
+  skip "the target is not a regular file"
+fi
 command -v "$op" >/dev/null || skip "$op is not installed"
 # Unverified: that whoami asks the app without raising a prompt (design.md).
 "$op" whoami >/dev/null 2>&1 || skip "1Password is not signed in"
@@ -37,5 +41,5 @@ if ! "$op" inject <"$template" >"$tmp"; then
   rm -f "$tmp"
   skip "op inject failed"
 fi
-mv -f "$tmp" "$target"
+mv -fT "$tmp" "$target"
 echo "$hash" >"$stamp"

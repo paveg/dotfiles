@@ -111,6 +111,13 @@ expect_caught render-template-changed 'the render keeps any file it finds, whate
 expect_caught render-missing-file 'the render trusts the stored hash when the file is gone' \
   "$render" '[[ -f $target && $(cat "$stamp" 2>/dev/null) == "$hash" ]]' '[[ $(cat "$stamp" 2>/dev/null) == "$hash" ]]'
 
+expect_caught 'render-refuses-directory render-refuses-link-to-directory' \
+  'the render moves its file into a directory in the target'"'"'s place' \
+  "$render" $'if [[ -e $target && ! -f $target ]]; then\n  skip "the target is not a regular file"\nfi\n' ''
+
+expect_caught render-replaces-dangling-link 'the render refuses a dangling link it could replace' \
+  "$render" '[[ -e $target && ! -f $target ]]' '[[ ( -L $target || -e $target ) && ! -f $target ]]'
+
 expect_caught render-mode 'the rendered file is readable by other users' \
   "$render" 'tmp=$(mktemp "$target.XXXXXX")' 'tmp=$target.new'
 

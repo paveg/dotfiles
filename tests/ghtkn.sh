@@ -13,7 +13,8 @@
 # 111, and refuses to run without an app. The render step writes the file
 # (0600) only when it is missing or its template changed and op is signed in,
 # never calls op otherwise, and skips with a warning and exit 0 when op is
-# missing, signed out, or fails, keeping the old file. The committed template
+# missing, signed out, or fails, keeping the old file, and when the target is
+# a directory or a link to one. The committed template
 # holds references, not client IDs, and defines the app gh-app.personal names.
 # tests/packages.sh checks that the profile installs this same wrapper and
 # that the switch runs this same render step.
@@ -304,6 +305,34 @@ is render-retries-after-failure "$(rendered "$template")" "$(cat "$target" 2>&1)
 rm -f "$target"
 render "$template" "$target" op STUB_OP_SIGNED_IN=1
 is render-missing-file "$(rendered "$template")" "$(cat "$target" 2>&1)"
+
+# A directory in the target's place, or a link to one, is refused before op
+# runs; mv would leave a new copy inside it on every switch. A dangling link
+# counts as absent, and the rendered file replaces it.
+for kind in directory link-to-directory; do
+  odd_target=$work_dir/render-$kind/ghtkn.yaml
+  mkdir -p "$work_dir/render-$kind/elsewhere"
+  if [[ $kind == directory ]]; then
+    mkdir "$odd_target"
+  else
+    ln -s elsewhere "$odd_target"
+  fi
+  render "$template" "$odd_target" op STUB_OP_SIGNED_IN=1
+  if [[ $(cat "$work_dir/render.rc") == 0 && -z $(op_calls) && -z $(ls -A "$odd_target/") ]] &&
+    grep -qF "not a regular file" "$work_dir/render.err"; then
+    ok "render-refuses-$kind"
+  else
+    fail "render-refuses-$kind" "rc $(cat "$work_dir/render.rc"), op: '$(op_calls)', inside: $(ls -A "$odd_target/" | tr '\n' ' '), stderr: $(render_err)"
+  fi
+done
+mkdir -p "$work_dir/render-dangling"
+ln -s nowhere "$work_dir/render-dangling/ghtkn.yaml"
+render "$template" "$work_dir/render-dangling/ghtkn.yaml" op STUB_OP_SIGNED_IN=1
+if [[ ! -L $work_dir/render-dangling/ghtkn.yaml && ! -e $work_dir/render-dangling/nowhere ]]; then
+  is render-replaces-dangling-link "$(rendered "$template")" "$(cat "$work_dir/render-dangling/ghtkn.yaml" 2>&1)"
+else
+  fail render-replaces-dangling-link "$(ls -l "$work_dir/render-dangling" | tr '\n' ' ')"
+fi
 
 # The committed template: its client IDs are references, it selects the agent
 # backend (ghtkn's default is the OS keyring), and it defines the app that
