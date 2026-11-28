@@ -625,9 +625,9 @@ curl -fsSL https://raw.githubusercontent.com/paveg/dotfiles/main/scripts/bootstr
 7. work-mac only, skipped when `~/.config/dots-work/` already exists, so a rerun never overwrites unpushed work-profile edits:
    - If Keeper Secrets Manager is available: human, `ksm profile init <one-time token>`, skipped when a KSM profile already exists; the script then runs `scripts/work-sync.sh pull`.
    - Otherwise: human, place the work profile in `~/.config/dots-work/` by hand (the fallback in ADR 0002), then press Enter.
-8. Second switch: links the work profile and renders the personal `ghtkn.yaml`.
+8. Second switch: links the work profile and renders the personal `ghtkn.yaml`. Then `mise install` installs the global runtime defaults, which `mise ls` shows as `(missing)` until it runs (ADR 0012). It has no action of its own in `spec/bootstrap.tla`.
 9. Human: `ghtkn agent unlock --enable-refresh` sets the passphrase on the first run; then `ghtkn auth` once per app, which runs the device flow in the browser. The order follows ghtkn's docs: no token can be obtained until the agent is unlocked.
-10. Install the repository's git hooks (`lefthook install`).
+10. Install the repository's git hooks (`lefthook install`) when the checkout has a `lefthook.yml`. In a repository without one, `lefthook install` writes an example `lefthook.yml` and a `prepare-commit-msg` hook (measured, lefthook 2.2.2), and a later pull that adds the real file would stop on the untracked copy.
     On macOS the script then prints a checklist of one-time GUI steps: Karabiner's approvals, adding Raycast's script directory, and importing the `.rayconfig` from 1Password (skipped on a first machine that has no export yet). On `wsl` the checklist names the Windows-side steps instead: the `winget install` commands for Windows Terminal, Orca, and Raycast, and the same `.rayconfig` import. 1Password and its CLI are not on the checklist: they are prerequisites, and step 6's check (a stub `ssh-add.exe` in CI, the real one otherwise) fails until they are installed. They are a checklist rather than human steps that wait for Enter, because nothing in the bootstrap depends on them, so they need no check and the run can finish without them.
 
 Work and personal are kept apart by the host, never by guessing:
@@ -701,7 +701,7 @@ Each Nix network path reads certificates from a different place (checked against
     - Keeper: `profiles/work.example/` placed in `~/.config/dots-work/` (the hand-placed path of step 7, so `ksm` is never called).
     - ghtkn: a stub `ghtkn` that exits 0.
   - Stubs live in `DOTFILES_TEST_STUB_DIR`, which only CI sets and which the script announces when set. The script puts it at the front of PATH after every PATH change, including after step 5, so a stub always wins over the real tool.
-  - When a check fails and no terminal is attached, the script exits with a distinct status ("waiting for a person") instead of waiting for Enter, so CI fails rather than hangs.
+  - When a check fails and no terminal is attached, the script exits with a distinct status, 75 ("waiting for a person"), instead of waiting for Enter, so CI fails rather than hangs.
   - They check:
     - a missing or mismatched host exits non-zero and changes nothing;
     - a run with one stub removed exits with the "waiting for a person" status, and resumes and finishes once the stub is back;
