@@ -103,6 +103,13 @@ expect_caught 'personal-mac-stops-on-upstream-nix' 'upstream Nix on a Mac goes o
 expect_caught "$(each "$all" finishes)" 'Nix is installed when it is already there' $S \
   '  if ! command -v nix >/dev/null; then' '  if true; then'
 expect_caught "$(each "$all" finishes)" 'the clone ignores GHQ_ROOT' $S '  GHQ_ROOT=$HOME/repos nix shell' '  nix shell'
+expect_caught "$(each "$all" keeps-what-was-there)" 'the clone replaces an existing checkout' $S \
+  '  GHQ_ROOT=$HOME/repos nix shell' '  rm -rf "$checkout"
+  GHQ_ROOT=$HOME/repos nix shell'
+expect_caught 'work-mac-keeps-what-was-there work-mac-rerun-keeps-what-was-there' \
+  'the work profile step writes over a profile file' $S \
+  'test -d "$work_profile"' 'test -d "$work_profile"
+    echo {} >"$work_profile/claude/settings.work.json"'
 expect_caught "$(each "$all" runs-the-expected-commands)" 'the steps after the clone run outside the checkout' $S \
   '  cd "$checkout"' '  :'
 expect_caught "$(each "$macs" runs-the-expected-commands)" 'the Mac switch runs without sudo' $S \

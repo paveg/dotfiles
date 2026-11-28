@@ -9,7 +9,9 @@
 # model's order and no other Step* function; a missing, unknown,
 # wrong-OS or unrecorded host exits 2 and changes nothing; each host runs the
 # expected commands, mise install last of them after the switches, and records
-# itself; a second run changes nothing; with one human step undone the run
+# itself; neither that run nor a second one changes an existing checkout or the
+# hand-placed work profile, and the second changes nothing below $HOME, link
+# targets included; with one human step undone the run
 # exits 75 at that step and finishes once the step is done; personal hosts
 # never call ksm or create ~/.config/dots-work/; $HOME gains only the recorded
 # host and what the stubbed clone and switch create.
@@ -182,17 +184,36 @@ steps_run() { sed -n 's/^step //p' "$log"; }
 last_step() { steps_run | tail -n 1; }
 log_lines() { tr '\n' ';' <"$log"; }
 
-# Each path below HOME with its type and mode, and a regular file's checksum.
-snapshot() {
-  (cd "$home" && find . | LC_ALL=C sort | while IFS= read -r path; do
+# Each path below HOME, or below <dir> in it, with its type and mode, a link's
+# target and a regular file's checksum.
+snapshot() { # [<dir>]
+  (cd "$home" && find "./${1-}" | LC_ALL=C sort | while IFS= read -r path; do
     sum=
-    [[ ! -f $path || -L $path ]] || sum=$(cksum <"$path")
+    if [[ -L $path ]]; then
+      sum="-> $(readlink "$path")"
+    elif [[ -f $path ]]; then
+      sum=$(cksum <"$path")
+    fi
     # shellcheck disable=SC2012 # the mode string, which BSD and GNU stat print differently
     echo "$(ls -ld "$path" | cut -c1-10) $path $sum"
   done)
 }
 
 paths() { (cd "$home" && find . | LC_ALL=C sort); }
+
+kept_state() { # the snapshot of each directory in $kept
+  local dir
+  for dir in $kept; do snapshot "$dir"; done
+}
+
+# A checkout made before the run, with a local file and each <file>; the stub
+# ghq then finds it and clones nothing.
+seed_checkout() { # <file>...
+  local checkout=$home/repos/github.com/paveg/dotfiles file
+  mkdir -p "$checkout"
+  echo 'edits of my own' >"$checkout/notes.local"
+  for file; do echo "# $file" >"$checkout/$file"; done
+}
 
 # What a run may add below HOME: the recorded host, the checkout, and what the
 # stub nix writes there.
@@ -291,8 +312,14 @@ run personal-mac
 is personal-mac-stops-on-upstream-nix '75 StepInstallNix' "$status $(last_step)"
 
 for host in personal-mac work-mac wsl; do
+  # A checkout that is already there, with a local file, and on work-mac the
+  # hand-placed profile: a run must leave both as they were.
   new_case "$host" "$host"
   do_human_steps "$host"
+  seed_checkout lefthook.yml
+  kept=repos/github.com/paveg/dotfiles
+  [[ $host != work-mac ]] || kept="$kept .config/dots-work"
+  kept_before=$(kept_state)
   before=$(paths)
   run "$host"
   is "$host-finishes" 0 "$status"
@@ -303,6 +330,7 @@ for host in personal-mac work-mac wsl; do
     "$(awk '$2 == "nix" && $3 == "run" { print "switch" } $2 == "mise" { print "mise", $3 }' "$log" | tr '\n' ' ')"
   is "$host-records-the-host" "$host" "$(cat "$home/.config/dotfiles/host" 2>/dev/null || true)"
   is "$host-home-gains-only-allowlisted-entries" '' "$(gained "$before")"
+  is "$host-keeps-what-was-there" "$kept_before" "$(kept_state)"
   if [[ $host != work-mac ]]; then
     is "$host-never-calls-ksm" '' "$(awk '$2 == "ksm"' "$log")"
     is "$host-has-no-work-profile" absent "$([[ -e $home/.config/dots-work ]] && echo present || echo absent)"
@@ -312,6 +340,7 @@ for host in personal-mac work-mac wsl; do
   run "$host"
   is "$host-rerun-finishes" 0 "$status"
   is "$host-rerun-changes-nothing" "$after" "$(snapshot)"
+  is "$host-rerun-keeps-what-was-there" "$kept_before" "$(kept_state)"
 
   for step in $(human_steps "$host"); do
     new_case "$host-without-$step" "$host"
