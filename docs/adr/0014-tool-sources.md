@@ -19,11 +19,12 @@ P8 also said nothing about language package managers. ADR 0012 puts `uv`, `rustu
 
 The owner decided on 2026-11-28:
 
-- A tool that is not a macOS GUI app comes from Nix: a nix-darwin or home-manager module, then a nixpkgs package. A manual install comes last.
-- A macOS GUI app comes from a Homebrew cask through nix-homebrew. It comes from nixpkgs only when no cask exists. When the vendor ships its own tap, as Orca does, the cask comes from that tap.
-- A global CLI tool comes from Nix, not from a language package manager (`uv tool install`, `cargo install`, `go install`, `pnpm add -g`, `npm -g`, `gem install`). A language package manager installs a global tool only when nixpkgs lacks it, and that install gets an entry under `outsideNix.<host>` in `nix/licenses.nix` for each host that has it, as MoonBit has (ADR 0012). An entry in the global mise config with a package-manager backend (`npm:`, `cargo:`, `go:`, `pipx:`, `gem:`) is the same kind of install.
+- A tool that is not a macOS GUI app comes from Nix: a nix-darwin or home-manager module, then a nixpkgs package.
+- A macOS GUI app comes from a Homebrew cask through nix-homebrew. It comes from nixpkgs only when no cask exists.
+- A global CLI tool comes from Nix, not from a language package manager (`uv tool install`, `cargo install`, `go install`, `pnpm add -g`, `npm -g`, `gem install`). A language package manager installs a global tool only when nixpkgs lacks it, and that install gets an entry under `outsideNix.<host>` in `nix/licenses.nix` for each host that has it, as MoonBit has (ADR 0012).
 - Project dependencies (`uv add`, `cargo add`, `pnpm add`) belong to each project and are out of scope.
-- A tool on a later rung still names why the earlier ones do not work.
+
+P8 keeps two rules from its earlier version: a manual install is the last rung, and a tool on a later rung names why the earlier ones do not work. This ADR also reads the decision in two ways that the owner did not state. A vendor's own tap counts as a cask source, as it already does for Orca (ADR 0010). An entry in the global mise config with a package-manager backend (`npm:`, `cargo:`, `go:`, `pipx:`, `gem:`) counts as a language package manager install.
 
 The planned macOS apps change source as follows. Each licence is the one its `outsideNix` entry records:
 
@@ -35,18 +36,17 @@ The planned macOS apps change source as follows. Each licence is the one its `ou
 | Karabiner-Elements | cask `karabiner-elements` | unchanged | `unlicense` | nixpkgs `karabiner-elements` |
 | Orca | cask `stablyai/orca/orca` | unchanged | `mit` | `stablyai/orca` on GitHub |
 
-The nixpkgs licences are `meta.license` at the locked nixpkgs (measured). A cask carries no licence field. All five apps go on `personal-mac` and `work-mac`, and none of the licences is non-commercial.
+The nixpkgs licences are `meta.license` at the locked nixpkgs (measured). A cask carries no licence field. No licence in the table has an NC mark. `unfree` says nothing about use on the work machine, and the vendors' terms for 1Password and Raycast were not read.
 
 Three planned installs stay in Nix, because none of them is a GUI app: the 1Password CLI (`programs._1password`, which installs `/usr/local/bin/op`), Tailscale (`services.tailscale`, the open-source `tailscaled` of ADR 0010), and the font (`udev-gothic-nf` through `fonts.packages`).
 
 ## Consequences
 
 - No app comes from nixpkgs, so `/Applications/Nix Apps` holds no bundle. `ensureAppManagement` still runs on every switch: nix-darwin adds it to `system.checks` with no condition (`applications.nix:10-21`) and calls it at line 23. With no `*.app` directory in the folder, it touches nothing and returns 0 (lines 12-20). The switch then neither resets App Management nor aborts over SSH. Measured: the function, cut from the built `personal-mac` activate script and pointed at a stand-in folder, returned 0 with no folder, with an empty folder, and with a writable bundle. It returned 1 with a bundle it could not write into.
-- A host that already has an app in `/Applications/Nix Apps` keeps the check active for one more switch. Checks run before the applications step (`modules/system/activation-scripts.nix:116` and `:121`), and only that step's `rsync --delete` removes the old copy. So the first switch after the last nixpkgs app leaves runs at the desk. No such folder exists on this Mac (measured), and no configuration in this repository has put an app there.
-- The switching terminals no longer need App Management, so the bootstrap's checklist and the acceptance criteria drop it.
+- A host that already has an app in `/Applications/Nix Apps` keeps the check active for one more switch. Checks run before the applications step (`modules/system/activation-scripts.nix:116` and `:121`), and only that step's `rsync --delete` removes the old copy. So the switch that removes the last nixpkgs app still checks its old copy, and that switch has to run at the desk. No such folder exists on this Mac (measured), and no configuration in this repository has put an app there.
+- nix-darwin's check no longer needs App Management for the switching terminals, so the bootstrap's checklist and the acceptance criteria drop that grant. Whether Homebrew needs that grant or any other prompt to write a cask into `/Applications`, at the desk or over SSH, is **Unverified**.
 - A switch installs a missing cask and does not upgrade an installed one. nix-darwin passes `--no-upgrade` to `brew bundle` while `homebrew.onActivation.upgrade` keeps its default `false` (`modules/homebrew.nix:132-134` and `:195`). The four homebrew/cask casks set `auto_updates` (measured, `brew info --cask --json=v2`), so those apps update themselves. Their versions then differ between hosts, and no diff in this repository shows an update.
 - 1Password now arrives through `brew bundle`, and the bootstrap needs it before step 6. nix-homebrew sets Homebrew up at the start of nix-darwin's Homebrew step (`lib.mkBefore`, nix-homebrew `modules/default.nix:597-606`), so the first switch installs the casks. That file was read at nix-homebrew `b279e78`, its default branch on 2026-11-28, because nix-homebrew is not a flake input yet.
-- Whether `brew bundle` installs a cask over SSH without a permission prompt is **Unverified**.
 - The unfree allowance shrinks to the packages nixpkgs still builds: `claude-code` and `_1password-cli`. `raycast` and `_1password-gui` leave it with their apps.
 - The KSM CLI on `work-mac` is the first tool the language-package-manager exception may cover. nixpkgs has no attribute for it (measured: of the ten attribute names that contain `keeper` or start with `ksm`, none is Keeper's). An install with a language package manager gets an `outsideNix.work-mac` entry. A local derivation would keep it in Nix. design.md leaves that choice open.
 - `tests/licenses.sh` does not find a language package manager install. Its `outsideNix` entry is kept by hand, as the Windows-side font's is, and nothing fails when the entry is missing.
