@@ -3,16 +3,21 @@
 # ghtkn itself comes from PATH.
 
 # A caller that already holds a short-lived token, such as CI. Blanks are
-# no token.
+# no token, and are unset so gh does not prefer a blank GH_TOKEN.
+blank=${GH_TOKEN-}
+[[ -n ${blank//[[:space:]]/} ]] || unset GH_TOKEN
+blank=${GITHUB_TOKEN-}
+[[ -n ${blank//[[:space:]]/} ]] || unset GITHUB_TOKEN
 caller_token=${GH_TOKEN-}${GITHUB_TOKEN-}
-if [[ -n ${caller_token//[[:space:]]/} ]]; then
+if [[ -n $caller_token ]]; then
   exec "$gh" "$@"
 fi
 
 # gh needs no token for these, and zsh's _gh runs `gh __complete` on each Tab.
 # The cost: completions that call the API, such as `pr create --reviewer`, get none.
-case ${1-} in
-'' | -h | --help | help | --version | version | completion | __complete | __completeNoDesc | config | alias)
+# `-` stands for no argument; an explicit empty first argument still asks ghtkn.
+case ${1--} in
+- | -h | --help | help | --version | version | completion | __complete | __completeNoDesc | config | alias)
   exec "$gh" "$@"
   ;;
 esac

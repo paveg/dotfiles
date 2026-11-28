@@ -37,11 +37,17 @@ expect_caught 'pass-gh-token pass-gh-token-skips-ghtkn' 'the wrapper ignores GH_
 expect_caught 'pass-github-token pass-github-token-skips-ghtkn' 'the wrapper ignores GITHUB_TOKEN' \
   "$wrapper" 'caller_token=${GH_TOKEN-}${GITHUB_TOKEN-}' 'caller_token=${GH_TOKEN-}'
 
-expect_caught 'empty-gh-token-asks-ghtkn blank-token-asks-ghtkn' 'an empty GH_TOKEN counts as a token, so gh runs with none' \
-  "$wrapper" 'caller_token=${GH_TOKEN-}' 'caller_token=${GH_TOKEN+set}'
+expect_caught blank-token-asks-ghtkn 'a blank GITHUB_TOKEN stays set and counts as a token' \
+  "$wrapper" $'[[ -n ${blank//[[:space:]]/} ]] || unset GITHUB_TOKEN\n' ''
 
-expect_caught blank-token-asks-ghtkn 'a whitespace-only token counts as a token' \
-  "$wrapper" '-n ${caller_token//[[:space:]]/}' '-n $caller_token'
+expect_caught blank-gh-token-yields-github-token 'a blank GH_TOKEN stays set beside a real GITHUB_TOKEN' \
+  "$wrapper" $'[[ -n ${blank//[[:space:]]/} ]] || unset GH_TOKEN\n' ''
+
+expect_caught empty-first-argument-asks-ghtkn 'an empty first argument counts as no argument' \
+  "$wrapper" '- | -h |' "'' | - | -h |"
+
+expect_caught 'blank-token-asks-ghtkn blank-gh-token-yields-github-token' 'a whitespace-only token counts as a token' \
+  "$wrapper" $'[[ -n ${blank//[[:space:]]/} ]] || unset GH_TOKEN' $'[[ -n $blank ]] || unset GH_TOKEN'
 
 expect_caught 'token-free-no-argument token-free--h token-free---help token-free-help token-free---version
   token-free-version token-free-completion token-free-__complete token-free-__completeNoDesc token-free-config

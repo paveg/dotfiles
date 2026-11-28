@@ -143,6 +143,10 @@ run_gh "$home" GH_TOKEN= -- auth token
 is empty-gh-token-asks-ghtkn "stub-ghtkn-token rc=0" "$(out) rc=$(rc)"
 run_gh "$home" GH_TOKEN=' ' GITHUB_TOKEN=$'\t' -- auth token
 is blank-token-asks-ghtkn "stub-ghtkn-token rc=0" "$(out) rc=$(rc)"
+# A blank GH_TOKEN beside a real GITHUB_TOKEN must not reach gh, which would
+# prefer the blank one.
+run_gh "$home" GH_TOKEN=' ' GITHUB_TOKEN=fake-github-token -- auth token
+is blank-gh-token-yields-github-token fake-github-token "$(out)"
 
 # ghtkn gets the real gh by store path, never the wrapper, and every argument
 # as given: one with a space, and a `--` of gh's own.
@@ -176,6 +180,9 @@ for word in '' -h --help help --version version completion __complete __complete
 done
 run_gh "$home" STUB_GHTKN_EXIT=111 -- extension list
 is extension-asks-ghtkn 111 "$(rc)"
+# An empty first argument is not "no argument": gh skips it and runs what follows.
+run_gh "$home" STUB_GHTKN_EXIT=111 -- '' api user
+is empty-first-argument-asks-ghtkn 111 "$(rc)"
 
 # zsh's _gh runs `gh __complete` on each Tab with its stderr dropped, so with
 # the agent locked it must still offer gh's commands.
