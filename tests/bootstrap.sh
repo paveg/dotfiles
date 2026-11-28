@@ -7,8 +7,8 @@
 # spec/bootstrap.tla's step actions in the model's order; a missing, unknown,
 # wrong-OS or unrecorded host exits 2 and changes nothing; each host runs the
 # expected commands, mise install last of them after the switches, and records
-# itself; a second run changes nothing; with one human step's stub removed the
-# run exits 75 at that step and finishes once the stub is back; personal hosts
+# itself; a second run changes nothing; with one human step undone the run
+# exits 75 at that step and finishes once the step is done; personal hosts
 # never call ksm or create ~/.config/dots-work/; $HOME gains only the recorded
 # host and what the stubbed clone and switch create.
 # Usage: tests/bootstrap.sh [script [spec]]   (mutant copies may be given)
@@ -57,8 +57,11 @@ stub() { # <name> <body
 }
 
 # A fresh case: a throwaway HOME, a stub for every command the script calls,
-# and no human step done. The home-manager switch puts decoys in
-# ~/.nix-profile/bin, so a stub left behind that directory on PATH is seen.
+# and no human step done. A human step's command is stubbed even then, failing
+# as it does before the person acts: the script puts the switched profile on
+# PATH, and on a bootstrapped Mac that holds the real ghtkn. The home-manager
+# switch puts decoys in ~/.nix-profile/bin, so a stub left behind that
+# directory on PATH is seen.
 new_case() { # <name> <host>
   local os=Darwin name
   [[ $2 != wsl ]] || os=Linux
@@ -90,6 +93,9 @@ mkdir -p "$checkout" && : >"$checkout/lefthook.yml"
 SH
   stub curl <<<'exit 1'
   stub op <<<'exit 1'
+  # ADR 0004: 111 is ghtkn's exit for a locked or unauthenticated agent.
+  stub ghtkn <<<'exit 111'
+  stub ssh-add.exe <<<'echo "The agent has no identities." >&2; exit 1'
   for name in determinate-nixd mise lefthook ksm; do stub "$name" </dev/null; done
   for name in mise ghtkn lefthook; do
     printf '#!/bin/sh\necho "decoy %s $*" >>"%s"\nexit 1\n' "$name" "$calls" >"$case_dir/decoys/bin/$name"
@@ -107,8 +113,8 @@ human_steps() { # <host>
 
 # Do the person's part of <step> for <host>, as the stubs CI uses: a socket at
 # the 1Password agent path on a Mac (bound from inside its directory, whose path
-# is longer than a socket address may be), a stub ssh-add.exe that lists a key
-# on wsl, the example work profile, and a ghtkn that succeeds.
+# is longer than a socket address may be), an ssh-add.exe that lists a key on
+# wsl, the example work profile, and a ghtkn that succeeds.
 do_human_step() { # <host> <step>
   local socket_dir="$home/Library/Group Containers/2BUA8C4S2C.com.1password/t"
   case $2 in
