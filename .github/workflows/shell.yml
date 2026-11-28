@@ -1,18 +1,12 @@
 name: shell
 
+# No path filter: every pull request reports shell-passed, so it can be
+# required. The changes job decides whether the steps run; a step runs unless
+# that decision is 'false', so a push, which skips it, runs every step.
 on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - "home/**"
-      - "nix/**"
-      - "profiles/**"
-      - "tests/**"
-      - "scripts/pre-wipe-inventory.sh"
-      - "flake.nix"
-      - "flake.lock"
-      - ".github/workflows/**"
 
 permissions:
   contents: read
@@ -22,41 +16,79 @@ env:
   MUTATE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
 
 jobs:
-  zsh:
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.guard.outputs.self == 'true' && 'true' || steps.inputs.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Run every check when the decision code itself changed
+        id: guard
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          # The decision below runs this pull request's own copy of the
+          # script, so a change to it must not decide for itself. Any git
+          # error also lands in the else branch, which runs every check.
+          if git diff --quiet "origin/$BASE...HEAD" -- tests/workflow-changed.sh tests/lib; then
+            echo self=false >>"$GITHUB_OUTPUT"
+          else
+            echo self=true >>"$GITHUB_OUTPUT"
+          fi
+      - name: Decide whether the pull request changed an input of this workflow
+        id: inputs
+        if: github.event_name == 'pull_request' && steps.guard.outputs.self != 'true'
+        run: tests/workflow-changed.sh shell >>"$GITHUB_OUTPUT"
+
+  zsh:
+    needs: changes
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    # With every step skipped, the job needs no macOS runner.
+    runs-on: ${{ needs.changes.outputs.changed == 'false' && 'ubuntu-latest' || matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.changed != 'false'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Install zsh
-        if: runner.os == 'Linux'
+        if: needs.changes.outputs.changed != 'false' && runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install --yes zsh
       - name: Start zsh in a temporary HOME and check the layout
+        if: needs.changes.outputs.changed != 'false'
         run: tests/shell.sh
       - name: Check the reply-language hook
+        if: needs.changes.outputs.changed != 'false'
         run: tests/reply-language.sh
       - name: Check the git files in a temporary HOME
+        if: needs.changes.outputs.changed != 'false'
         run: tests/git.sh
       - name: Check the ssh config with ssh -G
+        if: needs.changes.outputs.changed != 'false'
         run: tests/ssh.sh
       - name: Check the pre-wipe inventory
+        if: needs.changes.outputs.changed != 'false'
         run: tests/pre-wipe-inventory.sh
-      - name: Check how the mutation scripts are selected, split by OS and sharded
-        if: runner.os == 'Linux'
+      - name: Check how the workflows and mutation scripts are selected, split by OS and sharded
+        if: needs.changes.outputs.changed != 'false' && runner.os == 'Linux'
         run: |
           tests/selection.sh
+          tests/workflow-selection.sh
           tests/mutation-coverage.sh
           MUTATE_OS=linux tests/mutate-selection.sh
       - name: Check that each check fails on a broken copy
-        if: runner.os == 'Linux'
+        if: needs.changes.outputs.changed != 'false' && runner.os == 'Linux'
         run: |
           MUTATE_OS=linux tests/mutate-reply-language.sh
           MUTATE_OS=linux tests/mutate-git.sh
@@ -64,7 +96,7 @@ jobs:
           MUTATE_OS=linux tests/mutate.sh
           MUTATE_OS=linux tests/mutate-pre-wipe-inventory.sh
       - name: Check that the checks that depend on macOS fail on a broken copy
-        if: runner.os == 'macOS'
+        if: needs.changes.outputs.changed != 'false' && runner.os == 'macOS'
         run: |
           MUTATE_OS=macos tests/mutate-git.sh
           MUTATE_OS=macos tests/mutate-ssh.sh
